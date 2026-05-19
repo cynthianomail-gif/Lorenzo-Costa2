@@ -363,14 +363,18 @@ let synthesizedColors = new Set();   // 本局已合成的顏色（JP判定用�
 // === 航海地圖面板常數與狀態 ===
 const MAP_PX = 970, MAP_PY = 120, MAP_PW = 200, MAP_PH = 462;
 const MAP_JP_H = 72;  // JP獎勵框高度
-const MAP_PLACE_NAMES = ['赫淮斯托斯島', '黃金海岸', '撞岩海峽', '科爾基斯聖林'];
-const MAP_POINTS = [
-  { colorId: 0, label: '火山島', icon: '🌋', x: MAP_PX + 62,  y: MAP_PY + MAP_JP_H + 58  },
-  { colorId: 1, label: '沙漠城', icon: '🏜️', x: MAP_PX + 151, y: MAP_PY + MAP_JP_H + 128 },
-  { colorId: 2, label: '冰山',   icon: '🧊', x: MAP_PX + 44,  y: MAP_PY + MAP_JP_H + 228 },
-  { colorId: 3, label: '叢林',   icon: '🌿', x: MAP_PX + 151, y: MAP_PY + MAP_JP_H + 308 },
+// 循序漸進任務：5個里程碑節點，垂直排列（index 0=底部第1步, 4=頂部第5步）
+const MAP_STEP_X  = MAP_PX + 100;
+const MAP_STEP_YS = [
+  MAP_PY + MAP_JP_H + 310,
+  MAP_PY + MAP_JP_H + 245,
+  MAP_PY + MAP_JP_H + 180,
+  MAP_PY + MAP_JP_H + 115,
+  MAP_PY + MAP_JP_H + 50,
 ];
-const MAP_HOME_X = MAP_PX + 100, MAP_HOME_Y = MAP_PY + MAP_JP_H + 356;
+const COLOR_ICONS  = ['🔴', '🟡', '🔵', '🟢'];
+const COLOR_NAMES  = ['紅色', '黃色', '藍色', '綠色'];
+const MAP_HOME_X = MAP_PX + 100, MAP_HOME_Y = MAP_PY + MAP_JP_H + 375;
 const MAP_FLY_FRAMES   = 20;
 const MAP_PAUSE_FRAMES = 12;
 
@@ -381,11 +385,13 @@ let mapShip = {
   frame: 0, totalFrames: MAP_FLY_FRAMES,
   flying: false,
   pauseTimer: 0,
-  targetColorId: -1,
+  targetColorId: -1,  // 0-3=色彩步驟索引, 4=進階合成步驟, -1=回家
   returnPending: false,
 };
-let mapFlags  = [false, false, false, false];
+let mapFlags  = [false, false, false, false, false]; // 5步驟插旗狀態
 let mapSplash = [];  // [{x, y, vx, vy, frame, maxFrame, color}]
+let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）
+let questProgress = 0;            // 已完成步驟數 0-5
 let mergedCells = [];                // [{col, row, colorId, size, colorId2?}]
 // 合成動畫序列
 const SYNTH_FLASH_FRAMES     = 28;   // 基礎合成閃光幀數
@@ -609,8 +615,10 @@ function resetRoundState() {
   if (!inFG) splitCount = [1, 1, 1, 1];
   synthesizedColors = new Set();
   mergedCells = [];
-  // 地圖面板：每局重置旗子；船以拋物線跳回出發港
-  mapFlags = [false, false, false, false];
+  // 地圖面板：每局重置旗子；每局重新洗牌顏色順序；船以拋物線跳回出發港
+  mapFlags = [false, false, false, false, false];
+  questProgress = 0;
+  questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
   mapSplash = [];
   const _notHome = mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y;
   if (_notHome) {
@@ -746,21 +754,19 @@ function findBaseSynthCandidates() {
   return ops;
 }
 
-// 觸發船跳躍動畫（每次合成時呼叫）
-function triggerShipJump(colorId) {
-  const pt = MAP_POINTS[colorId];
-  if (!pt) return;
-  // 若船正在飛行中，直接覆蓋目標（優先最新合成）
+// 觸發船跳躍到指定步驟節點（stepIdx: 0-4）
+function triggerShipToStep(stepIdx) {
+  if (stepIdx < 0 || stepIdx >= MAP_STEP_YS.length) return;
   mapShip.sx            = mapShip.x;
   mapShip.sy            = mapShip.y;
-  mapShip.tx            = pt.x;
-  mapShip.ty            = pt.y - 22;  // 停在圓圈正上方，不蓋 icon
+  mapShip.tx            = MAP_STEP_X;
+  mapShip.ty            = MAP_STEP_YS[stepIdx] - 22;
   mapShip.frame         = 0;
   mapShip.totalFrames   = MAP_FLY_FRAMES;
   mapShip.flying        = true;
   mapShip.pauseTimer    = 0;
-  mapShip.targetColorId = colorId;
-  mapShip.returnPending = mapFlags[colorId]; // 已插旗 → 落地後回家
+  mapShip.targetColorId = stepIdx; // 0-3=色彩步驟, 4=進階合成步驟
+  mapShip.returnPending = false;
 }
 
 // 執行單一基礎合成
@@ -786,7 +792,11 @@ function applySingleSynthesis(col, row) {
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  if (_isNewColor) triggerShipJump(colorId);
+  // 循序漸進：只有當合成色符合當前步驟要求時才推進任務
+  if (_isNewColor && !inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
+    questProgress++;
+    triggerShipToStep(questProgress - 1);
+  }
   return true;
 }
 
@@ -832,6 +842,11 @@ function applyAdvancedSynthesis() {
           mergeSize: 4, mergeCol: leftM.col, mergeRow: leftM.row,
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
+      }
+      // 第5步：達成1組進階合成（需先完成前4步）
+      if (!inFG && questProgress === 4) {
+        questProgress = 5;
+        triggerShipToStep(4);
       }
     }
   }
@@ -1207,8 +1222,9 @@ function updateMapPanel() {
       mapShip.flying = false;
 
       // 濺起粒子（5 個）
-      const splashColor = mapShip.targetColorId >= 0
-        ? COLOR_HEX[mapShip.targetColorId] : '#ffffff';
+      const _si = mapShip.targetColorId; // step index: 0-3=色彩, 4=進階, -1=回家
+      const splashColor = _si >= 0 && _si < 4 ? COLOR_HEX[questOrder[_si]]
+                        : _si === 4 ? '#a78bfa' : '#ffffff';
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * Math.PI * 2;
         mapSplash.push({
@@ -1218,9 +1234,9 @@ function updateMapPanel() {
         });
       }
 
-      // 首次到達 → 插旗
-      if (mapShip.targetColorId >= 0 && !mapFlags[mapShip.targetColorId]) {
-        mapFlags[mapShip.targetColorId] = true;
+      // 首次到達 → 插旗（步驟索引 0-4）
+      if (_si >= 0 && _si < 5 && !mapFlags[_si]) {
+        mapFlags[_si] = true;
       }
 
       mapShip.pauseTimer = MAP_PAUSE_FRAMES;
@@ -1434,7 +1450,7 @@ function drawMapShip(ctx) {
 
 function drawMapPanel(ctx) {
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
-  const allLit = synthesizedColors.size >= 4;
+  const allLit = questProgress >= 5;
   const t = Date.now();
 
   ctx.save();
@@ -1509,66 +1525,88 @@ function drawMapPanel(ctx) {
   ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 8); ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // ── 虛線路徑 ──
-  ctx.setLineDash([3, 6]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(MAP_POINTS[0].x, MAP_POINTS[0].y);
-  for (let i = 1; i < MAP_POINTS.length; i++) ctx.lineTo(MAP_POINTS[i].x, MAP_POINTS[i].y);
-  ctx.lineTo(MAP_HOME_X, MAP_HOME_Y);
-  ctx.stroke(); ctx.setLineDash([]);
+  // ── 垂直路徑：出發港 → 步驟1 → … → 步驟5 ──
+  // 已完成段落用亮線，未完成用虛線
+  for (let i = 0; i < MAP_STEP_YS.length; i++) {
+    const fromY = i === 0 ? MAP_HOME_Y : MAP_STEP_YS[i - 1];
+    const toY   = MAP_STEP_YS[i];
+    const segDone = questProgress > i;
+    ctx.setLineDash(segDone ? [] : [3, 6]);
+    ctx.strokeStyle = segDone ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = segDone ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(MAP_STEP_X, fromY); ctx.lineTo(MAP_STEP_X, toY); ctx.stroke();
+  }
+  ctx.setLineDash([]);
 
-  // ── 地形目標點 ──
-  // 最後一點預報：只剩一個未完成時，該點脈動發光
-  const _remaining3 = synthesizedColors.size === 3;
-  for (const pt of MAP_POINTS) {
-    const lit = synthesizedColors.has(pt.colorId);
-    const isLastTarget = _remaining3 && !lit;
+  // ── 5個循序里程碑節點 ──
+  for (let i = 0; i < 5; i++) {
+    const x = MAP_STEP_X;
+    const y = MAP_STEP_YS[i];
+    const isAdv    = (i === 4);
+    const isDone   = (i < questProgress);
+    const isCurrent = (i === questProgress && questProgress < 5);
+    const stepColor = isAdv ? '#a78bfa' : COLOR_HEX[questOrder[i]];
 
-    // 預報光暈（最後一點）
-    if (isLastTarget) {
-      const pulse = 0.5 + Math.sin(Date.now() / 280) * 0.5;
+    // 當前目標脈動光暈
+    if (isCurrent) {
+      const pulse = 0.5 + Math.sin(t / 280) * 0.5;
       ctx.save();
-      ctx.shadowColor = COLOR_HEX[pt.colorId];
-      ctx.shadowBlur  = 14 + pulse * 18;
-      ctx.fillStyle   = COLOR_HEX[pt.colorId] + Math.floor(pulse * 0x55).toString(16).padStart(2, '0');
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, 20 + pulse * 4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = stepColor; ctx.shadowBlur = 14 + pulse * 14;
+      ctx.fillStyle   = stepColor + Math.floor(pulse * 0x44).toString(16).padStart(2, '0');
+      ctx.beginPath(); ctx.arc(x, y, 18 + pulse * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    // 已完成常態光暈
+    if (isDone) {
+      ctx.save();
+      ctx.shadowColor = stepColor; ctx.shadowBlur = 10;
+      ctx.fillStyle   = stepColor + '30';
+      ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
 
-    if (lit) {
-      ctx.save();
-      ctx.shadowColor = COLOR_HEX[pt.colorId]; ctx.shadowBlur = 16;
-      ctx.fillStyle   = COLOR_HEX[pt.colorId] + '28';
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, 20, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    // 節點圓
+    ctx.fillStyle   = isDone ? stepColor + '55' : isCurrent ? stepColor + '22' : '#0d1a2a';
+    ctx.strokeStyle = (isDone || isCurrent) ? stepColor : '#2d3f55';
+    ctx.lineWidth   = (isDone || isCurrent) ? 2 : 1;
+    if (isDone) { ctx.shadowColor = stepColor; ctx.shadowBlur = 8; }
+    ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    ctx.fillStyle   = lit ? COLOR_HEX[pt.colorId] + 'bb' : '#1a2535';
-    ctx.strokeStyle = lit ? COLOR_HEX[pt.colorId]        : '#2d3f55';
-    ctx.lineWidth   = lit ? 2 : 1;
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-    ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.globalAlpha = lit ? 1 : 0.3;
-    ctx.fillStyle   = '#fff';
-    ctx.fillText(pt.icon, pt.x, pt.y);
+    // 圖示
+    ctx.font = '11px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = (isDone || isCurrent) ? 1 : 0.22;
+    ctx.fillText(isAdv ? '⚡' : COLOR_ICONS[questOrder[i]], x, y);
     ctx.globalAlpha = 1;
 
-    // 地名
-    ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = lit ? COLOR_HEX[pt.colorId] : 'rgba(255,255,255,0.28)';
-    ctx.fillText(MAP_PLACE_NAMES[pt.colorId], pt.x, pt.y + 20);
+    // 左側步驟號
+    ctx.font = 'bold 10px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = (isDone || isCurrent) ? stepColor : 'rgba(255,255,255,0.2)';
+    ctx.fillText(String(i + 1), x - 20, y);
 
-    // 旗子（已插旗）
-    if (mapFlags[pt.colorId]) {
+    // 右側條件說明
+    ctx.font = '8px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = isDone ? stepColor : isCurrent ? stepColor : 'rgba(255,255,255,0.18)';
+    ctx.fillText(isAdv ? '進階合成' : COLOR_NAMES[questOrder[i]] + '條件', x + 20, y);
+
+    // 完成打勾
+    if (isDone) {
+      ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = stepColor; ctx.shadowColor = stepColor; ctx.shadowBlur = 6;
+      ctx.fillText('✓', x, y + 15);
+      ctx.shadowBlur = 0;
+    }
+
+    // 旗子（船已到達）
+    if (mapFlags[i]) {
       const wave = Math.sin(t / 400) * 3;
       ctx.strokeStyle = '#d4a017'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(pt.x + 16, pt.y - 7); ctx.lineTo(pt.x + 16, pt.y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 14, y - 6); ctx.lineTo(x + 14, y - 18); ctx.stroke();
       ctx.save();
-      ctx.translate(pt.x + 16, pt.y - 25);
+      ctx.translate(x + 14, y - 18);
       ctx.rotate((wave * Math.PI) / 180);
-      ctx.fillStyle = COLOR_HEX[pt.colorId];
-      ctx.fillRect(0, 0, 12, 7);
+      ctx.fillStyle = stepColor;
+      ctx.fillRect(0, 0, 10, 6);
       ctx.restore();
     }
   }
@@ -1584,10 +1622,10 @@ function drawMapPanel(ctx) {
 
   // 船由 draw() 最後統一繪製（drawMapShip），確保層級最上
 
-  // ── 伊奧科斯港標籤 ──
+  // ── 出發港標籤 ──
   ctx.font = '8px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('伊奧科斯港', MAP_HOME_X, MAP_HOME_Y + 11);
+  ctx.fillText('出發港', MAP_HOME_X, MAP_HOME_Y + 11);
 
   ctx.restore();
 }
