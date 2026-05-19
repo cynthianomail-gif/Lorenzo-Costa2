@@ -407,6 +407,7 @@ let _affectedCols = [];  // 本次消除影響的欄位
 
 let totalScore = 0;
 let winScore = 0;
+let roundScore = 0;   // 本次 cascade 單次得分
 let betAmount = 100;
 let multiplier = 1;      // 倍數欄位當前值（本局）
 let comboCount = 0;      // 本局連爆次數
@@ -482,9 +483,7 @@ function randomSymId() {
 }
 // 捲軸動畫用隨機符號：第1~3輪(col 0-2)不顯示FG船符號
 function randomReelSymId(col) {
-  let id = randomSymId();
-  while (id >= 8 && col < 3) id = randomSymId();
-  return id;
+  return randomSymId();
 }
 
 const CHESTS = [
@@ -594,7 +593,7 @@ function generateBoard() {
   for (let c = 0; c < COLS; c++) {
     board[c] = [];
     for (let r = 0; r < ROWS; r++) {
-      board[c][r] = { id: Math.floor(Math.random() * 8), yOffset: 0, isMatched: false, scale: 1 };
+      board[c][r] = { id: 0, yOffset: 0, isMatched: false, scale: 1 };
     }
   }
 }
@@ -654,6 +653,7 @@ function startSpin() {
   forceLineSymbol = -1;
 
   winScore = 0;
+  roundScore = 0;
 
   // 單格滾輪：每格獨立旋轉，依左→右、上→下依序停止
   spinFrameCount = 0;
@@ -696,6 +696,24 @@ function startSpin() {
     // 進階合成：紅色一對 + 藍色一對，合成後觸發 1×4
     board[0][0].id = 0; board[1][0].id = 1;
     board[2][0].id = 4; board[3][0].id = 5;
+  } else if (forceSpinType && forceSpinType.startsWith('cond_')) {
+    // 條件強開：先全盤填紅色角色（同型不配對），放指定對子後掃描修復意外配對
+    for (let _fc = 0; _fc < COLS; _fc++) for (let _fr = 0; _fr < ROWS; _fr++) board[_fc][_fr].id = 0;
+    const _cp = forceSpinType === 'cond_1' ? [[0,0,0]] :
+                forceSpinType === 'cond_2' ? [[0,0,0],[0,1,1]] :
+                forceSpinType === 'cond_3' ? [[0,0,0],[0,1,1],[0,2,2]] :
+                forceSpinType === 'cond_4' ? [[0,0,0],[0,1,1],[0,2,2],[3,0,3]] :
+                                             [[0,0,0],[2,0,1],[0,1,2],[0,2,3]]; // cond_5
+    const _ik = new Set(_cp.map(([c,r]) => `${c},${r}`));
+    _cp.forEach(([c, r, ci]) => { board[c][r].id = questOrder[ci]*2; board[c+1][r].id = questOrder[ci]*2+1; });
+    // 左→右掃描，修復非預期配對（改右格為不同顏色角色）
+    for (let _fr2 = 0; _fr2 < ROWS; _fr2++)
+      for (let _fc2 = 0; _fc2 < COLS-1; _fc2++) {
+        if (_ik.has(`${_fc2},${_fr2}`)) continue;
+        const _a = board[_fc2][_fr2], _b = board[_fc2+1][_fr2];
+        if (_a.id < 8 && _b.id < 8 && Math.floor(_a.id/2) === Math.floor(_b.id/2) && (_a.id%2) !== (_b.id%2))
+          board[_fc2+1][_fr2].id = ((Math.floor(_b.id/2)+1)%4)*2;
+      }
   }
   if (forceSpinType === 'force_fg') {
     // 強制在第4、5輪 (col 3, 4) 的第1列放置船頭+船尾
@@ -722,7 +740,7 @@ function computeCurrentWays() {
     for (let row = 0; row < ROWS; row++) {
       const cell = board[col][row];
       if (!cell) { colTotal += 1; continue; }
-      if (cell.isMerged) { colTotal += 1; continue; } // 合成格固定 +1，不套 splitCount
+      if (cell.isMerged) { const _cid = cell.colorId; colTotal += (_cid >= 0 ? splitCount[_cid] : 1); continue; }
       if (cell.id >= 0 && cell.id < 8) colTotal += splitCount[Math.floor(cell.id / 2)];
       else colTotal += 1;
     }
@@ -793,8 +811,8 @@ function applySingleSynthesis(col, row) {
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  // 單步判斷：合成當下若符合當前任務步驟才推進（舊的合成不補算）
-  if (_isNewColor && !inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
+  // 符合當前步驟顏色即推進（含分裂後再次合成）；順序由 questOrder[questProgress] 保證
+  if (!inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
     questProgress++;
     triggerShipToStep(questProgress - 1);
   }
@@ -1094,7 +1112,7 @@ function drawCenterWin(ctx) {
   const cx = GRID_X + GRID_W / 2;
   const cy = GRID_Y + GRID_H / 2;
 
-  const text = winScore.toLocaleString();
+  const text = roundScore.toLocaleString();
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -1573,20 +1591,20 @@ function drawMapPanel(ctx) {
     ctx.shadowBlur = 0;
 
     // 圖示
-    ctx.font = '11px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.globalAlpha = (isDone || isCurrent) ? 1 : 0.22;
     ctx.fillText(isAdv ? '🐏' : PLACE_ICONS[questOrder[i]], x, y);
     ctx.globalAlpha = 1;
 
     // 左側步驟號
-    ctx.font = 'bold 10px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillStyle = (isDone || isCurrent) ? stepColor : 'rgba(255,255,255,0.2)';
-    ctx.fillText(String(i + 1), x - 20, y);
+    ctx.fillText(String(i + 1), x - 22, y);
 
     // 右側條件說明
-    ctx.font = '8px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = '11px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = isDone ? stepColor : isCurrent ? stepColor : 'rgba(255,255,255,0.18)';
-    ctx.fillText(isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]], x + 20, y);
+    ctx.fillText(isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]], x + 22, y);
 
     // 旗子（船已到達）
     if (mapFlags[i]) {
@@ -1627,7 +1645,7 @@ function drawScoreAccumulator(ctx) {
   const bx = GRID_X + GRID_W / 2 - 100;
   const by = GRID_Y - 58;
   const bw = 200, bh = 44;
-  const hasWin = winScore > 0;
+  const hasWin = roundScore > 0;
   const pulse = hasWin ? 0.7 + 0.3 * Math.sin(Date.now() / 200) : 1;
 
   ctx.save();
@@ -1642,11 +1660,11 @@ function drawScoreAccumulator(ctx) {
 
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#64748b'; ctx.font = '11px Arial';
-  ctx.fillText('得分', bx + bw / 2, by + 9);
+  ctx.fillText('回合得分', bx + bw / 2, by + 9);
   ctx.fillStyle = hasWin ? '#facc15' : '#475569';
   ctx.font = `bold ${hasWin ? 22 : 20}px Arial`;
   if (hasWin) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8 * pulse; }
-  ctx.fillText(winScore.toLocaleString(), bx + bw / 2, by + bh / 2 + 5);
+  ctx.fillText(roundScore.toLocaleString(), bx + bw / 2, by + bh / 2 + 5);
   ctx.shadowBlur = 0;
   ctx.restore();
 }
@@ -2182,7 +2200,7 @@ function update(dt) {
       const win = calcWin();
       if (win > 0) {
         winScore += win;
-        totalScore += win;
+        roundScore = win;
         comboCount++;
         if (comboCount === 1) stats.hits++;
         popWaitTimer = 90;
@@ -2716,11 +2734,12 @@ function drawForceMenu(ctx) {
 
   const menuX = 148, menuW = 110;
   const opts = [
-    { label: '關閉',   value: null },
-    { label: '合成',   value: 'synth' },
+    { label: '關閉',    value: null },
+    { label: '合成',    value: 'synth' },
     { label: '進階合成', value: 'adv_synth' },
     { label: '4色合成', value: 'all_synth' },
     { label: '強開FG',  value: 'force_fg' },
+    { label: '條件5',   value: 'cond_5' },
   ];
   const options = opts.map(o => ({ label: o.label, type: o.value }));
   const menuH = 10 + options.length * 40 - 8 + 10; // 252px for 6 items
@@ -2942,11 +2961,12 @@ canvas.addEventListener('click', e => {
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
     const forceOpts = [
-      { label: '關閉',   value: null },
-      { label: '合成',   value: 'synth' },
+      { label: '關閉',    value: null },
+      { label: '合成',    value: 'synth' },
       { label: '進階合成', value: 'adv_synth' },
       { label: '4色合成', value: 'all_synth' },
       { label: '強開FG',  value: 'force_fg' },
+      { label: '條件5',   value: 'cond_5' },
     ];
     const menuH = 10 + forceOpts.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
