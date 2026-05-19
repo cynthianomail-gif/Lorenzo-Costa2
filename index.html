@@ -755,17 +755,6 @@ function findBaseSynthCandidates() {
   return ops;
 }
 
-// 掃描 synthesizedColors，連續推進符合順序的任務步驟（一次性跳到最遠達成步）
-function checkQuestAdvancement() {
-  if (inFG || questProgress >= 4) return;
-  let lastStep = -1;
-  while (questProgress < 4 && synthesizedColors.has(questOrder[questProgress])) {
-    questProgress++;
-    lastStep = questProgress - 1;
-  }
-  if (lastStep >= 0) triggerShipToStep(lastStep);
-}
-
 // 觸發船跳躍到指定步驟節點（stepIdx: 0-4）
 function triggerShipToStep(stepIdx) {
   if (stepIdx < 0 || stepIdx >= MAP_STEP_YS.length) return;
@@ -804,8 +793,11 @@ function applySingleSynthesis(col, row) {
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  // 每次合成後掃描一次，推進所有連續符合順序的步驟
-  if (_isNewColor) checkQuestAdvancement();
+  // 單步判斷：合成當下若符合當前任務步驟才推進（舊的合成不補算）
+  if (_isNewColor && !inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
+    questProgress++;
+    triggerShipToStep(questProgress - 1);
+  }
   return true;
 }
 
@@ -852,12 +844,20 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
-      // 進階合成兩色一起補判斷（可能其中一色因順序問題尚未推進）
-      checkQuestAdvancement();
-      // 第5步：達成1組進階合成（需先完成前4步）
-      if (!inFG && questProgress === 4) {
-        questProgress = 5;
-        triggerShipToStep(4);
+      // 進階合成兩色按任務順序各補判一次（處理其中一色當時順序不對未推進的情況）
+      if (!inFG) {
+        const _pair = new Set([leftM.colorId, rightM.colorId]);
+        for (let _t = 0; _t < 2; _t++) {
+          if (questProgress < 4 && _pair.has(questOrder[questProgress])) {
+            questProgress++;
+            triggerShipToStep(questProgress - 1);
+          }
+        }
+        // 第5步：達成1組進階合成（需先完成前4步）
+        if (questProgress === 4) {
+          questProgress = 5;
+          triggerShipToStep(4);
+        }
       }
     }
   }
@@ -1245,9 +1245,9 @@ function updateMapPanel() {
         });
       }
 
-      // 首次到達 → 插旗（步驟索引 0-4）
-      if (_si >= 0 && _si < 5 && !mapFlags[_si]) {
-        mapFlags[_si] = true;
+      // 落地插旗：連帶補旗所有已完成的步驟（跳格時中間步驟也補上）
+      if (_si >= 0 && _si < 5) {
+        for (let _f = 0; _f <= _si; _f++) mapFlags[_f] = true;
       }
 
       mapShip.pauseTimer = MAP_PAUSE_FRAMES;
@@ -1587,14 +1587,6 @@ function drawMapPanel(ctx) {
     ctx.font = '8px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = isDone ? stepColor : isCurrent ? stepColor : 'rgba(255,255,255,0.18)';
     ctx.fillText(isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]], x + 20, y);
-
-    // 完成打勾
-    if (isDone) {
-      ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = stepColor; ctx.shadowColor = stepColor; ctx.shadowBlur = 6;
-      ctx.fillText('✓', x, y + 15);
-      ctx.shadowBlur = 0;
-    }
 
     // 旗子（船已到達）
     if (mapFlags[i]) {
@@ -2880,6 +2872,7 @@ function draw() {
   drawJPBars(ctx);
   drawWaysDisplay(ctx);
   drawMapPanel(ctx);
+  drawMapShip(ctx);  // 船在地圖上層，但在抽牌/報獎 overlay 之下
   drawScoreAccumulator(ctx);
   drawFlyingScores(ctx);
   drawParticles(ctx);
@@ -2894,7 +2887,6 @@ function draw() {
   drawFGHUD(ctx);
   drawShipFGPanel(ctx);
   drawFGEndPanel(ctx);
-  drawMapShip(ctx);  // 船永遠在最上層
 }
 
 // === Canvas 事件監聽器 ===
