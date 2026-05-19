@@ -375,7 +375,7 @@ const MAP_STEP_YS = [
 const COLOR_ICONS  = ['🔴', '🟡', '🔵', '🟢'];
 const PLACE_ICONS  = ['🌋', '🏜️', '🧊', '🌿']; // colorId 0-3 對應地點圖示
 const PLACE_NAMES  = ['赫淮斯托斯島', '黃金海岸', '撞岩海峽', '密西亞'];  // colorId 0-3 對應地名
-const MAP_HOME_X = MAP_PX + 100, MAP_HOME_Y = MAP_PY + MAP_JP_H + 375;
+const MAP_HOME_X = MAP_PX + 100, MAP_HOME_Y = MAP_PY + MAP_JP_H + 355;
 const MAP_FLY_FRAMES   = 20;
 const MAP_PAUSE_FRAMES = 12;
 
@@ -755,6 +755,17 @@ function findBaseSynthCandidates() {
   return ops;
 }
 
+// 掃描 synthesizedColors，連續推進符合順序的任務步驟（一次性跳到最遠達成步）
+function checkQuestAdvancement() {
+  if (inFG || questProgress >= 4) return;
+  let lastStep = -1;
+  while (questProgress < 4 && synthesizedColors.has(questOrder[questProgress])) {
+    questProgress++;
+    lastStep = questProgress - 1;
+  }
+  if (lastStep >= 0) triggerShipToStep(lastStep);
+}
+
 // 觸發船跳躍到指定步驟節點（stepIdx: 0-4）
 function triggerShipToStep(stepIdx) {
   if (stepIdx < 0 || stepIdx >= MAP_STEP_YS.length) return;
@@ -793,11 +804,8 @@ function applySingleSynthesis(col, row) {
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  // 循序漸進：只有當合成色符合當前步驟要求時才推進任務
-  if (_isNewColor && !inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
-    questProgress++;
-    triggerShipToStep(questProgress - 1);
-  }
+  // 每次合成後掃描一次，推進所有連續符合順序的步驟
+  if (_isNewColor) checkQuestAdvancement();
   return true;
 }
 
@@ -844,6 +852,8 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
+      // 進階合成兩色一起補判斷（可能其中一色因順序問題尚未推進）
+      checkQuestAdvancement();
       // 第5步：達成1組進階合成（需先完成前4步）
       if (!inFG && questProgress === 4) {
         questProgress = 5;
@@ -1614,7 +1624,7 @@ function drawMapPanel(ctx) {
   // ── 出發港標籤 ──
   ctx.font = '8px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('伊奧科斯港', MAP_HOME_X, MAP_HOME_Y + 8);
+  ctx.fillText('伊奧科斯港', MAP_HOME_X, MAP_HOME_Y + 16);
 
   ctx.restore();
 }
