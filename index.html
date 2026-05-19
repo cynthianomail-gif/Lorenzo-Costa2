@@ -1481,25 +1481,13 @@ function drawMapPanel(ctx) {
     ctx.restore();
   }
 
-  // 任務板標題
-  ctx.font = 'bold 10px Arial';
+  // 任務板標題（僅顯示任務名稱）
+  ctx.font = 'bold 11px Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = allLit ? '#ffd700' : '#a07830';
-  ctx.fillText('📜  亞格號任務', px + pw / 2, jpY + 18);
-
-  // 目的地
-  ctx.font = allLit ? 'bold 13px Arial' : '11px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = allLit ? '#ffe566' : '#6b4f28';
-  if (allLit) { ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 12; }
-  ctx.fillText('🐏 科爾基斯聖林', px + pw / 2, jpY + 42);
+  if (allLit) { ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8; }
+  ctx.fillText('📜  亞格號任務', px + pw / 2, jpY + MAP_JP_H / 2);
   ctx.shadowBlur = 0;
-
-  // 鎖定/解鎖狀態
-  ctx.font = '8px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = allLit ? '#ffd70099' : '#3d2e14';
-  ctx.fillText(allLit ? '── 已抵達 ──' : '── 終點 ──', px + pw / 2, jpY + 58);
 
   // JP框底部分隔線
   ctx.strokeStyle = allLit ? '#ffd70044' : '#ffffff14';
@@ -1577,7 +1565,7 @@ function drawMapPanel(ctx) {
     // 圖示
     ctx.font = '11px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.globalAlpha = (isDone || isCurrent) ? 1 : 0.22;
-    ctx.fillText(isAdv ? '⚡' : PLACE_ICONS[questOrder[i]], x, y);
+    ctx.fillText(isAdv ? '🐏' : PLACE_ICONS[questOrder[i]], x, y);
     ctx.globalAlpha = 1;
 
     // 左側步驟號
@@ -1588,7 +1576,7 @@ function drawMapPanel(ctx) {
     // 右側條件說明
     ctx.font = '8px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = isDone ? stepColor : isCurrent ? stepColor : 'rgba(255,255,255,0.18)';
-    ctx.fillText(isAdv ? '進階合成' : PLACE_NAMES[questOrder[i]], x + 20, y);
+    ctx.fillText(isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]], x + 20, y);
 
     // 完成打勾
     if (isDone) {
@@ -1626,7 +1614,7 @@ function drawMapPanel(ctx) {
   // ── 出發港標籤 ──
   ctx.font = '8px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('出發港', MAP_HOME_X, MAP_HOME_Y + 11);
+  ctx.fillText('伊奧科斯港', MAP_HOME_X, MAP_HOME_Y + 8);
 
   ctx.restore();
 }
