@@ -486,7 +486,9 @@ function randomSymId() {
 }
 // 捲軸動畫用隨機符號：第1~3輪(col 0-2)不顯示FG船符號
 function randomReelSymId(col) {
-  return randomSymId();
+  let id = randomSymId();
+  if (col < 3) { while (id >= 8) id = randomSymId(); }
+  return id;
 }
 
 const CHESTS = [
@@ -1313,14 +1315,7 @@ function updateTMAnim() {
     tmAnim.active = false;
     // 揭示下一個條件（stepIdx+1），最多到步驟4
     questReveal = Math.min(4, tmAnim.stepIdx + 1);
-    // 第5步（stepIdx=4）動畫結束後才觸發JP抽牌
-    if (tmAnim.stepIdx === 4 && questProgress >= 5 && !bossCardPick.active) {
-      bossCardPick.active  = true;
-      bossCardPick.phase   = 'picking';
-      bossCardPick.hover   = -1;
-      bossCardPick.selected = -1;
-      bossCardPick.order   = Math.random() < 0.5 ? [0, 1] : [1, 0];
-    }
+    // 第5步動畫結束後繼續連爆；JP抽牌在連爆全部結束（win===0）時才觸發
   }
 }
 
@@ -1407,7 +1402,7 @@ function updateGravity() {
         reelDispId[c][r] = reelTopId[c][r];
         reelTopId[c][r]  = (reelState[c][r] === 'stopping')
           ? board[c][r].id
-          : randomSymId();
+          : randomReelSymId(c);
       }
     }
   }
@@ -2327,8 +2322,7 @@ function update(dt) {
 
       if (synthOpPhase !== 'settle' || synthOpTimer > 0) break;
 
-      // JP 動畫 / JP 抽牌 / JP 報獎動畫進行中 → 凍結，等全部完成後才結算
-      if (tmAnim.active && tmAnim.stepIdx === 4) break;
+      // JP 抽牌 / JP 報獎動畫進行中 → 凍結（此路徑只作保護，正常由 win===0 else 分支處理）
       if (bossCardPick.active) break;
       if (jpWinAnim.active) break;
 
