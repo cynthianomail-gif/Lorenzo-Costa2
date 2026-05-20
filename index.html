@@ -928,6 +928,8 @@ function applyAdvancedSynthesis() {
           if (questProgress < 4 && _pair.has(questOrder[questProgress])) {
             questProgress++;
             triggerShipToStep(questProgress - 1);
+            // 每次步驟推進都觸發藏寶圖動畫（同一幀多步時以最後一步為準）
+            tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: questProgress - 1 };
           }
         }
         // 第5步：達成1組進階合成（需先完成前4步）
