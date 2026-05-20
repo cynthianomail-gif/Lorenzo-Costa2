@@ -235,13 +235,19 @@
             </table>
 
             <h3>▌ 🚢 Free Game（FG）</h3>
-            <p>• NG 中 <b>船頭（🚢）與船尾（⚓）相鄰</b> 即合成為完整船圖示</p>
-            <p>• 船頭 / 船尾只會出現在第 4、5 輪（欄 4、5）</p>
-            <p>• 連爆結束後（若同時有 JP 則播完 JP 報獎動畫後）顯示 FG 入場畫面</p>
+            <p>• NG 中<b>船頭（🚢）與船尾（⚓）同時出現</b>（第 4、5 輪）即觸發</p>
+            <p>• 連爆結束後（若同時有 JP 則播完報獎後）顯示 FG 入場畫面</p>
             <p>• 點擊「出發！」進入 <b>10 局免費遊戲</b>，全程自動 Spin</p>
             <p>• FG 中不會再出現船頭 / 船尾符號</p>
             <p>• 分裂倍數<b>跨局累積</b>（最高 ×5），FG 結束後才重置</p>
             <p>• FG 結束後返回一般模式，分割狀態回到初始值</p>
+
+            <h3>▌ ⚓ Super Free Game（SFG）</h3>
+            <p>• NG 中<b>船頭與船尾相鄰並合成</b>即觸發 SFG（比 FG 更強）</p>
+            <p>• 進入 <b>15 局免費遊戲</b>，全程自動 Spin</p>
+            <p>• 分裂倍數<b>跨局累積</b>（最高 ×5）</p>
+            <p>• <b>右側航海地圖不重置</b>，進度持續往上累積</p>
+            <p>• SFG 結束後返回一般模式，分割與地圖重置</p>
 
             <h3>▌ 宙斯 / 赫拉 JP</h3>
             <p>• 達成航海地圖第 5 步（進階合成）即觸發</p>
@@ -466,9 +472,17 @@ let fgSpinsTotal = 0;        // FG 總局數（用於顯示）
 let showFGEndPanel = false;  // FG 結束面板
 let fgMultCollectedThisRound = false; // 本局FG是否收集到倍數
 const FG_TOTAL_SPINS = 10;
-let shipFGPending = false;   // 偵測到船頭+船尾相鄰，等待本局結束後觸發FG
-let shipFGReady   = false;   // 連爆結束後等JP動畫播完再顯示FG面板
-let showShipFGPanel = false; // 顯示FG進入面板
+let shipFGPending    = false;  // 船頭+船尾同時出現（不相鄰），觸發FG
+let shipFGReady      = false;  // 連爆結束後等JP動畫播完再顯示FG面板
+let showShipFGPanel  = false;  // 顯示FG進入面板
+let shipSFGPending   = false;  // 船頭+船尾相鄰合成，觸發SFG（舊FG合成條件）
+let shipSFGReady     = false;  // 連爆結束後等JP動畫播完再顯示SFG面板
+let showSFGPanel     = false;  // 顯示SFG進入面板
+let inSFG            = false;  // 是否在 Super Free Game 中
+let sfgSpinsLeft     = 0;
+let sfgSpinsTotal    = 0;
+let showSFGEndPanel  = false;  // SFG 結束面板
+const SFG_TOTAL_SPINS = 10;
 
 // 厄里斯效果：本次 Spin 剩餘連爆只出現 3 種高賠率符號
 let heraSymbolRestrict = false;
@@ -478,8 +492,8 @@ const HERA_SYMBOLS = [0, 2, 4]; // 戰神意志、嗜血追擊、戰場凶兆
 // 高分角色 8%, 低分武器 13%, FG船頭/船尾各 8%（FG中不出現船）
 function randomSymId() {
   if (heraSymbolRestrict) return HERA_SYMBOLS[Math.floor(Math.random() * HERA_SYMBOLS.length)];
-  const weights = inFG
-    ? [9, 15, 9, 15, 9, 15, 9, 15]            // FG 中無船符號，共 96，重新正規化
+  const weights = (inFG || inSFG)
+    ? [9, 15, 9, 15, 9, 15, 9, 15]            // FG/SFG 中無船符號
     : [9, 15, 9, 15, 9, 15, 9, 15, 2, 2];     // NG 共 100
   let total = weights.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
@@ -621,27 +635,30 @@ function resetRoundState() {
   forceLineRows = null;
   forceLineRows2 = null;
   forceLineSymbol = -1;
-  // 合成狀態重置（FG 中 splitCount 累積不重置，NG 每局重置）
-  if (!inFG) splitCount = [1, 1, 1, 1];
+  // 合成狀態重置（FG/SFG 中 splitCount 累積不重置，NG 每局重置）
+  if (!inFG && !inSFG) splitCount = [1, 1, 1, 1];
   synthesizedColors = new Set();
   mergedCells = [];
-  // 地圖面板：每局重置旗子；每局重新洗牌顏色順序；船以拋物線跳回出發港
-  mapFlags = [false, false, false, false, false];
-  questProgress = 0;
-  questReveal   = 0;
-  tmAnim = { active: false, timer: 0, stepIdx: -1 };
-  questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
-  mapSplash = [];
-  const _notHome = mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y;
-  if (_notHome) {
-    mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
-    mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
-    mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES;
-    mapShip.flying = true;
-  } else {
-    mapShip.flying = false;
+  // 地圖面板：SFG 中不重置地圖進度（持續往上）；NG/FG 每局重置
+  if (!inSFG) {
+    mapFlags = [false, false, false, false, false];
+    questProgress = 0;
+    questReveal   = 0;
+    tmAnim = { active: false, timer: 0, stepIdx: -1 };
+    questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    // 船跳回出發港
+    const _notHome = mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y;
+    if (_notHome) {
+      mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
+      mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
+      mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES;
+      mapShip.flying = true;
+    } else {
+      mapShip.flying = false;
+    }
+    mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
   }
-  mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
+  mapSplash = [];
   synthOps = []; synthOpIdx = -1; synthOpPhase = 'idle'; synthOpTimer = 0;
 }
 
@@ -649,8 +666,9 @@ function resetRoundState() {
 function startSpin() {
   if (currentState !== STATE.IDLE) return;
   if (bossCardPick.active) return;
-  if (showShipFGPanel || showFGEndPanel) return;
-  if (inFG) fgSpinsLeft--;
+  if (showShipFGPanel || showFGEndPanel || showSFGPanel || showSFGEndPanel) return;
+  if (inFG)  fgSpinsLeft--;
+  if (inSFG) sfgSpinsLeft--;
   jpWinQueue = [];
   winLog = [];
   resetRoundState();
@@ -670,6 +688,7 @@ function startSpin() {
   // 單格滾輪：每格獨立旋轉，依左→右、上→下依序停止
   spinFrameCount = 0;
   let _hasBow = false, _hasStern = false;
+  let _bowCol = -1, _bowRow = -1, _sternCol = -1, _sternRow = -1;
   for (let c = 0; c < COLS; c++) {
     board[c]           = [];
     reelOffset[c]      = [];
@@ -684,8 +703,8 @@ function startSpin() {
     for (let r = 0; r < ROWS; r++) {
       let _id = randomSymId();
       while (_id >= 8 && (!_fgAllowed || (_id === 8 && (_hasBow || _colHasFG)) || (_id === 9 && (_hasStern || _colHasFG)))) _id = randomSymId();
-      if (_id === 8) { _hasBow = true; _colHasFG = true; }
-      if (_id === 9) { _hasStern = true; _colHasFG = true; }
+      if (_id === 8) { _hasBow = true; _bowCol = c; _bowRow = r; _colHasFG = true; }
+      if (_id === 9) { _hasStern = true; _sternCol = c; _sternRow = r; _colHasFG = true; }
       board[c][r]          = { id: _id, yOffset: 0, isMatched: false, scale: 1 };
       reelOffset[c][r]     = 0;
       reelSpeed[c][r]      = REEL_SPEED;
@@ -727,12 +746,32 @@ function startSpin() {
           board[_fc2+1][_fr2].id = ((Math.floor(_b.id/2)+1)%4)*2;
       }
   }
-  if (forceSpinType === 'force_fg') {
-    // 強制在第4、5輪 (col 3, 4) 的第1列放置船頭+船尾
+  if (forceSpinType === 'force_sfg') {
+    // 強開SFG：第4、5輪同列相鄰放置船頭+船尾 → 合成觸發SFG
     board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
     board[4][0] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
     reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
     reelStopFrame[4][0] = REEL_MIN_SPIN + 4 * REEL_STOP_DELAY;
+  } else if (forceSpinType === 'force_fg') {
+    // 強開FG：第4、5輪不同列放置船頭+船尾 → 不相鄰，觸發FG
+    board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
+    board[4][1] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
+    reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
+    reelStopFrame[4][1] = REEL_MIN_SPIN + (4 + 1) * REEL_STOP_DELAY;
+  }
+
+  // 偵測船頭+船尾同時出現（NG only，強開覆寫後再掃描最終盤面）
+  if (!inFG && !inSFG) {
+    let _fb = -1, _fc_b = -1, _fs = -1, _fc_s = -1;
+    for (let _c = 0; _c < COLS; _c++) for (let _r = 0; _r < ROWS; _r++) {
+      if (board[_c]?.[_r]?.id === 8) { _fb = _r; _fc_b = _c; }
+      if (board[_c]?.[_r]?.id === 9) { _fs = _r; _fc_s = _c; }
+    }
+    if (_fb >= 0 && _fs >= 0) {
+      const _adj = Math.abs(_fc_b - _fc_s) <= 1 && _fb === _fs;
+      if (!_adj) shipFGPending = true; // 不相鄰 → FG
+      // 相鄰 → synthesis 偵測流程設 shipSFGPending
+    }
   }
 
   currentState = STATE.SPINNING;
@@ -807,10 +846,10 @@ function applySingleSynthesis(col, row) {
   if (!a || !b || a.isMerged || b.isMerged) return false;
   const colorId = Math.floor(a.id / 2);
   const displayCount = splitCount[colorId] || 1; // 合成前的值 = 此格的顯示數
-  const MAX_SPLIT = inFG ? 5 : 2;
+  const MAX_SPLIT = (inFG || inSFG) ? 5 : 2;
   const _isNewColor = !synthesizedColors.has(colorId);
-  if (inFG) {
-    // FG 中：直接累積（不重設為2）
+  if (inFG || inSFG) {
+    // FG/SFG 中：直接累積（不重設為2）
     if (splitCount[colorId] < MAX_SPLIT) splitCount[colorId]++;
     synthesizedColors.add(colorId);
   } else if (synthesizedColors.has(colorId)) {
@@ -849,7 +888,7 @@ function applyShipMerge() {
 
 // Pass 2：進階合成（兩相鄰 1×2 不同色 → 1×4），NG Only（FG中不觸發，避免JP衝突）
 function applyAdvancedSynthesis() {
-  if (inFG || shipFGPending) return;
+  if (inFG || inSFG || shipFGPending || shipSFGPending) return;
   for (let i = 0; i < mergedCells.length; i++) {
     const mA = mergedCells[i];
     if (mA.size !== 2 || mA.upgraded || mA.isShipMerge) continue;
@@ -861,7 +900,7 @@ function applyAdvancedSynthesis() {
       const rightM = mA.col < mB.col ? mB : mA;
       if (leftM.col + 2 !== rightM.col) continue;
       const displayCount4 = Math.max(leftM.displayCount || 1, rightM.displayCount || 1); // 合成前的值
-      const _maxSplit = inFG ? 5 : 2;
+      const _maxSplit = (inFG || inSFG) ? 5 : 2;
       if (splitCount[leftM.colorId]  < _maxSplit) splitCount[leftM.colorId]++;
       if (splitCount[rightM.colorId] < _maxSplit) splitCount[rightM.colorId]++;
       const newMerge = { col: leftM.col, row: leftM.row, colorId: leftM.colorId, colorId2: rightM.colorId, size: 4, displayCount: displayCount4 };
@@ -899,7 +938,7 @@ function applyAdvancedSynthesis() {
 
 // 找出可進行進階合成的合成符對（不修改狀態，僅回傳候選陣列；FG中或FG即將觸發時回傳空）
 function findAdvSynthPairs() {
-  if (inFG || shipFGPending) return [];
+  if (inFG || inSFG || shipFGPending || shipSFGPending) return [];
   const pairs = [];
   const used  = new Set();
   for (let i = 0; i < mergedCells.length; i++) {
@@ -1070,14 +1109,18 @@ function endRound() {
   resetRoundState();
   currentState = STATE.IDLE;
 
-  if (inFG && fgSpinsLeft <= 0) {
-    // FG 結束
-    inFG = false;
-    showFGEndPanel = true;
-    splitCount = [1, 1, 1, 1]; // 回到NG重置分割
+  if (inSFG && sfgSpinsLeft <= 0) {
+    inSFG = false; showSFGEndPanel = true; splitCount = [1,1,1,1];
+    mapFlags = [false,false,false,false,false];
+    questProgress = 0; questReveal = 0;
+    questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
+    tmAnim = { active: false, timer: 0, stepIdx: -1 };
+  } else if (inFG && fgSpinsLeft <= 0) {
+    inFG = false; showFGEndPanel = true; splitCount = [1, 1, 1, 1];
+  } else if (shipSFGPending) {
+    shipSFGPending = false; showSFGPanel = true;
   } else if (shipFGPending) {
-    shipFGPending = false;
-    showShipFGPanel = true; // 顯示FG進入面板
+    shipFGPending = false; showShipFGPanel = true;
   } else if (isAutoSpinning) {
     autoSpinDelay = AUTO_SPIN_DELAY;
   }
@@ -2239,7 +2282,7 @@ function update(dt) {
       if (synthOpIdx === -1) {
         // 偵測船頭(8)+船尾(9)相鄰 → 播放合成特效，再繼續一般合成
         let _shipFound = false;
-        if (!inFG && !shipFGPending) {
+        if (!inFG && !inSFG && !shipFGPending && !shipSFGPending) {
           outer: for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS - 1; c++) {
               const ca = board[c]?.[r], cb = board[c+1]?.[r];
@@ -2247,7 +2290,7 @@ function update(dt) {
                   ((ca.id === 8 && cb.id === 9) || (ca.id === 9 && cb.id === 8))) {
                 ca._flashTimer = SYNTH_FLASH_FRAMES;
                 cb._flashTimer = SYNTH_FLASH_FRAMES;
-                shipFGPending = true;
+                shipSFGPending = true; // 相鄰合成 → SFG
                 synthOpPhase = 'ship_flash';
                 synthOpTimer = SYNTH_FLASH_FRAMES + 10;
                 synthOpIdx   = 0; // 防止重新初始化
@@ -2351,10 +2394,24 @@ function update(dt) {
           bossCardPick.selected = -1;
           bossCardPick.order = Math.random() < 0.5 ? [0,1] : [1,0];
         }
-        if (shipFGPending) {
-          // 連爆結束，保留盤面（含船）；等JP動畫播完後再顯示FG面板
+        if (shipSFGPending) {
+          // 相鄰合成 → SFG：等JP動畫播完後再顯示SFG面板
+          shipSFGPending = false;
+          shipSFGReady   = true;
+        } else if (shipFGPending) {
+          // 不相鄰出現 → FG：等JP動畫播完後再顯示FG面板
           shipFGPending = false;
           shipFGReady   = true;
+        } else if (inSFG && sfgSpinsLeft <= 0) {
+          // SFG 全部局數打完，結束SFG
+          inSFG = false;
+          showSFGEndPanel = true;
+          splitCount = [1, 1, 1, 1];
+          // SFG 結束 → 重置地圖
+          mapFlags = [false, false, false, false, false];
+          questProgress = 0; questReveal = 0;
+          questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
+          tmAnim = { active: false, timer: 0, stepIdx: -1 };
         } else if (inFG && fgSpinsLeft <= 0) {
           // FG 全部局數打完，結束FG
           inFG = false;
@@ -2369,11 +2426,15 @@ function update(dt) {
     case STATE.POPPING:     updatePopping(); break;
     case STATE.GRAVITY:     updateGravity(); break;
     case STATE.IDLE:
+      if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length) {
+        shipSFGReady = false;
+        showSFGPanel = true;
+      }
       if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length) {
         shipFGReady = false;
         showShipFGPanel = true;
       }
-      if (inFG && !showShipFGPanel && !showFGEndPanel) {
+      if ((inFG || inSFG) && !showShipFGPanel && !showFGEndPanel && !showSFGPanel && !showSFGEndPanel) {
         autoSpinDelay--;
         if (autoSpinDelay <= 0) startSpin();
       } else if (isAutoSpinning) {
@@ -2876,6 +2937,7 @@ function drawForceMenu(ctx) {
     { label: '合成',    value: 'synth' },
     { label: '進階合成', value: 'adv_synth' },
     { label: '4色合成', value: 'all_synth' },
+    { label: '強開SFG', value: 'force_sfg' },
     { label: '強開FG',  value: 'force_fg' },
     { label: '條件5',   value: 'cond_5' },
   ];
@@ -2964,7 +3026,7 @@ function drawShipFGPanel(ctx) {
   ctx.fillText('FREE GAME!', px + pw / 2, py + 80);
   ctx.restore();
   ctx.font = '22px Arial'; ctx.fillStyle = '#c4b5fd';
-  ctx.fillText('🚢 ⚓  船頭+船尾相鄰！', px + pw / 2, py + 138);
+  ctx.fillText('🚢 ⚓  船頭+船尾登場！', px + pw / 2, py + 138);
   ctx.font = '16px Arial'; ctx.fillStyle = '#94a3b8';
   ctx.fillText(`共 ${FG_TOTAL_SPINS} 局免費遊戲  ・  分割累積不重置  ・  最高 ×5`, px + pw / 2, py + 175);
   // GO button
@@ -3000,19 +3062,85 @@ function drawFGEndPanel(ctx) {
   ctx.restore();
 }
 
-// === FG HUD（畫面上方 FG 局數提示）===
+// === FG / SFG HUD（畫面上方局數提示）===
 function drawFGHUD(ctx) {
-  if (!inFG) return;
-  const hudW = 300, hudH = 42;
+  if (!inFG && !inSFG) return;
+  const hudW = 320, hudH = 42;
   const hudX = (1280 - hudW) / 2, hudY = 4;
   ctx.save();
-  ctx.fillStyle = 'rgba(76,29,149,0.88)';
-  ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.fill();
-  ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.stroke();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#e9d5ff';
-  ctx.font = 'bold 18px Arial';
-  ctx.fillText(`🚢 FREE GAME  剩餘 ${fgSpinsLeft} 局`, hudX + hudW / 2, hudY + hudH / 2);
+  if (inSFG) {
+    ctx.fillStyle = 'rgba(120,53,15,0.92)';
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.fill();
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.stroke();
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`⚓ SUPER FREE GAME  剩餘 ${sfgSpinsLeft} 局`, hudX + hudW / 2, hudY + hudH / 2);
+  } else {
+    ctx.fillStyle = 'rgba(76,29,149,0.88)';
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.fill();
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.stroke();
+    ctx.fillStyle = '#e9d5ff';
+    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`🚢 FREE GAME  剩餘 ${fgSpinsLeft} 局`, hudX + hudW / 2, hudY + hudH / 2);
+  }
+  ctx.restore();
+}
+
+// === SFG 進入面板 ===
+function drawSFGPanel(ctx) {
+  if (!showSFGPanel) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.80)';
+  ctx.fillRect(0, 0, 1280, 720);
+  const pw = 520, ph = 300, px = (1280 - pw) / 2, py = (720 - ph) / 2;
+  const grad = ctx.createLinearGradient(px, py, px, py + ph);
+  grad.addColorStop(0, '#451a03'); grad.addColorStop(1, '#78350f');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 18); ctx.fill();
+  ctx.save(); ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 40;
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 18); ctx.stroke();
+  ctx.restore();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 52px Arial'; ctx.fillStyle = '#fef3c7';
+  ctx.save(); ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 24;
+  ctx.fillText('SUPER FREE GAME!', px + pw / 2, py + 88);
+  ctx.restore();
+  ctx.font = '22px Arial'; ctx.fillStyle = '#fde68a';
+  ctx.fillText('🚢 ⚓  船頭+船尾相鄰合成！', px + pw / 2, py + 148);
+  ctx.font = '16px Arial'; ctx.fillStyle = '#fcd34d';
+  ctx.fillText(`共 ${SFG_TOTAL_SPINS} 局  ・  分割累積不重置（最高×5）  ・  地圖持續累積`, px + pw / 2, py + 185);
+  const bw = 180, bh = 52, bx = px + pw / 2 - 90, by = py + ph - 78;
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 26); ctx.fill();
+  ctx.font = 'bold 22px Arial'; ctx.fillStyle = '#fff';
+  ctx.fillText('出發！', bx + bw / 2, by + bh / 2);
+  ctx.restore();
+}
+
+// === SFG 結束面板 ===
+function drawSFGEndPanel(ctx) {
+  if (!showSFGEndPanel) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  ctx.fillRect(0, 0, 1280, 720);
+  const pw = 440, ph = 250, px = (1280 - pw) / 2, py = (720 - ph) / 2;
+  ctx.fillStyle = '#1c1917';
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 18); ctx.fill();
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 18); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 36px Arial'; ctx.fillStyle = '#fbbf24';
+  ctx.fillText('SUPER FREE GAME 結束', px + pw / 2, py + 76);
+  ctx.font = '18px Arial'; ctx.fillStyle = '#e2e8f0';
+  ctx.fillText('分割狀態已重置，返回一般模式', px + pw / 2, py + 130);
+  const bw = 160, bh = 46, bx = px + pw / 2 - 80, by = py + ph - 70;
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 23); ctx.fill();
+  ctx.font = 'bold 20px Arial'; ctx.fillStyle = '#fff';
+  ctx.fillText('確定', bx + bw / 2, by + bh / 2);
   ctx.restore();
 }
 
@@ -3045,6 +3173,8 @@ function draw() {
   drawFGHUD(ctx);
   drawShipFGPanel(ctx);
   drawFGEndPanel(ctx);
+  drawSFGPanel(ctx);
+  drawSFGEndPanel(ctx);
 }
 
 // === Canvas 事件監聽器 ===
@@ -3054,6 +3184,32 @@ canvas.addEventListener('click', e => {
   const my = (e.clientY - rect.top) * (720 / rect.height);
 
   if (erisMultiplierAnim.active) return;
+
+  // SFG 進入面板：點擊「出發！」按鈕
+  if (showSFGPanel) {
+    const pw = 520, ph = 300, px = (1280 - pw) / 2, py = (720 - ph) / 2;
+    const bw = 180, bh = 52, bx = px + pw / 2 - 90, by = py + ph - 78;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      showSFGPanel = false;
+      // SFG 入場：保留 NG 的地圖累積進度，之後跨局持續往上
+      inSFG = true;
+      sfgSpinsLeft = SFG_TOTAL_SPINS;
+      sfgSpinsTotal = SFG_TOTAL_SPINS;
+      forceSpinType = null;
+      startSpin();
+    }
+    return;
+  }
+
+  // SFG 結束面板：點擊「確定」
+  if (showSFGEndPanel) {
+    const pw = 440, ph = 250, px = (1280 - pw) / 2, py = (720 - ph) / 2;
+    const bw = 160, bh = 46, bx = px + pw / 2 - 80, by = py + ph - 70;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+      showSFGEndPanel = false;
+    }
+    return;
+  }
 
   // FG 進入面板：點擊「出發！」按鈕
   if (showShipFGPanel) {
@@ -3104,6 +3260,7 @@ canvas.addEventListener('click', e => {
       { label: '合成',    value: 'synth' },
       { label: '進階合成', value: 'adv_synth' },
       { label: '4色合成', value: 'all_synth' },
+      { label: '強開SFG', value: 'force_sfg' },
       { label: '強開FG',  value: 'force_fg' },
       { label: '條件5',   value: 'cond_5' },
     ];
