@@ -503,10 +503,12 @@ function randomSymId() {
   }
   return weights.length - 1;
 }
-// 捲軸動畫用隨機符號：第1~3輪(col 0-2)不顯示FG船符號
+// 捲軸動畫用隨機符號：col 0-2 不顯示FG；col 3 只顯示船頭；col 4 只顯示船尾
 function randomReelSymId(col) {
   let id = randomSymId();
   if (col < 3) { while (id >= 8) id = randomSymId(); }
+  else if (col === 3) { if (id === 9) id = 8; } // 船尾 → 改成船頭
+  else if (col === 4) { if (id === 8) id = 9; } // 船頭 → 改成船尾
   return id;
 }
 
@@ -698,11 +700,15 @@ function startSpin() {
     reelTopId[c]       = [];
     reelCellBounce[c]  = [];
     reelStopFrame[c]   = [];
-    const _fgAllowed = (c === 3 || c === 4);
+    // col 3 只能有船頭(8)、col 4 只能有船尾(9)，每輪最多一個
     let _colHasFG = false;
     for (let r = 0; r < ROWS; r++) {
       let _id = randomSymId();
-      while (_id >= 8 && (!_fgAllowed || (_id === 8 && (_hasBow || _colHasFG)) || (_id === 9 && (_hasStern || _colHasFG)))) _id = randomSymId();
+      // 只有在特定欄、尚未有FG圖示時才允許對應的FG符號
+      while (_id >= 8 && !(
+        (c === 3 && _id === 8 && !_hasBow    && !_colHasFG) ||
+        (c === 4 && _id === 9 && !_hasStern  && !_colHasFG)
+      )) _id = randomSymId();
       if (_id === 8) { _hasBow = true; _bowCol = c; _bowRow = r; _colHasFG = true; }
       if (_id === 9) { _hasStern = true; _sternCol = c; _sternRow = r; _colHasFG = true; }
       board[c][r]          = { id: _id, yOffset: 0, isMatched: false, scale: 1 };
@@ -1389,9 +1395,11 @@ function applyGravity() {
     for (let c = 0; c < COLS; c++) {
       if (board[c][r].id === -1 && !board[c][r].isMerged) {
         const _gColHasFG = board[c].some(cell => cell && (cell.id === 8 || cell.id === 9));
-        const _gFGAllowed = (c === 3 || c === 4);
         let _gId = randomSymId();
-        while (_gId >= 8 && (!_gFGAllowed || (_gId === 8 && (_gHasBow || _gColHasFG)) || (_gId === 9 && (_gHasStern || _gColHasFG)))) _gId = randomSymId();
+        while (_gId >= 8 && !(
+          (c === 3 && _gId === 8 && !_gHasBow   && !_gColHasFG) ||
+          (c === 4 && _gId === 9 && !_gHasStern && !_gColHasFG)
+        )) _gId = randomSymId();
         if (_gId === 8) _gHasBow = true;
         if (_gId === 9) _gHasStern = true;
         board[c][r]          = { id: _gId, yOffset: 0, isMatched: false, scale: 1 };
