@@ -794,7 +794,6 @@ function applySingleSynthesis(col, row) {
   const b = board[col + 1] && board[col + 1][row];
   if (!a || !b || a.isMerged || b.isMerged) return false;
   const colorId = Math.floor(a.id / 2);
-  const displayCount = splitCount[colorId] || 1; // 合成前的值 = 此格的顯示數
   const MAX_SPLIT = inFG ? 5 : 2;
   const _isNewColor = !synthesizedColors.has(colorId);
   if (inFG) {
@@ -807,12 +806,13 @@ function applySingleSynthesis(col, row) {
     splitCount[colorId] = 2;
     synthesizedColors.add(colorId);
   }
+  const displayCount = splitCount[colorId] || 1; // 合成後的值（FG 累積後正確反映）
   const mergeId = mergedCells.length;
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  // 符合當前步驟顏色即推進（含分裂後再次合成）；順序由 questOrder[questProgress] 保證
-  if (!inFG && questProgress < 4 && questOrder[questProgress] === colorId) {
+  // 符合當前步驟顏色即推進（NG / FG 皆適用，含分裂狀態下的合成）
+  if (questProgress < 4 && questOrder[questProgress] === colorId) {
     questProgress++;
     triggerShipToStep(questProgress - 1);
   }
@@ -834,8 +834,9 @@ function applyShipMerge() {
   }
 }
 
-// Pass 2：進階合成（兩相鄰 1×2 不同色 → 1×4），合成後一次觸發
+// Pass 2：進階合成（兩相鄰 1×2 不同色 → 1×4），NG Only（FG中不觸發，避免JP衝突）
 function applyAdvancedSynthesis() {
+  if (inFG) return;
   for (let i = 0; i < mergedCells.length; i++) {
     const mA = mergedCells[i];
     if (mA.size !== 2 || mA.upgraded) continue;
@@ -846,10 +847,10 @@ function applyAdvancedSynthesis() {
       const leftM  = mA.col < mB.col ? mA : mB;
       const rightM = mA.col < mB.col ? mB : mA;
       if (leftM.col + 2 !== rightM.col) continue;
-      const displayCount4 = Math.max(leftM.displayCount || 1, rightM.displayCount || 1);
       const _maxSplit = inFG ? 5 : 2;
       if (splitCount[leftM.colorId]  < _maxSplit) splitCount[leftM.colorId]++;
       if (splitCount[rightM.colorId] < _maxSplit) splitCount[rightM.colorId]++;
+      const displayCount4 = Math.max(splitCount[leftM.colorId] || 1, splitCount[rightM.colorId] || 1); // 合成後取值
       const newMerge = { col: leftM.col, row: leftM.row, colorId: leftM.colorId, colorId2: rightM.colorId, size: 4, displayCount: displayCount4 };
       leftM.upgraded  = true;
       rightM.upgraded = true;
@@ -862,8 +863,8 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
-      // 進階合成兩色按任務順序各補判一次（處理其中一色當時順序不對未推進的情況）
-      if (!inFG) {
+      // 進階合成兩色按任務順序各補判一次（NG / FG 皆適用，含分裂狀態）
+      {
         const _pair = new Set([leftM.colorId, rightM.colorId]);
         for (let _t = 0; _t < 2; _t++) {
           if (questProgress < 4 && _pair.has(questOrder[questProgress])) {
@@ -882,8 +883,9 @@ function applyAdvancedSynthesis() {
   mergedCells = mergedCells.filter(m => !m.upgraded);
 }
 
-// 找出可進行進階合成的合成符對（不修改狀態，僅回傳候選陣列）
+// 找出可進行進階合成的合成符對（不修改狀態，僅回傳候選陣列；FG中回傳空）
 function findAdvSynthPairs() {
+  if (inFG) return [];
   const pairs = [];
   const used  = new Set();
   for (let i = 0; i < mergedCells.length; i++) {
@@ -999,6 +1001,7 @@ function calcWin() {
           if (cids.includes(colorId)) mergeCount++;
         }
       }
+      // 規則：普通格 ×splitCount，合成格本身固定 ×1（不套用 split，不增也不減）
       colCounts.push(regCount * split + mergeCount);
     }
 
