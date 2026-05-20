@@ -2327,9 +2327,10 @@ function update(dt) {
 
       if (synthOpPhase !== 'settle' || synthOpTimer > 0) break;
 
-      // JP 動畫 / JP 抽牌進行中 → 凍結，等完成後才結算
+      // JP 動畫 / JP 抽牌 / JP 報獎動畫進行中 → 凍結，等全部完成後才結算
       if (tmAnim.active && tmAnim.stepIdx === 4) break;
       if (bossCardPick.active) break;
+      if (jpWinAnim.active) break;
 
       // 緩衝結束 → 結算（進階合成已在進入 settle 前套用）
       synthOpIdx   = -1;
