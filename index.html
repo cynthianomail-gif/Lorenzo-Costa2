@@ -2308,6 +2308,18 @@ function update(dt) {
             }
           }
         }
+        // 偵測船頭+船尾同時存在但不相鄰 → FG（連爆補牌後也需重新偵測）
+        if (!_shipFound && !inFG && !inSFG && !shipFGPending && !shipSFGPending) {
+          let _bPos = null, _sPos = null;
+          for (let _c = 0; _c < COLS; _c++) for (let _r = 0; _r < ROWS; _r++) {
+            if (board[_c]?.[_r]?.id === 8) _bPos = { c: _c, r: _r };
+            if (board[_c]?.[_r]?.id === 9) _sPos = { c: _c, r: _r };
+          }
+          if (_bPos && _sPos) {
+            const _adj = Math.abs(_bPos.c - _sPos.c) <= 1 && _bPos.r === _sPos.r;
+            if (!_adj) shipFGPending = true; // 不相鄰 → FG
+          }
+        }
         if (!_shipFound) {
           synthOps     = findBaseSynthCandidates();
           synthOpIdx   = 0;
