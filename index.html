@@ -748,18 +748,24 @@ function startSpin() {
           board[_fc2+1][_fr2].id = ((Math.floor(_b.id/2)+1)%4)*2;
       }
   }
-  if (forceSpinType === 'force_sfg') {
-    // 強開SFG：第4、5輪同列相鄰放置船頭+船尾 → 合成觸發SFG
-    board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
-    board[4][0] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
-    reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
-    reelStopFrame[4][0] = REEL_MIN_SPIN + 4 * REEL_STOP_DELAY;
-  } else if (forceSpinType === 'force_fg') {
-    // 強開FG：第4、5輪不同列放置船頭+船尾 → 不相鄰，觸發FG
-    board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
-    board[4][1] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
-    reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
-    reelStopFrame[4][1] = REEL_MIN_SPIN + (4 + 1) * REEL_STOP_DELAY;
+  if (forceSpinType === 'force_sfg' || forceSpinType === 'force_fg') {
+    // 先清除 random gen 已放置的所有 FG 符號，避免重複
+    for (let _c = 0; _c < COLS; _c++)
+      for (let _r = 0; _r < ROWS; _r++)
+        if (board[_c]?.[_r]?.id >= 8) board[_c][_r].id = randomSymId() % 8; // 換成普通符號
+    if (forceSpinType === 'force_sfg') {
+      // 強開SFG：同列相鄰放置船頭+船尾 → 合成觸發SFG
+      board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
+      board[4][0] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
+      reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
+      reelStopFrame[4][0] = REEL_MIN_SPIN + 4 * REEL_STOP_DELAY;
+    } else {
+      // 強開FG：不同列放置船頭+船尾 → 不相鄰，觸發FG
+      board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
+      board[4][1] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
+      reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
+      reelStopFrame[4][1] = REEL_MIN_SPIN + (4 + 1) * REEL_STOP_DELAY;
+    }
   }
 
   // 偵測船頭+船尾同時出現（NG only，強開覆寫後再掃描最終盤面）
