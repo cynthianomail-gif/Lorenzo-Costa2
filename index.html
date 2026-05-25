@@ -239,13 +239,13 @@
             <p>• 連爆結束後（若同時有 JP 則播完報獎後）顯示 FG 入場畫面</p>
             <p>• 點擊「出發！」進入 <b>10 局免費遊戲</b>，全程自動 Spin</p>
             <p>• FG 中不會再出現船頭 / 船尾符號</p>
-            <p>• 分裂倍數<b>跨局累積</b>（最高 ×5），FG 結束後才重置</p>
+            <p>• 分裂倍數<b>跨局累積</b>（最高 ×4），FG 結束後才重置</p>
             <p>• FG 結束後返回一般模式，分割狀態回到初始值</p>
 
             <h3>▌ ⚓ Super Free Game（SFG）</h3>
             <p>• NG 中<b>船頭與船尾相鄰並合成</b>即觸發 SFG（比 FG 更強）</p>
             <p>• 進入 <b>15 局免費遊戲</b>，全程自動 Spin</p>
-            <p>• 分裂倍數<b>跨局累積</b>（最高 ×5）</p>
+            <p>• 分裂倍數<b>跨局累積</b>（最高 ×4）</p>
             <p>• <b>右側航海地圖不重置</b>，進度持續往上累積</p>
             <p>• SFG 結束後返回一般模式，分割與地圖重置</p>
 
@@ -854,7 +854,7 @@ function applySingleSynthesis(col, row) {
   if (!a || !b || a.isMerged || b.isMerged) return false;
   const colorId = Math.floor(a.id / 2);
   const displayCount = splitCount[colorId] || 1; // 合成前的值 = 此格的顯示數
-  const MAX_SPLIT = (inFG || inSFG) ? 5 : 2;
+  const MAX_SPLIT = (inFG || inSFG) ? 4 : 2;
   const _isNewColor = !synthesizedColors.has(colorId);
   if (inFG || inSFG) {
     // FG/SFG 中：直接累積（不重設為2）
@@ -908,7 +908,7 @@ function applyAdvancedSynthesis() {
       const rightM = mA.col < mB.col ? mB : mA;
       if (leftM.col + 2 !== rightM.col) continue;
       const displayCount4 = Math.max(leftM.displayCount || 1, rightM.displayCount || 1); // 合成前的值
-      const _maxSplit = (inFG || inSFG) ? 5 : 2;
+      const _maxSplit = (inFG || inSFG) ? 4 : 2;
       if (splitCount[leftM.colorId]  < _maxSplit) splitCount[leftM.colorId]++;
       if (splitCount[rightM.colorId] < _maxSplit) splitCount[rightM.colorId]++;
       const newMerge = { col: leftM.col, row: leftM.row, colorId: leftM.colorId, colorId2: rightM.colorId, size: 4, displayCount: displayCount4 };
@@ -3053,7 +3053,7 @@ function drawShipFGPanel(ctx) {
   ctx.font = '22px Arial'; ctx.fillStyle = '#c4b5fd';
   ctx.fillText('🚢 ⚓  船頭+船尾登場！', px + pw / 2, py + 138);
   ctx.font = '16px Arial'; ctx.fillStyle = '#94a3b8';
-  ctx.fillText(`共 ${FG_TOTAL_SPINS} 局免費遊戲  ・  分割累積不重置  ・  最高 ×5`, px + pw / 2, py + 175);
+  ctx.fillText(`共 ${FG_TOTAL_SPINS} 局免費遊戲  ・  分割累積不重置  ・  最高 ×4`, px + pw / 2, py + 175);
   // GO button
   const bw = 160, bh = 50, bx = px + pw / 2 - 80, by = py + ph - 75;
   ctx.fillStyle = '#7c3aed';
@@ -3136,7 +3136,7 @@ function drawSFGPanel(ctx) {
   ctx.font = '22px Arial'; ctx.fillStyle = '#fde68a';
   ctx.fillText('🚢 ⚓  船頭+船尾相鄰合成！', px + pw / 2, py + 148);
   ctx.font = '16px Arial'; ctx.fillStyle = '#fcd34d';
-  ctx.fillText(`共 ${SFG_TOTAL_SPINS} 局  ・  分割累積不重置（最高×5）  ・  地圖持續累積`, px + pw / 2, py + 185);
+  ctx.fillText(`共 ${SFG_TOTAL_SPINS} 局  ・  分割累積不重置（最高×4）  ・  地圖持續累積`, px + pw / 2, py + 185);
   const bw = 180, bh = 52, bx = px + pw / 2 - 90, by = py + ph - 78;
   ctx.fillStyle = '#d97706';
   ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 26); ctx.fill();
