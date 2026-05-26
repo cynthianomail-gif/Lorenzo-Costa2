@@ -506,9 +506,12 @@ function randomSymId() {
   }
   return weights.length - 1;
 }
-// 捲軸動畫用隨機符號：任何欄都可出現FG符號（FG/SFG中由randomSymId自動排除）
+// 捲軸動畫用隨機符號：船頭(8)/船尾(9)不出現在滾動動畫中（僅在最終停止位置顯示）
 function randomReelSymId(col) {
-  return randomSymId();
+  let id = randomSymId();
+  let tries = 0;
+  while ((id === 8 || id === 9) && tries++ < 30) id = randomSymId();
+  return id;
 }
 
 const CHESTS = [
@@ -690,7 +693,9 @@ function startSpin() {
 
   // 單格滾輪：每格獨立旋轉，依左→右、上→下依序停止
   spinFrameCount = 0;
-  let _hasBow = false, _hasStern = false;
+  // 預掃描舊盤面：若已有船頭/船尾則本次 spin 不再生成（防止重複）
+  let _hasBow   = board.some(col => col?.some(cell => cell?.id === 8));
+  let _hasStern = board.some(col => col?.some(cell => cell?.id === 9));
   let _bowCol = -1, _bowRow = -1, _sternCol = -1, _sternRow = -1;
   for (let c = 0; c < COLS; c++) {
     board[c]           = [];
