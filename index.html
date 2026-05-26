@@ -2573,11 +2573,11 @@ function update(dt) {
     case STATE.POPPING:     updatePopping(); break;
     case STATE.GRAVITY:     updateGravity(); break;
     case STATE.IDLE:
-      if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length) {
+      if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
         shipSFGReady = false;
         showSFGPanel = true;
       }
-      if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length) {
+      if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
         shipFGReady = false;
         showShipFGPanel = true;
       }
@@ -3338,8 +3338,19 @@ canvas.addEventListener('click', e => {
     const bw = 180, bh = 52, bx = px + pw / 2 - 90, by = py + ph - 78;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showSFGPanel = false;
-      // SFG 入場：保留 NG 的地圖累積進度，但分裂次數從頭開始累積
+      // SFG 入場：分裂次數 & 地圖任務進度皆從頭開始
       splitCount = [1, 1, 1, 1];
+      mapFlags = [false, false, false, false, false];
+      questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
+      questOrder = [0,1,2,3].sort(() => Math.random() - 0.5);
+      tmAnim = { active: false, timer: 0, stepIdx: -1 };
+      mapSplash = [];
+      if (mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y) {
+        mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
+        mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
+        mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES; mapShip.flying = true;
+      }
+      mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
       inSFG = true;
       sfgSpinsLeft = SFG_TOTAL_SPINS;
       sfgSpinsTotal = SFG_TOTAL_SPINS;
@@ -3365,8 +3376,19 @@ canvas.addEventListener('click', e => {
     const bw = 160, bh = 50, bx = px + pw / 2 - 80, by = py + ph - 75;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showShipFGPanel = false;
-      // FG 入場：NG 的分裂次數不帶入，從頭開始累積
+      // FG 入場：分裂次數 & 地圖任務進度皆從頭開始
       splitCount = [1, 1, 1, 1];
+      mapFlags = [false, false, false, false, false];
+      questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
+      questOrder = [0,1,2,3].sort(() => Math.random() - 0.5);
+      tmAnim = { active: false, timer: 0, stepIdx: -1 };
+      mapSplash = [];
+      if (mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y) {
+        mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
+        mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
+        mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES; mapShip.flying = true;
+      }
+      mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
       inFG = true;
       fgSpinsLeft = FG_TOTAL_SPINS;
       fgSpinsTotal = FG_TOTAL_SPINS;
