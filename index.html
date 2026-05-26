@@ -405,6 +405,8 @@ let mapSplash = [];  // [{x, y, vx, vy, frame, maxFrame, color}]
 let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）
 let questProgress = 0;            // 已完成步驟數 0-5
 let questReveal   = 0;            // 目前地圖上已揭示的最高步驟索引（0=只顯示步驟1）
+const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10]; // 達成任務後的連爆得分倍數（index=questProgress）
+let questScoreMultiplier = 1;     // 當前連爆得分倍數
 const TM_ANIM_FRAMES = 90;        // 藏寶圖動畫幀數
 let tmAnim = { active: false, timer: 0, stepIdx: -1 }; // 藏寶圖動畫狀態
 let mergedCells = [];                // [{col, row, colorId, size, colorId2?}]
@@ -421,7 +423,8 @@ let _affectedCols = [];  // 本次消除影響的欄位
 
 let totalScore = 0;
 let winScore = 0;
-let roundScore = 0;   // 本次 cascade 單次得分
+let roundScore = 0;     // 本次 cascade 得分（已乘倍數，用於頂部顯示）
+let roundBaseScore = 0; // 本次 cascade 乘倍前原始得分（用於中央 WIN 大字顯示）
 let betAmount = 100;
 let multiplier = 1;      // 倍數欄位當前值（本局）
 let comboCount = 0;      // 本局連爆次數
@@ -641,6 +644,7 @@ function resetRoundState() {
   if (!inSFG) {
     mapFlags = [false, false, false, false, false];
     questProgress = 0;
+    questScoreMultiplier = 1;
     questReveal   = 0;
     tmAnim = { active: false, timer: 0, stepIdx: -1 };
     questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
@@ -682,6 +686,7 @@ function startSpin() {
 
   winScore = 0;
   roundScore = 0;
+  roundBaseScore = 0;
 
   // 單格滾輪：每格獨立旋轉，依左→右、上→下依序停止
   spinFrameCount = 0;
@@ -873,6 +878,7 @@ function applySingleSynthesis(col, row) {
   // 符合當前步驟顏色即推進（NG / FG 皆適用，含分裂狀態下的合成）
   if (questProgress < 4 && questOrder[questProgress] === colorId) {
     questProgress++;
+    questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
     triggerShipToStep(questProgress - 1);
     tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: questProgress - 1 };
   }
@@ -929,6 +935,7 @@ function applyAdvancedSynthesis() {
         for (let _t = 0; _t < 2; _t++) {
           if (questProgress < 4 && _pair.has(questOrder[questProgress])) {
             questProgress++;
+            questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
             triggerShipToStep(questProgress - 1);
             // 每次步驟推進都觸發藏寶圖動畫（同一幀多步時以最後一步為準）
             tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: questProgress - 1 };
@@ -937,6 +944,7 @@ function applyAdvancedSynthesis() {
         // 第5步：達成1組進階合成（需先完成前4步）
         if (questProgress === 4) {
           questProgress = 5;
+          questScoreMultiplier = QUEST_MULTIPLIERS[5];
           triggerShipToStep(4);
           tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: 4 };
         }
@@ -1122,7 +1130,7 @@ function endRound() {
   if (inSFG && sfgSpinsLeft <= 0) {
     inSFG = false; showSFGEndPanel = true; splitCount = [1,1,1,1];
     mapFlags = [false,false,false,false,false];
-    questProgress = 0; questReveal = 0;
+    questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
     questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
     tmAnim = { active: false, timer: 0, stepIdx: -1 };
   } else if (inFG && fgSpinsLeft <= 0) {
@@ -1174,8 +1182,8 @@ function drawCenterWin(ctx) {
   // 縮放：前 12 幀彈入
   let scale = 1.0;
   if (t > MAX - 12) {
-    const p = (MAX - t) / 12;              // 0→1
-    scale = 0.5 + 0.7 * p - 0.2 * p * p;  // 略微過衝的緩動
+    const p = (MAX - t) / 12;
+    scale = 0.5 + 0.7 * p - 0.2 * p * p;
   }
   // 透明度：最後 8 幀淡出
   const alpha = t < 8 ? t / 8 : 1.0;
@@ -1183,45 +1191,154 @@ function drawCenterWin(ctx) {
   const cx = GRID_X + GRID_W / 2;
   const cy = GRID_Y + GRID_H / 2;
 
-  const text = roundScore.toLocaleString();
+  const showMult = questScoreMultiplier > 1;
+  const baseText = (showMult ? roundBaseScore : roundScore).toLocaleString();
+  const multText = `×${questScoreMultiplier}`;
+
+  // ── 倍數打擊動畫時間節點（以 popWaitTimer 值為準）──
+  const SLAM_ARRIVE = 50;  // t 降到此值時 ×N 被「打」出現
+  const SETTLE_DUR  = 8;   // 彈跳緩衝幀數（阻尼振盪）
+  const FLASH_DUR   = 12;  // 撞擊光效持續幀數
 
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
 
-  // 暗色半透明背板（讓數字更清楚）
+  // ── 量測文字寬度（先設字體才能準確量測）──
+  ctx.font = 'bold 72px Arial';
+  const scoreW = ctx.measureText(baseText).width;
+  ctx.font = 'bold 80px Arial';
+  const multW  = ctx.measureText(multText).width;
+  const gap    = 18;
+  const totalW = scoreW + gap + multW;
+  // 有倍數：得分靠左，×N靠右；無倍數：得分置中
+  const scoreX    = showMult ? (-totalW / 2 + scoreW / 2) : 0;
+  const multFinalX = showMult ? (scoreX + scoreW / 2 + gap + multW / 2) : 0;
+
+  // ── 背板（根據是否有倍數調整寬度）──
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.beginPath();
   ctx.roundRect(-220, -58, 440, 116, 16);
   ctx.fill();
-
-  // 外框裝飾線
   ctx.strokeStyle = 'rgba(255,180,0,0.6)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 數字外輪廓（深色）
-  ctx.font = 'bold 88px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = '#3b1500';
-  ctx.shadowColor = 'transparent';
-  ctx.strokeText(text, 0, 0);
 
-  // 金色漸層填色
-  const grad = ctx.createLinearGradient(0, -44, 0, 44);
-  grad.addColorStop(0.0, '#fff8b0');
-  grad.addColorStop(0.3, '#ffd700');
-  grad.addColorStop(0.7, '#e8940a');
-  grad.addColorStop(1.0, '#c46200');
-  ctx.fillStyle = grad;
+  // ── 得分數字（水藍色，有倍數時；金色，無倍數時）──
+  if (!showMult) {
+    ctx.font = 'bold 88px Arial';
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#3b1500';
+    ctx.shadowColor = 'transparent';
+    ctx.strokeText(baseText, 0, 0);
+    const grad = ctx.createLinearGradient(0, -44, 0, 44);
+    grad.addColorStop(0.0, '#fff8b0');
+    grad.addColorStop(0.3, '#ffd700');
+    grad.addColorStop(0.7, '#e8940a');
+    grad.addColorStop(1.0, '#c46200');
+    ctx.fillStyle = grad;
+    ctx.shadowColor = '#ff8c00';
+    ctx.shadowBlur  = 28;
+    ctx.fillText(baseText, 0, 0);
+  } else {
+    ctx.font = 'bold 72px Arial';
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#003060';
+    ctx.shadowColor = 'transparent';
+    ctx.strokeText(baseText, scoreX, 0);
+    const scoreGrad = ctx.createLinearGradient(0, -36, 0, 36);
+    scoreGrad.addColorStop(0.0, '#e0f7ff');
+    scoreGrad.addColorStop(0.3, '#38bdf8');
+    scoreGrad.addColorStop(0.7, '#0ea5e9');
+    scoreGrad.addColorStop(1.0, '#0369a1');
+    ctx.fillStyle = scoreGrad;
+    ctx.shadowColor = '#00c8ff';
+    ctx.shadowBlur  = 24;
+    ctx.fillText(baseText, scoreX, 0);
+  }
 
-  // 橙色光暈
-  ctx.shadowColor = '#ff8c00';
-  ctx.shadowBlur  = 28;
-  ctx.fillText(text, 0, 0);
+  // ── ×N 打擊出現動畫（僅有倍數時）──
+  if (showMult && t <= SLAM_ARRIVE) {
+    const impactAge = SLAM_ARRIVE - t; // 0=打擊瞬間，正數=打擊後經過幀數
+
+    // ── 阻尼彈跳縮放：從 1.9× 開始，振盪收斂到 1.0 ──
+    const settleP = Math.min(impactAge / SETTLE_DUR, 1.0);
+    const multScl = 1.0 + 0.9 * Math.exp(-4.0 * settleP) * Math.cos(settleP * Math.PI * 2.4);
+
+    // ── 撞擊光效（打擊後 FLASH_DUR 幀內）──
+    if (impactAge < FLASH_DUR) {
+      const flashP = 1 - impactAge / FLASH_DUR; // 1.0 → 0.0
+      ctx.save();
+      ctx.shadowBlur = 0;
+
+      // 1. 漫畫風放射線（速度線）
+      const lineCount = 14;
+      for (let i = 0; i < lineCount; i++) {
+        const angle  = (i / lineCount) * Math.PI * 2 + 0.22;
+        const lenVar = 28 + 22 * Math.abs(Math.sin(i * 1.9));
+        const inner  = 8  + impactAge * 5;
+        const outer  = inner + lenVar + impactAge * 6;
+        ctx.globalAlpha = flashP * 0.95;
+        ctx.strokeStyle = i % 2 === 0 ? `rgba(255,240,80,1)` : `rgba(255,180,20,0.8)`;
+        ctx.lineWidth   = Math.max(0.5, 3 - impactAge * 0.25);
+        ctx.beginPath();
+        ctx.moveTo(multFinalX + Math.cos(angle) * inner, Math.sin(angle) * inner);
+        ctx.lineTo(multFinalX + Math.cos(angle) * outer, Math.sin(angle) * outer);
+        ctx.stroke();
+      }
+
+      // 2. 中心輻射閃光
+      ctx.globalAlpha = flashP * 0.9;
+      const rg = ctx.createRadialGradient(multFinalX, 0, 0, multFinalX, 0, 85);
+      rg.addColorStop(0,    'rgba(255,255,210,1)');
+      rg.addColorStop(0.15, 'rgba(255,230,60,0.9)');
+      rg.addColorStop(0.5,  'rgba(255,130,10,0.5)');
+      rg.addColorStop(1,    'rgba(255,60,0,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(multFinalX, 0, 85, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. 向外擴散的衝擊波環（兩圈）
+      [14 + impactAge * 14, 6 + impactAge * 9].forEach((r, ri) => {
+        const rAlpha = flashP * (ri === 0 ? 0.75 : 0.5);
+        ctx.globalAlpha = rAlpha;
+        ctx.strokeStyle = `rgba(255,220,70,1)`;
+        ctx.lineWidth   = ri === 0 ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(multFinalX, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    // ── 繪製 ×N（固定在最終位置，只做縮放彈跳）──
+    ctx.save();
+    ctx.translate(multFinalX, 0);
+    ctx.scale(multScl, multScl);
+    ctx.font = 'bold 80px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#3b1500';
+    ctx.shadowColor = 'transparent';
+    ctx.strokeText(multText, 0, 0);
+    const multGrad = ctx.createLinearGradient(0, -40, 0, 40);
+    multGrad.addColorStop(0.0, '#fff8b0');
+    multGrad.addColorStop(0.3, '#ffd700');
+    multGrad.addColorStop(0.7, '#e8940a');
+    multGrad.addColorStop(1.0, '#c46200');
+    ctx.fillStyle = multGrad;
+    ctx.shadowColor = '#ff8c00';
+    ctx.shadowBlur  = 32;
+    ctx.fillText(multText, 0, 0);
+    ctx.restore();
+  }
 
   ctx.restore();
 }
@@ -1733,11 +1850,14 @@ function drawMapPanel(ctx) {
     ctx.fillText(isAdv ? '🐏' : PLACE_ICONS[questOrder[i]], x, y);
     ctx.globalAlpha = 1;
 
-    // 左側步驟號
-    const textColor = isAdv ? '#c4b5fd' : stepColor; // 第5步文字用固定淡紫色，不循環
-    ctx.font = 'bold 13px Arial'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    // 左側標籤（乘倍 / JP）
+    const textColor = isAdv ? '#c4b5fd' : stepColor;
+    const STEP_LEFT_LABELS = ['×2', '×3', '×5', '×10', 'JP'];
+    const leftLabel = STEP_LEFT_LABELS[i];
+    const leftFontSize = (leftLabel === '×10') ? 10 : 12; // ×10 略縮字
+    ctx.font = `bold ${leftFontSize}px Arial`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillStyle = (isDone || isCurrent) ? textColor : 'rgba(255,255,255,0.2)';
-    ctx.fillText(String(i + 1), x - 22, y);
+    ctx.fillText(leftLabel, x - 20, y);
 
     // 右側條件說明
     ctx.font = '11px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -2405,8 +2525,10 @@ function update(dt) {
 
       const win = calcWin();
       if (win > 0) {
-        winScore += win;
-        roundScore = win;
+        const multipliedWin = Math.floor(win * questScoreMultiplier);
+        winScore += multipliedWin;
+        roundBaseScore = win;
+        roundScore = multipliedWin;
         comboCount++;
         if (comboCount === 1) stats.hits++;
         popWaitTimer = 90;
@@ -2434,7 +2556,7 @@ function update(dt) {
           splitCount = [1, 1, 1, 1];
           // SFG 結束 → 重置地圖
           mapFlags = [false, false, false, false, false];
-          questProgress = 0; questReveal = 0;
+          questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
           questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
           tmAnim = { active: false, timer: 0, stepIdx: -1 };
         } else if (inFG && fgSpinsLeft <= 0) {
@@ -3216,7 +3338,8 @@ canvas.addEventListener('click', e => {
     const bw = 180, bh = 52, bx = px + pw / 2 - 90, by = py + ph - 78;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showSFGPanel = false;
-      // SFG 入場：保留 NG 的地圖累積進度，之後跨局持續往上
+      // SFG 入場：保留 NG 的地圖累積進度，但分裂次數從頭開始累積
+      splitCount = [1, 1, 1, 1];
       inSFG = true;
       sfgSpinsLeft = SFG_TOTAL_SPINS;
       sfgSpinsTotal = SFG_TOTAL_SPINS;
@@ -3242,6 +3365,8 @@ canvas.addEventListener('click', e => {
     const bw = 160, bh = 50, bx = px + pw / 2 - 80, by = py + ph - 75;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showShipFGPanel = false;
+      // FG 入場：NG 的分裂次數不帶入，從頭開始累積
+      splitCount = [1, 1, 1, 1];
       inFG = true;
       fgSpinsLeft = FG_TOTAL_SPINS;
       fgSpinsTotal = FG_TOTAL_SPINS;
