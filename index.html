@@ -1162,6 +1162,9 @@ function startSpin() {
   if (bossCardPick.active) return;
   if (showShipFGPanel || showFGEndPanel || showSFGPanel || showSFGEndPanel) return;
   if (bigWin.active || transition.active) return;
+  // FG／SFG 的 SC 中獎演繹尚未播完就開下一局的話，shipFGReady／shipSFGReady 會殘留，
+  // 導致之後每局在 IDLE 都重播一次演繹＋盤面震動（面板永遠開不起來）
+  if (shipFGReady || shipSFGReady || scWinAnim.active) return;
   // 新的一局：清掉上一局殘留的 SC 中獎演繹與盤面震動
   scWinAnim = { active: false, timer: 0, total: 1, tag: null };
   boardShake.timer = 0;
@@ -2604,35 +2607,6 @@ function drawTMAnim(ctx) {
   ctx.restore();
 }
 
-// ── 得分累積欄位（頂部，取代原倍數欄位位置）──
-function drawScoreAccumulator(ctx) {
-  const bx = GRID_X + GRID_W / 2 - 100;
-  const by = GRID_Y - 58;
-  const bw = 200, bh = 44;
-  const hasWin = roundScore > 0;
-  const pulse = hasWin ? 0.7 + 0.3 * Math.sin(Date.now() / 200) : 1;
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.65)';
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
-
-  ctx.strokeStyle = hasWin ? '#facc15' : '#475569';
-  ctx.lineWidth = hasWin ? 2 : 1;
-  if (hasWin) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 12 * pulse; }
-  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#64748b'; ctx.font = '11px Arial';
-  ctx.fillText('回合得分', bx + bw / 2, by + 9);
-  ctx.fillStyle = hasWin ? '#facc15' : '#475569';
-  ctx.font = `bold ${hasWin ? 22 : 20}px Arial`;
-  if (hasWin) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8 * pulse; }
-  ctx.fillText(roundScore.toLocaleString(), bx + bw / 2, by + bh / 2 + 5);
-  ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
 // ── 左側 JP 獎池面板（宙斯卡片下方）──
 function drawJPPanel(ctx) {
   if (inFG) return;
@@ -3155,8 +3129,10 @@ function update(dt) {
             const op = synthOps[synthOpIdx];
             if (board[op.col]?.[op.row])         board[op.col][op.row]._flashTimer       = 0;
             if (board[op.col + 1]?.[op.row])     board[op.col + 1][op.row]._flashTimer   = 0;
+            const _prevSplit = splitCount[op.colorId];
             applySingleSynthesis(op.col, op.row);
-            triggerSplitAnim(op.colorId);
+            // 已達分裂上限時 splitCount 不變 → 不再播分裂演繹（避免白閃一下又跳回原本的分裂數）
+            if (splitCount[op.colorId] !== _prevSplit) triggerSplitAnim(op.colorId);
             synthOpTimer = TF(TIMING.synthSplit);
             synthOpPhase = 'split';
           } else if (synthOpPhase === 'split') {
@@ -3299,7 +3275,7 @@ function update(dt) {
       }
       if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
         // SC 中獎演繹（強度中／0.8s）：進 FG 轉場前，圖示發光放大縮小＋些微盤面震動
-        if (scWinAnim.tag !== 'fg') {
+        if (!scWinAnim.active && scWinAnim.tag !== 'fg') {
           scWinAnim = { active: true, timer: TF(TIMING.scWinFG), total: TF(TIMING.scWinFG), tag: 'fg' };
           triggerBoardShake(TIMING.shakeSmallAmp, TF(TIMING.shakeSmall));
         } else if (!scWinAnim.active) {
@@ -3695,9 +3671,10 @@ function drawBoard(ctx) {
       }
 
       // ── 靜態格繪製 ──
-      // 得分演繹：得分組亮起、其餘壓暗至約 60%
+      // 得分演繹：得分組亮起、其餘壓暗至約 60%（壓暗＝疊黑，不是變透明）
       const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
-      const alpha = cell.isMatched ? 1.0 : (dimOthers ? 1 - TIMING.popDimAlpha : 1.0);
+      const dim   = (!cell.isMatched && dimOthers) ? TIMING.popDimAlpha : 0;
+      const alpha = 1.0;
       const sc    = cell.scale || 1;
       // 圖示回彈演繹：落定壓扁 5% 再回彈
       const sq    = cell._landSquash > 0 ? cell._landSquash / TF(TIMING.landSquash) : 0;
@@ -3732,6 +3709,15 @@ function drawBoard(ctx) {
         }
       } else {
         drawSymbol(ctx, cell.id, x, y, CELL_SIZE, alpha, cell._scAppear);
+      }
+
+      // 未得分圖示壓暗：疊一層黑（保留圖示不透明，只降低亮度）
+      if (dim > 0) {
+        ctx.save();
+        ctx.globalAlpha = dim;
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.fill();
+        ctx.restore();
       }
 
       // 閃光特效（合成前的金色脈衝）
@@ -3773,10 +3759,16 @@ function drawBoard(ctx) {
     const y = GRID_Y + m.row * CELL_SIZE;
     const isMatched = !!board[m.col]?.[m.row]?.isMatched;
     const _dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
-    const alpha = isMatched ? 1.0 : (_dimOthers ? 1 - TIMING.popDimAlpha : 1.0);
+    const _dim = (!isMatched && _dimOthers) ? TIMING.popDimAlpha : 0;
+    // 消除演繹：跟著主格的 scale 一起縮小，與單格圖示同時消失
+    const _popSc = board[m.col]?.[m.row]?.scale ?? 1;
 
     ctx.save();
-    ctx.globalAlpha = alpha;
+    if (_popSc !== 1) {
+      ctx.translate(x + w / 2, y + CELL_SIZE / 2);
+      ctx.scale(_popSc, _popSc);
+      ctx.translate(-(x + w / 2), -(y + CELL_SIZE / 2));
+    }
 
     // ── 船合成格 特殊繪製 ──
     if (m.isShipMerge) {
@@ -3803,6 +3795,11 @@ function drawBoard(ctx) {
       ctx.fillText('🚢', x + w * 0.36, y + CELL_SIZE / 2 - 6);
       ctx.font = `${Math.floor(CELL_SIZE * 0.30)}px Arial`;
       ctx.fillText('⚓', x + w * 0.64, y + CELL_SIZE / 2 + 8);
+      if (_dim > 0) {
+        ctx.globalAlpha = _dim;
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.fill();
+      }
       ctx.restore();
       return;
     }
@@ -3832,6 +3829,15 @@ function drawBoard(ctx) {
       ctx.beginPath();
       ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
       ctx.fill();
+    }
+
+    // 未得分壓暗：疊一層黑（與單格圖示一致，不做透明）
+    if (_dim > 0) {
+      ctx.save();
+      ctx.globalAlpha = _dim;
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.fill();
+      ctx.restore();
     }
 
     // 外框：中獎時用得分框，其餘用金色發光框
@@ -4459,9 +4465,9 @@ function drawSceneBackground(ctx) {
 
 // ── 三階大獎跑分（編號 35-37，爬階大獎）────────────────────
 const BIGWIN_TIERS = [
-  { name: 'BIG WIN',   key: 'winBig',   ratio: 15  },
-  { name: 'SUPER WIN', key: 'winSuper', ratio: 40  },
-  { name: 'MEGA WIN',  key: 'winMega',  ratio: 100 },
+  { name: 'BIG WIN',   key: 'winBig',   ratio: 25  },   // 25~49 倍
+  { name: 'SUPER WIN', key: 'winSuper', ratio: 50  },   // 50~99 倍
+  { name: 'MEGA WIN',  key: 'winMega',  ratio: 100 },   // 100 倍以上
 ];
 let bigWin = { active: false, tier: 0, maxTier: 0, shown: 0, target: 0, timer: 0, total: 1, hold: 0 };
 let pendingBigWinCheck = false;   // 連爆結束後待判定大獎（大獎播完才進 FG／SFG）
@@ -4671,7 +4677,6 @@ function draw() {
   drawMapPanel(ctx);
   drawMapShip(ctx);  // 船在地圖上層，但在抽牌/報獎 overlay 之下
   drawTMAnim(ctx);   // 藏寶圖動畫（地圖面板上方）
-  drawScoreAccumulator(ctx);
   drawFlyingScores(ctx);
   drawParticles(ctx);
   drawCenterWin(ctx);
