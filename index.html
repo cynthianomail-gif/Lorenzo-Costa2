@@ -926,6 +926,28 @@ function randomReelSymId(col) {
   return id;
 }
 
+// 合成後的船（1×2、colorId -1）等同同時佔用船頭與船尾，
+// 否則補盤／下一次 spin 會誤判「盤面上沒有船尾」而再生一個。
+function isShipCell(cell) { return !!cell && cell.isMerged && cell.colorId === -1; }
+// 盤面上是否已有船頭／船尾
+function scanShipSymbols() {
+  let bow = false, stern = false;
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      const cell = board[c]?.[r];
+      if (!cell) continue;
+      if (isShipCell(cell)) { bow = true; stern = true; }
+      else if (cell.id === 8) bow = true;
+      else if (cell.id === 9) stern = true;
+    }
+  }
+  return { bow, stern };
+}
+// 該欄是否已有 SC 符號（每欄最多一個）
+function colHasShipSymbol(c) {
+  return (board[c] || []).some(cell => cell && (cell.id === 8 || cell.id === 9 || isShipCell(cell)));
+}
+
 const CHESTS = [
   { label: '禿鷹&獵犬', keys: 2, color: '#7c2d12', glowColor: '#ea580c', textColor: '#fdba74', icon: '🦅' },
   { label: '厄里斯',    keys: 3, color: '#1e3a5f', glowColor: '#94a3b8', textColor: '#e2e8f0', icon: '🍎' },
@@ -1157,7 +1179,9 @@ function startSpin() {
 
   // 單格滾輪：每格獨立旋轉，依左→右、上→下依序停止
   spinFrameCount = 0;
-  // 預掃描舊盤面：若已有船頭/船尾則本次 spin 不再生成（防止重複）
+  // 預掃描舊盤面：若舊盤面「還看得到」船頭/船尾則本次 spin 不再生成，
+  // 避免滾動動畫中新舊各一個同時出現。合成後的船不算——resetRoundState()
+  // 已清掉 mergedCells，合成格此時不會被畫出來。
   let _hasBow   = board.some(col => col?.some(cell => cell?.id === 8));
   let _hasStern = board.some(col => col?.some(cell => cell?.id === 9));
   let _bowCol = -1, _bowRow = -1, _sternCol = -1, _sternRow = -1;
@@ -2007,12 +2031,13 @@ function applyGravity() {
   // 不做位移，直接對空格原地啟動單格滾輪
   spinFrameCount = 0;
   let idx = 0;
-  let _gHasBow   = board.some(col => col?.some(cell => cell?.id === 8));
-  let _gHasStern = board.some(col => col?.some(cell => cell?.id === 9));
+  const _gScan = scanShipSymbols();
+  let _gHasBow   = _gScan.bow;
+  let _gHasStern = _gScan.stern;
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (board[c][r].id === -1 && !board[c][r].isMerged) {
-        const _gColHasFG = board[c].some(cell => cell && (cell.id === 8 || cell.id === 9));
+        const _gColHasFG = colHasShipSymbol(c);
         let _gId = randomSymId();
         // 任何欄都可補入FG符號，全局各最多一個 且 本欄未有
         while (_gId >= 8 && !(
