@@ -858,7 +858,8 @@ const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 航線分歧', desc: '藍綠→紅金分歧定航線，宙斯給倍數／赫拉給彩金' },
 };
-let RULE_VERSION = 1;
+const DEFAULT_RULE_VERSION = 2;
+let RULE_VERSION = DEFAULT_RULE_VERSION;
 
 // v1：達成任務後的連爆得分倍數（index=questProgress）
 const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10];
@@ -5124,7 +5125,7 @@ function loadTuning() {
         });
         if (typeof c.zoom === 'number' && isFinite(c.zoom)) CROP[i].zoom = Math.min(3, Math.max(0.5, c.zoom));
       }
-      // 地圖規則版本（舊存檔沒這個欄位 → 沿用預設 v1）
+      // 地圖規則版本（舊存檔沒這個欄位 → 沿用預設值）
       if (RULE_VERSIONS[d.ruleVersion]) RULE_VERSION = Number(d.ruleVersion);
     }
   } catch (e) { /* 資料損毀：退回預設 */ }
@@ -5592,7 +5593,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
     Object.keys(def).forEach(k => { LAYOUT[k] = def[k]; });
     syncLayoutDerived();
   } else if (tuneTab === 'rules') {
-    RULE_VERSION = 1;
+    RULE_VERSION = DEFAULT_RULE_VERSION;
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
     mapFlags = [false, false, false, false, false];
     buildQuestPlan();
