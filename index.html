@@ -369,7 +369,7 @@
 <div id="game-container">
     <button id="fsBtn" title="全螢幕 (Fullscreen)">⛶</button>
     <button id="statsBtn" class="active" title="測試面板">📊</button>
-    <button id="tuneBtn" title="調校面板（節奏/佈局/取圖）">🔧</button>
+    <button id="tuneBtn" title="調校面板（節奏/佈局/取圖/規則）">🔧</button>
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
     <div id="tunePanel">
@@ -378,6 +378,7 @@
             <button class="tune-tab active" data-tab="timing">⏱️ 節奏</button>
             <button class="tune-tab" data-tab="layout">📐 佈局</button>
             <button class="tune-tab" data-tab="crop">✂️ 取圖</button>
+            <button class="tune-tab" data-tab="rules">🗺️ 規則</button>
         </div>
         <div id="tuneBody"></div>
         <div class="tune-actions">
@@ -413,11 +414,22 @@
 
             <h3>▌ 航海地圖（右側面板）</h3>
             <p>• 地圖共 5 個里程碑；達成條件後依序解鎖</p>
-            <p>• 前 4 步：本局 Spin 中各色觸發合成即推進一步</p>
-            <p>• 第 5 步（科爾基斯聖林）：達成進階合成（1×4 格）即完成</p>
             <p>• 每完成一步，盤面暫停並跳出動畫，揭示下一個條件</p>
-            <p>• 第 5 步完成後播放「獲得JP！」動畫，連爆全部結束後進入抽牌</p>
-            <p>• 每局 Spin 開始時地圖重置</p>
+            <p>• 第 5 步（科爾基斯聖林）：達成進階合成（1×4 格）即完成並獲得 JP</p>
+            <p>• 每局 Spin 開始時地圖重置（SFG 中不重置，持續累積）</p>
+            <p>• 規則有<b>兩個版本</b>，可在 🔧 調校面板的「🗺️ 規則」分頁切換：</p>
+            <p>&nbsp;&nbsp;<b>v1 四色隨機</b>：4 色隨機排序，各完成合成 1 次，盤面倍數依序 ×2 / ×3 / ×5 / ×10</p>
+            <p>&nbsp;&nbsp;<b>v2 航線分歧</b>：藍／綠 二選一 → 另一色 → <b>紅｜金 分歧</b> → 另一色 → 進階合成</p>
+
+            <h3>▌ v2 航線分歧</h3>
+            <p>• 第 1、2 關：藍／綠各完成合成 1 次，盤面倍數 ×2 → ×3</p>
+            <p>• 第 3 關同時開放<b>紅色與金色</b>，<b>先完成合成的顏色決定本局航線</b></p>
+            <p>&nbsp;&nbsp;<b>紅色 → ⚡ 宙斯航線</b>（給盤面倍數）：第 3 關 ×5、第 4 關 ×20</p>
+            <p>&nbsp;&nbsp;<b>金色 → 👑 赫拉航線</b>（給結算彩金）：第 3 關 50×、第 4 關 100×，盤面倍數留在 ×3</p>
+            <p>• 第 4 關為第 3 關<b>未先完成</b>之另一色，合成 1 次</p>
+            <p>• 結算彩金<b>只給達成的最遠一關</b>，不重複給；於該局結算時一次給予</p>
+            <p>• 結算彩金與 JP 彩金皆<b>獨立計算，不與盤面倍數相乘</b></p>
+            <p>• JP 尊位由第 3 關的分歧決定，並於<b>船轉向的同時揭露</b></p>
           </div>
           <div>
             <h3>▌ 賠率表（押注額 × 賠率 × Ways）</h3>
@@ -449,11 +461,14 @@
             <p>• SFG 結束後返回一般模式，分割與地圖重置</p>
 
             <h3>▌ 宙斯 / 赫拉 JP</h3>
-            <p>• 達成航海地圖第 5 步（進階合成）即觸發</p>
-            <p>• 觸發時播放「獲得JP！」動畫，<b>連爆繼續進行</b></p>
-            <p>• 連爆全部結束後，進入<b>抽牌介面</b>，從兩張背面牌中選一張</p>
-            <p>• ⚡ 宙斯 或 👑 赫拉，各對應不同累積彩金金額</p>
-            <p>• 抽牌結束後播放報獎動畫；若同時觸發 FG 則 JP 報獎優先播出</p>
+            <p>• JP 尊位為 <b>⚡ 宙斯</b>（999,999）或 <b>👑 赫拉</b>（888,888）</p>
+            <p>• <b>v1</b>：尊位開局隨機決定，完成第 4 步、<b>揭開第 5 格</b>時公布</p>
+            <p>• <b>v2</b>：尊位由第 3 關的紅／金分歧決定，<b>船轉向時</b>公布</p>
+            <p>• 公布後第 5 格的顏色與圖示改為該尊（宙斯金／赫拉粉）</p>
+            <p>• 達成第 5 步（進階合成）即觸發，播放「獲得JP！」動畫，<b>連爆繼續進行</b></p>
+            <p>• 連爆全部結束後<b>直接發放</b>該尊 JP 並播放報獎動畫（不需抽牌）</p>
+            <p>• v2 赫拉航線若同時有結算彩金，<b>彩金先報、JP 後報</b></p>
+            <p>• 若同時觸發 FG 則 JP 報獎優先播出</p>
           </div>
         </div>
     </div>
@@ -575,16 +590,20 @@ const DEFAULT_TIMING = {
   shakeSmallAmp:     4,     // 震動幅度・小（±px），非時間值
   shakeBigAmp:       10,    // 震動幅度・大（±px），非時間值
   // 大獎／轉場
-  bigWinRun:         1.83,  // 大獎跑分（基底時長）
-  bigWinTierAdd:     1.17,  // 每爬一階加長
-  bigWinHold:        1.50,  // 跑完停留
+  // 三階大獎（爬階式）：每階的跑分與停留各自獨立（企劃給的是每階秒數，不是線性公式）
+  bigWinRunBig:      2.00,  // BIG WIN 跑分（25~49 倍）
+  bigWinHoldBig:     1.00,  // BIG WIN 跑完停留
+  bigWinRunSuper:    3.00,  // SUPER WIN 跑分（50~99 倍）
+  bigWinHoldSuper:   1.00,  // SUPER WIN 跑完停留
+  bigWinRunMega:     4.00,  // MEGA WIN 跑分（100 倍以上）
+  bigWinHoldMega:    2.00,  // MEGA WIN 跑完停留
   jpWin:             3.50,  // JP 全畫面報獎
+  cashWin:           2.20,  // 結算彩金報獎（v2 赫拉航線，比 JP 短一些）
   transEnter:        1.60,  // 進場轉場・總長
   transEnterMid:     0.87,  // 進場轉場・畫面切換點
   transExit:         1.10,  // 結束轉場・總長
   transExitMid:      0.50,  // 結束轉場・畫面切換點
   chestUnlock:       2.50,  // 寶箱解鎖
-  cardPickResult:    1.50,  // 翻牌結果停留
 };
 // 面板顯示：分組、中文名、[min, max, step]（未填 = 0~5 秒、步進 0.05）
 const TIMING_META = [
@@ -609,11 +628,13 @@ const TIMING_META = [
     ['shakeSmall','盤面震動・小'], ['shakeBig','盤面震動・大'],
     ['shakeSmallAmp','震動幅度小(px)', 0, 30, 1], ['shakeBigAmp','震動幅度大(px)', 0, 30, 1]] },
   { group: '大獎／轉場', items: [
-    ['bigWinRun','大獎跑分'], ['bigWinTierAdd','每階加長'], ['bigWinHold','跑完停留'],
-    ['jpWin','JP 報獎', 0, 6, 0.05],
+    ['bigWinRunBig','BIG 跑分'], ['bigWinHoldBig','BIG 停留'],
+    ['bigWinRunSuper','SUPER 跑分'], ['bigWinHoldSuper','SUPER 停留'],
+    ['bigWinRunMega','MEGA 跑分'], ['bigWinHoldMega','MEGA 停留'],
+    ['jpWin','JP 報獎', 0, 6, 0.05], ['cashWin','結算彩金報獎', 0, 6, 0.05],
     ['transEnter','進場轉場總長'], ['transEnterMid','進場切換點'],
     ['transExit','結束轉場總長'], ['transExitMid','結束切換點'],
-    ['chestUnlock','寶箱解鎖'], ['cardPickResult','翻牌結果停留']] },
+    ['chestUnlock','寶箱解鎖']] },
 ];
 // 各參數範圍表（載入時鉗制用）：key → [min, max]
 const TIMING_RANGE = {};
@@ -638,9 +659,11 @@ const GANTT_START_PRESET = {
   synthMark: 0.00, synthFlash: 0.10, synthAdvFlash: 0.10, synthSplit: 0.90, synthGap: 1.05,
   mapShipFly: 0.00, mapShipLand: 0.30, mapShipPause: 0.70, mapMask: 0.90, mapFlag: 1.00, mapQuest: 0.00,
   scAppear: 0.00, scWinFG: 0.30, scWinSFG: 0.30, shakeSmall: 0.30, shakeBig: 0.30,
-  bigWinRun: 0.00, bigWinTierAdd: 0.00, bigWinHold: 1.85,
-  jpWin: 0.00, transEnter: 0.00, transEnterMid: 0.00, transExit: 0.00, transExitMid: 0.00,
-  chestUnlock: 0.00, cardPickResult: 0.00,
+  bigWinRunBig: 0.00, bigWinHoldBig: 2.00,
+  bigWinRunSuper: 0.00, bigWinHoldSuper: 3.00,
+  bigWinRunMega: 0.00, bigWinHoldMega: 4.00,
+  jpWin: 0.00, cashWin: 0.00, transEnter: 0.00, transEnterMid: 0.00, transExit: 0.00, transExitMid: 0.00,
+  chestUnlock: 0.00,
 };
 const DEFAULT_TIMING_START = {};
 TIMING_META.forEach(g => g.items.forEach(([key]) => {
@@ -653,8 +676,8 @@ const TF = s => Math.max(1, Math.round(s * 60));   // 秒 → 幀（60fps）
 
 // === 佈局：預設值 = 原程式寫死座標 ===
 const DEFAULT_LAYOUT = {
-  grid:      { x: 315,  y: 120 },                    // 盤面左上角
-  mapPanel:  { x: 970,  y: 120, w: 200, h: 462 },    // 航海地圖面板
+  grid:      { x: 265,  y: 120 },                    // 盤面左上角（讓右側地圖放得下兩欄分歧）
+  mapPanel:  { x: 925,  y: 120, w: 300, h: 462 },    // 航海地圖面板
   jpBar:     { x: 0,    y: 0 },                      // JP 橫幅（相對盤面的偏移）
   ways:      { x: 0,    y: 0 },                      // WAYS 欄位（相對盤面的偏移）
   bottomUI:  { x: 0,    y: 650 },                    // 下方 UI 列頂端
@@ -690,9 +713,9 @@ function syncLayoutDerived() {
   MAP_PX = LAYOUT.mapPanel.x; MAP_PY = LAYOUT.mapPanel.y;
   MAP_PW = LAYOUT.mapPanel.w; MAP_PH = LAYOUT.mapPanel.h;
   MAP_STEP_X = MAP_PX + MAP_PW / 2;
-  MAP_STEP_YS = [310, 245, 180, 115, 50].map(d => MAP_PY + MAP_JP_H + d);
+  MAP_STEP_YS = [300, 236, 172, 108, 38].map(d => MAP_PY + MAP_JP_H + d);
   MAP_HOME_X = MAP_PX + MAP_PW / 2;
-  MAP_HOME_Y = MAP_PY + MAP_JP_H + 355;
+  MAP_HOME_Y = MAP_PY + MAP_JP_H + 352;
   // 面板搬動後把待機中的船拉回新出發港（飛行中不動，避免打斷演繹）
   if (mapShip && !mapShip.flying) {
     mapShip.x = mapShip.sx = mapShip.tx = MAP_HOME_X;
@@ -815,15 +838,247 @@ let mapShip = {
 };
 let mapFlags  = [false, false, false, false, false]; // 5步驟插旗狀態
 let mapSplash = [];  // [{x, y, vx, vy, frame, maxFrame, color}]
-let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）
+let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）※v1 用
 let questProgress = 0;            // 已完成步驟數 0-5
 let questReveal   = 0;            // 目前地圖上已揭示的最高步驟索引（0=只顯示步驟1）
 // 藏寶圖演繹（美術需求說明 編號 20）
 let mapMaskAnim = [0, 0, 0, 0, 0];          // 各步驟雲霧散去剩餘幀數
 let mapFlagAnim = [0, 0, 0, 0, 0];          // 各步驟插旗淡入剩餘幀數
 let _mapFlagPrev = [false, false, false, false, false];
-const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10]; // 達成任務後的連爆得分倍數（index=questProgress）
 let questScoreMultiplier = 1;     // 當前連爆得分倍數
+
+// ============================================================
+// === 地圖規則版本（調校面板「🗺️ 規則」分頁可切換）===
+//   v1：4 色隨機排序，倍數固定 ×2/×3/×5/×10，第 5 關進階合成拿 JP（尊位開局隨機）
+//   v2：藍綠二選一 → 另一色 → 紅金分歧定航線 → 另一色 → 進階合成
+//       宙斯航線給盤面倍數、赫拉航線給結算彩金；JP 尊位由分歧決定
+// 兩個版本都攤平成同一份 questPlan，下游的地圖繪製與關卡推進只有一條路徑。
+// ============================================================
+const RULE_VERSIONS = {
+  1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
+  2: { name: 'v2 航線分歧', desc: '藍綠→紅金分歧定航線，宙斯給倍數／赫拉給彩金' },
+};
+let RULE_VERSION = 1;
+
+// v1：達成任務後的連爆得分倍數（index=questProgress）
+const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10];
+// v2 宙斯航線：盤面倍數（index=questProgress）
+const V2_ZEUS_MULT  = [1, 2, 3, 5, 20, 20];
+// v2 赫拉航線：盤面倍數只到第 2 關，第 3／4 關改給結算彩金（押注額倍數，只給最遠一關）
+const V2_HERA_MULT  = [1, 2, 3, 3, 3, 3];
+const V2_HERA_CASH  = [0, 0, 0, 50, 100, 100];
+// v2 顏色→航線：紅(0)→宙斯、金(1)→赫拉；恰好與 JP_BOSSES 索引同序
+const V2_FORK_COLORS = [0, 1];
+
+// 每局的 5 關計畫。kind: 'synth'=完成該色合成 / 'adv'=任意色進階合成
+// colors: 可達成此關的顏色（分歧關為兩色）；fork: 是否為航線分歧關
+let questPlan  = [];
+let questRoute = -1;         // v2 航線：-1=未定 0=宙斯 1=赫拉（v1 恆為 -1）
+let heraCashTier = 0;        // v2 赫拉航線已達成的最遠彩金關卡（0=無）
+let heraCashPaidTier = 0;    // 已發放到哪一關（SFG 地圖跨局不重置，補差額用）
+// 待補判佇列：一次合成可能同時湊出多個顏色、甚至多組 1×4，
+// 但地圖必須「一關一關解鎖」——推進一關後要等揭露動畫與雲霧散去才處理下一筆。
+let questPending    = [];    // [{ colors:[...], tieBreak }]
+let questAdvPending = false; // 待補判的進階合成（第 5 關條件）
+
+function buildQuestPlan() {
+  questRoute   = -1;
+  heraCashTier = 0;
+  heraCashPaidTier = 0;
+  questPending = [];
+  questAdvPending = false;
+  if (RULE_VERSION === 2) {
+    // 第 1／2 關：藍(2)／綠(3) 隨機決定先後
+    const soft = Math.random() < 0.5 ? [2, 3] : [3, 2];
+    questPlan = [
+      { colors: [soft[0]], kind: 'synth', fork: false },
+      { colors: [soft[1]], kind: 'synth', fork: false },
+      { colors: V2_FORK_COLORS.slice(), kind: 'synth', fork: true },
+      { colors: [],        kind: 'synth', fork: false },  // 分歧定案後填入另一色
+      { colors: [],        kind: 'adv',   fork: false },
+    ];
+    // v2 的尊位由 questRoute 表示（分歧前 -1），jpBoss 只給 v1 用
+  } else {
+    questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    questPlan = [
+      { colors: [questOrder[0]], kind: 'synth', fork: false },
+      { colors: [questOrder[1]], kind: 'synth', fork: false },
+      { colors: [questOrder[2]], kind: 'synth', fork: false },
+      { colors: [questOrder[3]], kind: 'synth', fork: false },
+      { colors: [],              kind: 'adv',   fork: false },
+    ];
+    rollJpBoss();
+  }
+  jpGranted = false;
+}
+
+// 本局盤面倍數表（依版本與航線）
+function questMultTable() {
+  if (RULE_VERSION !== 2) return QUEST_MULTIPLIERS;
+  return questRoute === 1 ? V2_HERA_MULT : V2_ZEUS_MULT;
+}
+// 套用該關獎勵：盤面倍數依航線取表；赫拉航線改記結算彩金關卡（結算時才發）
+function applyQuestReward() {
+  const tbl = questMultTable();
+  questScoreMultiplier = tbl[questProgress] ?? tbl[tbl.length - 1];
+  if (RULE_VERSION === 2 && questRoute === 1 && V2_HERA_CASH[questProgress] > 0) {
+    heraCashTier = questProgress;   // 只記最遠一關，不重複給
+  }
+}
+
+// 排入待補判（不立即推進）。地圖一次只解鎖一關，實際推進交給 updateQuestPending()。
+function requestQuestAdvance(colors, tieBreak) {
+  questPending.push({ colors: colors.slice(), tieBreak });
+}
+
+// 每幀驅動待補判佇列：揭露動畫與雲霧都散完了，才推進下一關。
+// 同一筆可能連續推進兩關（例如一組 1×4 同時湊齊分歧兩色），所以推進成功時保留該筆，
+// 等這次解鎖播完再回來判；推不動了才丟棄。
+function updateQuestPending() {
+  if (tmAnim.active) return;
+  if (mapMaskAnim.some(v => v > 0)) return;   // 雲霧還在散 → 這一關還沒解鎖完
+  while (questPending.length) {
+    const q = questPending[0];
+    if (tryAdvanceQuest(q.colors, q.tieBreak)) return;
+    questPending.shift();
+  }
+  // 第 5 關：前 4 關都完成後，本次事件的進階合成才算達成
+  if (questAdvPending && questProgress === 4) {
+    questAdvPending = false;
+    questProgress = 5;
+    applyQuestReward();
+    triggerShipToStep(4);
+    tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: 4 };
+  }
+}
+
+// 關卡推進：colorIds = 本次事件涉及的顏色。
+// tieBreak：一次事件同時湊齊分歧兩色時用哪一色定航線（1×4 取較左合成格的顏色）
+function tryAdvanceQuest(colorIds, tieBreak) {
+  if (questProgress >= 4) return false;
+  const step = questPlan[questProgress];
+  if (!step || step.kind !== 'synth') return false;
+  const hit = step.colors.filter(c => colorIds.includes(c));
+  if (!hit.length) return false;
+  if (step.fork) {
+    // 航線分歧：先完成的顏色定案，該格收成單色，下一關填入另一色
+    const win = (hit.length > 1 && hit.includes(tieBreak)) ? tieBreak : hit[0];
+    questRoute  = V2_FORK_COLORS.indexOf(win);
+    step.colors = [win];
+    const other = V2_FORK_COLORS.find(c => c !== win);
+    if (questPlan[questProgress + 1]) questPlan[questProgress + 1].colors = [other];
+  }
+  questProgress++;
+  applyQuestReward();
+  triggerShipToStep(questProgress - 1);
+  tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
+  return true;
+}
+
+// 第 5 關的 JP 尊位；v2 分歧前回傳 -1（尚未決定）
+function activeJpBoss() { return RULE_VERSION === 2 ? questRoute : jpBoss; }
+// 取尊位定義；未決定時給中性佔位（紫色＋金羊毛，等同改版前的第 5 格樣式）
+const JP_BOSS_UNKNOWN = { icon: '🐏', name: '未定', label: '未定', color: '#c4b5fd', glow: '#c4b5fd', value: 0 };
+function jpBossDef() { const i = activeJpBoss(); return (i === 0 || i === 1) ? JP_BOSSES[i] : JP_BOSS_UNKNOWN; }
+// v2 分歧關「哪一次揭露公布尊位」= 分歧關索引；v1 = 第 4 關（揭開第 5 格時）
+function jpRevealStepIdx() { return RULE_VERSION === 2 ? 2 : 3; }
+
+// ── 地圖顯示：把 questPlan 攤成繪製用資訊 ──
+function stepIsFork(i)         { const s = questPlan[i]; return !!(s && s.fork); }
+function stepUnresolvedFork(i) { return stepIsFork(i) && questRoute < 0; }
+function stepColorIds(i)       { const s = questPlan[i]; return s ? s.colors : []; }
+// 該關船要停的 x：v2 分歧之後走勝出那一欄（＝船轉向），其餘走中線
+function stepShipX(i) {
+  if (RULE_VERSION !== 2 || i < 2 || questRoute < 0) return MAP_STEP_X;
+  return mapColX(sideOfRoute(questRoute));
+}
+function stepBandColor(i) {
+  if (i === 4) return jpBossDef().color;
+  const cs = stepColorIds(i);
+  return cs.length ? COLOR_HEX[cs[0]] : 'rgba(255,255,255,0.35)';
+}
+function stepPlaceName(i) {
+  if (i === 4) return '科爾基斯聖林 ' + jpBossDef().icon;
+  const cs = stepColorIds(i);
+  return cs.length ? PLACE_NAMES[cs[0]] : '？';
+}
+// 左側獎勵標籤：v2 第 3／4 關依航線給盤面倍數或結算彩金
+function stepRewardLabel(i) {
+  if (i === 4) return 'JP';
+  if (RULE_VERSION !== 2) return ['×2', '×3', '×5', '×10'][i];
+  if (i < 2) return ['×2', '×3'][i];
+  if (questRoute === 1) return `💰${V2_HERA_CASH[i + 1]}×`;
+  return `×${V2_ZEUS_MULT[i + 1]}`;
+}
+// 分歧關兩半各自的獎勵標籤（紅→宙斯盤面倍數、金→赫拉結算彩金）
+function forkHalfLabel(colorId) {
+  return colorId === 0 ? `${JP_BOSSES[0].icon}×${V2_ZEUS_MULT[3]}`
+                       : `${JP_BOSSES[1].icon}${V2_HERA_CASH[3]}×`;
+}
+
+// ============================================================
+// === 地圖節點座標與標籤（v1 單欄 5 站；v2 前兩站單欄，之後左右兩條分支）===
+//   左欄 = 紅先完成 = 宙斯航線（頂端宙斯神殿）
+//   右欄 = 金先完成 = 赫拉航線（頂端赫拉神殿）
+// side: -1=左欄 0=中欄 1=右欄
+// ============================================================
+function mapColX(side) {
+  if (!side) return MAP_PX + MAP_PW / 2;
+  return MAP_PX + MAP_PW * (side < 0 ? 0.28 : 0.72);
+}
+function sideOfRoute(r) { return r === 1 ? 1 : -1; }
+function routeOfSide(side) { return side < 0 ? 0 : 1; }
+// 該關要畫在哪些欄
+function stepSides(i) {
+  if (RULE_VERSION !== 2 || i < 2) return [0];
+  return [-1, 1];
+}
+// 該關該欄的節點座標
+function nodePos(i, side) { return { x: mapColX(side), y: MAP_STEP_YS[i] }; }
+// 該關該欄要顯示哪個顏色（第 5 關是神殿，回 -1）
+function nodeColorId(i, side) {
+  if (RULE_VERSION !== 2) return i === 4 ? -1 : (stepColorIds(i)[0] ?? -1);
+  if (i < 2) return stepColorIds(i)[0] ?? -1;
+  if (i === 4) return -1;
+  const first = routeOfSide(side) === 0 ? V2_FORK_COLORS[0] : V2_FORK_COLORS[1];
+  const other = V2_FORK_COLORS.find(c => c !== first);
+  return i === 2 ? first : other;
+}
+function nodeColor(i, side) {
+  if (i === 4) return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].color : jpBossDef().color;
+  const c = nodeColorId(i, side);
+  return c >= 0 ? COLOR_HEX[c] : 'rgba(255,255,255,0.35)';
+}
+function nodeName(i, side) {
+  if (i === 4) {
+    return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].name + '神殿'
+                              : '科爾基斯聖林 ' + jpBossDef().icon;
+  }
+  const c = nodeColorId(i, side);
+  return c >= 0 ? PLACE_NAMES[c] : '？';
+}
+// 獎勵標籤：v2 第 3／4 關由「該欄自己的航線」決定，兩條分支各自標明給什麼
+function nodeRewardLabel(i, side) {
+  if (i === 4) return 'JP';
+  if (RULE_VERSION !== 2) return stepRewardLabel(i);
+  if (i < 2) return ['×2', '×3'][i];
+  return routeOfSide(side) === 1 ? `💰${V2_HERA_CASH[i + 1]}×` : `×${V2_ZEUS_MULT[i + 1]}`;
+}
+function nodeIcon(i, side) {
+  if (i === 4) return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].icon : '🐏';
+  const c = nodeColorId(i, side);
+  return c >= 0 ? PLACE_ICONS[c] : '❓';
+}
+// 該欄是否為落選分支（航線已定、且不是這一側）
+function sideLost(i, side) {
+  return RULE_VERSION === 2 && i >= 2 && questRoute >= 0 && side !== sideOfRoute(questRoute);
+}
+// 第 5 關的節點美術（v2 神殿目前用色塊佔位，待美術到位再換）
+function nodeArt(i, side) {
+  if (i === 4) return RULE_VERSION === 2 ? null : mapJPImg;
+  const c = nodeColorId(i, side);
+  return c >= 0 ? mapBandImgs[c] : null;
+}
 let tmAnim = { active: false, timer: 0, stepIdx: -1 }; // 藏寶圖動畫狀態
 let mergedCells = [];                // [{col, row, colorId, size, colorId2?}]
 // 合成動畫序列
@@ -845,7 +1100,6 @@ let multiplier = 1;      // 倍數欄位當前值（本局）
 let comboCount = 0;      // 本局連爆次數
 
 // === 怪獸系統 ===
-let monsters = [];
 let flyingAttacks = [];   // 飛行動畫（號角 → 收集欄）
 let flyingScores = [];    // 飛行動畫（分數 → 得分累積欄位）
 let multToScoreAnim = {
@@ -862,17 +1116,16 @@ let jpWinAnim = { active: false, timer: 0, monsterName: '', value: 0 };
 let jpWinParticles = [];
 let jpWinQueue = []; // 待播放的JP獎項佇列
 
-// === Boss 抽牌選擇 ===
-let bossCardPick = {
-  active: false,
-  phase: 'picking',   // 'picking' | 'flipping' | 'result'
-  hover: -1,          // 0 or 1（滑鼠懸停的牌）
-  selected: -1,       // 0 or 1（玩家點選的牌）
-  flipTimer: 0,
-  flipDuration: 50,
-  order: [0, 1],      // 0=宙斯, 1=赫拉，隨機洗牌
-  resultTimer: 0,
-};
+// === JP 尊位（宙斯／赫拉）===
+// 本局歸屬在洗 questOrder 時一併決定，揭開藏寶圖第 5 格（科爾基斯聖林）時公布，
+// 第 5 步達成後於結算直接發放（不再經過抽牌）。
+const JP_BOSSES = [
+  { icon: '⚡', name: '宙斯', label: '⚡ 宙斯', color: '#facc15', glow: '#fbbf24', value: 999999 },
+  { icon: '👑', name: '赫拉', label: '👑 赫拉', color: '#ec4899', glow: '#f472b6', value: 888888 },
+];
+let jpBoss = Math.random() < 0.5 ? 0 : 1;   // 本局 JP 歸屬：0=宙斯 1=赫拉
+let jpGranted = false; // 本輪地圖的 JP 是否已發放（SFG 地圖跨局不重置，避免重複發）
+function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false; }
 
 // === 號角收集 & 寶箱系統 ===
 let keyCount = 0; // 本局累積號角數
@@ -1130,6 +1383,9 @@ function resetRoundState() {
   if (!inFG && !inSFG) splitCount = [1, 1, 1, 1];
   synthesizedColors = new Set();
   mergedCells = [];
+  // 待補判是「單次合成事件」的暫存，每局都要清（SFG 地圖不重置也一樣）
+  questPending = [];
+  questAdvPending = false;
   // 地圖面板：SFG 中不重置地圖進度（持續往上）；NG/FG 每局重置
   if (!inSFG) {
     mapFlags = [false, false, false, false, false];
@@ -1137,7 +1393,7 @@ function resetRoundState() {
     questScoreMultiplier = 1;
     questReveal   = 0;
     tmAnim = { active: false, timer: 0, stepIdx: -1 };
-    questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    buildQuestPlan();
     // 船跳回出發港
     const _notHome = mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y;
     if (_notHome) {
@@ -1159,19 +1415,20 @@ function resetRoundState() {
 // === 旋轉邏輯 ===
 function startSpin() {
   if (currentState !== STATE.IDLE) return;
-  if (bossCardPick.active) return;
   if (showShipFGPanel || showFGEndPanel || showSFGPanel || showSFGEndPanel) return;
   if (bigWin.active || transition.active) return;
   // FG／SFG 的 SC 中獎演繹尚未播完就開下一局的話，shipFGReady／shipSFGReady 會殘留，
   // 導致之後每局在 IDLE 都重播一次演繹＋盤面震動（面板永遠開不起來）
   if (shipFGReady || shipSFGReady || scWinAnim.active) return;
+  // 報獎（結算彩金／JP）還在播或還在排隊就開下一局的話，佇列會被清掉、獎項直接消失。
+  // FG／SFG 的自動轉沒有等報獎的判斷，所以擋在這裡。
+  if (jpWinAnim.active || jpWinQueue.length) return;
   // 新的一局：清掉上一局殘留的 SC 中獎演繹與盤面震動
   scWinAnim = { active: false, timer: 0, total: 1, tag: null };
   boardShake.timer = 0;
   pendingBigWinCheck = false;
   if (inFG)  fgSpinsLeft--;
   if (inSFG) sfgSpinsLeft--;
-  jpWinQueue = [];
   winLog = [];
   resetRoundState();
   stats.spins++;
@@ -1247,7 +1504,19 @@ function startSpin() {
                 forceSpinType === 'cond_4' ? [[0,0,0],[0,1,1],[0,2,2],[3,0,3]] :
                                              [[0,0,0],[2,0,1],[0,1,2],[0,2,3]]; // cond_5
     const _ik = new Set(_cp.map(([c,r]) => `${c},${r}`));
-    _cp.forEach(([c, r, ci]) => { board[c][r].id = questOrder[ci]*2; board[c+1][r].id = questOrder[ci]*2+1; });
+    // 每關要放哪一色由 questPlan 決定；v2 分歧關先隨機挑一邊（讓兩條航線都測得到），
+    // 分歧後那一關的 colors 還是空的，取另一色補上
+    const _forkPick = (RULE_VERSION === 2 && Math.random() < 0.5) ? 1 : 0;
+    const _stepCol = ci => {
+      const cs = stepColorIds(ci);
+      if (cs.length === 1) return cs[0];
+      if (cs.length > 1)   return V2_FORK_COLORS[_forkPick];
+      return V2_FORK_COLORS[1 - _forkPick];
+    };
+    _cp.forEach(([c, r, ci]) => {
+      const _sc = _stepCol(ci);
+      board[c][r].id = _sc * 2; board[c+1][r].id = _sc * 2 + 1;
+    });
     // 左→右掃描，修復非預期配對（改右格為不同顏色角色）
     for (let _fr2 = 0; _fr2 < ROWS; _fr2++)
       for (let _fc2 = 0; _fc2 < COLS-1; _fc2++) {
@@ -1342,7 +1611,7 @@ function triggerShipToStep(stepIdx) {
   if (stepIdx < 0 || stepIdx >= MAP_STEP_YS.length) return;
   mapShip.sx            = mapShip.x;
   mapShip.sy            = mapShip.y;
-  mapShip.tx            = MAP_STEP_X;
+  mapShip.tx            = stepShipX(stepIdx);   // 分歧關會偏向勝出半邊＝船轉向
   mapShip.ty            = MAP_STEP_YS[stepIdx] - 22;
   mapShip.frame         = 0;
   mapShip.totalFrames   = mapFlyFrames();
@@ -1375,13 +1644,8 @@ function applySingleSynthesis(col, row) {
   board[col][row]     = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
   board[col + 1][row] = { id: -1, isMerged: true, mergeId, colorId, mergeSize: 2, mergeCol: col, mergeRow: row, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
   mergedCells.push({ col, row, colorId, size: 2, displayCount });
-  // 符合當前步驟顏色即推進（NG / FG 皆適用，含分裂狀態下的合成）
-  if (questProgress < 4 && questOrder[questProgress] === colorId) {
-    questProgress++;
-    questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
-    triggerShipToStep(questProgress - 1);
-    tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
-  }
+  // 排入待補判（NG / FG 皆適用，含分裂狀態下的合成）；地圖一次只解鎖一關
+  requestQuestAdvance([colorId], colorId);
   return true;
 }
 
@@ -1400,9 +1664,10 @@ function applyShipMerge() {
   }
 }
 
-// Pass 2：進階合成（兩相鄰 1×2 不同色 → 1×4），NG Only（FG中不觸發，避免JP衝突）
+// Pass 2：進階合成（兩相鄰 1×2 不同色 → 1×4）。NG / FG / SFG 皆會觸發。
+// 唯一例外是本局已判定要進 FG／SFG（船頭船尾已湊齊），此時不再做進階合成避免與轉場衝突。
 function applyAdvancedSynthesis() {
-  if (inFG || inSFG || shipFGPending || shipSFGPending) return;
+  if (shipFGPending || shipSFGPending) return;
   for (let i = 0; i < mergedCells.length; i++) {
     const mA = mergedCells[i];
     if (mA.size !== 2 || mA.upgraded || mA.isShipMerge) continue;
@@ -1429,34 +1694,18 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
-      // 進階合成兩色按任務順序各補判一次（NG / FG 皆適用，含分裂狀態）
-      {
-        const _pair = new Set([leftM.colorId, rightM.colorId]);
-        for (let _t = 0; _t < 2; _t++) {
-          if (questProgress < 4 && _pair.has(questOrder[questProgress])) {
-            questProgress++;
-            questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
-            triggerShipToStep(questProgress - 1);
-            // 每次步驟推進都觸發藏寶圖動畫（同一幀多步時以最後一步為準）
-            tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
-          }
-        }
-        // 第5步：達成1組進階合成（需先完成前4步）
-        if (questProgress === 4) {
-          questProgress = 5;
-          questScoreMultiplier = QUEST_MULTIPLIERS[5];
-          triggerShipToStep(4);
-          tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: 4 };
-        }
-      }
+      // 進階合成的兩色排入待補判（可能連續推進兩關，例如同時湊齊分歧兩色），
+      // 並記下「本次事件有進階合成」供第 5 關判定。實際推進一關一關來。
+      requestQuestAdvance([leftM.colorId, rightM.colorId], leftM.colorId);
+      questAdvPending = true;
     }
   }
   mergedCells = mergedCells.filter(m => !m.upgraded);
 }
 
-// 找出可進行進階合成的合成符對（不修改狀態，僅回傳候選陣列；FG中或FG即將觸發時回傳空）
+// 找出可進行進階合成的合成符對（不修改狀態，僅回傳候選陣列；FG／SFG 即將觸發時回傳空）
 function findAdvSynthPairs() {
-  if (inFG || inSFG || shipFGPending || shipSFGPending) return [];
+  if (shipFGPending || shipSFGPending) return [];
   const pairs = [];
   const used  = new Set();
   for (let i = 0; i < mergedCells.length; i++) {
@@ -1639,7 +1888,7 @@ function endRound() {
     inSFG = false; showSFGEndPanel = true; splitCount = [1,1,1,1];
     mapFlags = [false,false,false,false,false];
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
-    questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
+    buildQuestPlan();
     tmAnim = { active: false, timer: 0, stepIdx: -1 };
   } else if (inFG && fgSpinsLeft <= 0) {
     inFG = false; showFGEndPanel = true; splitCount = [1, 1, 1, 1];
@@ -1655,7 +1904,7 @@ function endRound() {
 
 // === Task 7：中獎高亮 + COMBO 顯示 ===
 function updateShowingWin() {
-  if (bossCardPick.active || (tmAnim.active && tmAnim.stepIdx === 4)) return; // JP抽牌中 / JP動畫中，完全暫停
+  if (tmAnim.active && tmAnim.stepIdx === 4) return; // JP動畫中，完全暫停
   popWaitTimer--;
   if (winFxTimer > 0) winFxTimer--;   // 得分演繹（框起＋旋轉）
 
@@ -1869,7 +2118,7 @@ function drawScoreTexts(ctx) {
 
 // === Task 8：消除 + 下落 ===
 function updatePopping() {
-  if (bossCardPick.active || (tmAnim.active && tmAnim.stepIdx === 4)) return; // JP抽牌中 / JP動畫中，完全暫停
+  if (tmAnim.active && tmAnim.stepIdx === 4) return; // JP動畫中，完全暫停
   popWaitTimer++;
 
   // Phase 1：消除演繹（圖示爆破），時長依特效強度 低/中/高 = 0.2/0.4/0.45s
@@ -1967,7 +2216,7 @@ function updateMapPanel() {
 
       // 濺起粒子（5 個）
       const _si = mapShip.targetColorId; // step index: 0-3=色彩, 4=進階, -1=回家
-      const splashColor = _si >= 0 && _si < 4 ? COLOR_HEX[questOrder[_si]]
+      const splashColor = _si >= 0 && _si < 4 ? (COLOR_HEX[stepColorIds(_si)[0]] || '#ffffff')
                         : _si === 4 ? '#a78bfa' : '#ffffff';
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * Math.PI * 2;
@@ -2072,7 +2321,7 @@ function applyGravity() {
 }
 
 function updateGravity() {
-  if (bossCardPick.active || (tmAnim.active && tmAnim.stepIdx === 4)) return; // JP抽牌中 / JP動畫中，完全暫停
+  if (tmAnim.active && tmAnim.stepIdx === 4) return; // JP動畫中，完全暫停
   spinFrameCount++;
   let allDone = true;
 
@@ -2141,11 +2390,9 @@ function drawJPBars(ctx) {
   const gap = 10;                    // 與倍數欄位的間距
   const multHalfW = 100;            // 得分累積欄位半寬（200px）
 
-  const zeus = monsters.find(m => m.name === '宙斯') || { jackpot: 999999 };
-  const hera = monsters.find(m => m.name === '赫拉') || { jackpot: 888888 };
   const bars = [
-    { label: '⚡ 宙斯 JP', value: zeus.jackpot.toLocaleString(), bx: cx - multHalfW - gap - bw },
-    { label: '👑 赫拉 JP', value: hera.jackpot.toLocaleString(), bx: cx + multHalfW + gap },
+    { label: JP_BOSSES[0].label + ' JP', value: JP_BOSSES[0].value.toLocaleString(), bx: cx - multHalfW - gap - bw },
+    { label: JP_BOSSES[1].label + ' JP', value: JP_BOSSES[1].value.toLocaleString(), bx: cx + multHalfW + gap },
   ];
 
   bars.forEach(({ label, value, bx }) => {
@@ -2226,6 +2473,244 @@ function drawMapShip(ctx) {
   ctx.restore();
 }
 
+// ── 地圖裝飾：羅盤玫瑰 ──
+function drawCompassRose(ctx, cx, cy, r) {
+  ctx.save();
+  ctx.globalAlpha = 0.32;
+  ctx.strokeStyle = '#cdaa66'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.62, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#cdaa66';
+  for (let k = 0; k < 8; k++) {
+    const a = k * Math.PI / 4;
+    const long = (k % 2 === 0) ? r : r * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * long, cy + Math.sin(a) * long);
+    ctx.lineTo(cx + Math.cos(a + 0.22) * r * 0.2, cy + Math.sin(a + 0.22) * r * 0.2);
+    ctx.lineTo(cx + Math.cos(a - 0.22) * r * 0.2, cy + Math.sin(a - 0.22) * r * 0.2);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── 地圖頂端標題橫幅（示意圖最上方那塊）──
+function drawMapTitleBanner(ctx, px, y, w, h, allLit, t) {
+  const title = RULE_VERSION === 2 ? '科爾基斯聖林' : '📜  亞格號任務';
+  const cx = px + w / 2, cy = y + h / 2;
+  const bw = Math.min(w - 26, 190), bh = 30;
+  const bx = cx - bw / 2, by = cy - bh / 2;
+  const notch = 12;
+  ctx.save();
+  // 上方海面淡出，讓橫幅浮在地圖上
+  const fade = ctx.createLinearGradient(0, y, 0, y + h);
+  fade.addColorStop(0, 'rgba(4,14,20,0.92)');
+  fade.addColorStop(1, 'rgba(4,14,20,0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(px, y, w, h);
+  // 橫幅本體：兩端內凹的緞帶
+  const path = new Path2D();
+  path.moveTo(bx, by);
+  path.lineTo(bx + bw, by);
+  path.lineTo(bx + bw - notch, by + bh / 2);
+  path.lineTo(bx + bw, by + bh);
+  path.lineTo(bx, by + bh);
+  path.lineTo(bx + notch, by + bh / 2);
+  path.closePath();
+  const g = ctx.createLinearGradient(0, by, 0, by + bh);
+  g.addColorStop(0, '#3a2a12'); g.addColorStop(1, '#1a1208');
+  ctx.fillStyle = g; ctx.fill(path);
+  if (allLit) { ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 12 + Math.sin(t / 250) * 6; }
+  ctx.strokeStyle = allLit ? '#ffd700' : '#cdaa66';
+  ctx.lineWidth = 1.5; ctx.stroke(path);
+  ctx.shadowBlur = 0;
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = allLit ? '#ffe9a8' : '#e6cf9a';
+  ctx.fillText(title, cx, cy + 1);
+  ctx.restore();
+}
+
+// ── 地標方塊：方正的色塊／美術圖（不模擬島嶼輪廓）──
+function drawMapBlock(ctx, cx, cy, rw, rh, art, color) {
+  const x = cx - rw, y = cy - rh, w = rw * 2, h = rh * 2;
+  const path = new Path2D();
+  path.roundRect(x, y, w, h, 3);
+  ctx.save();
+  // 投影
+  ctx.save();
+  ctx.translate(0, 3); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fill(path);
+  ctx.restore();
+  ctx.save();
+  ctx.clip(path);
+  if (!drawCover(ctx, art, x, y, w, h)) {
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, color + 'dd'); g.addColorStop(1, color + '77');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,0.20)'; ctx.lineWidth = 1; ctx.stroke(path);
+  ctx.restore();
+  return path;
+}
+
+// ── 名牌：兩端斜切的橫幅，內容為「×N 地名」（比照示意圖）──
+function drawMapPlate(ctx, cx, cy, label, name, color, lit, maxW) {
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 12px Arial';
+  const lw = ctx.measureText(label).width;
+  ctx.font = '9px Arial';
+  let nm = name, nw = ctx.measureText(nm).width;
+  const pad = 8, gap = 4, cut = 5;
+  while (nm.length > 2 && lw + gap + nw + pad * 2 + cut * 2 > maxW) {
+    nm = nm.slice(0, -1); nw = ctx.measureText(nm + '…').width;
+  }
+  if (nm !== name) { nm += '…'; nw = ctx.measureText(nm).width; }
+  const bw = lw + gap + nw + pad * 2, bh = 17;
+  const bx = cx - bw / 2, by = cy - bh / 2;
+  const p = new Path2D();
+  p.moveTo(bx + cut, by); p.lineTo(bx + bw - cut, by);
+  p.lineTo(bx + bw, by + bh / 2); p.lineTo(bx + bw - cut, by + bh);
+  p.lineTo(bx + cut, by + bh); p.lineTo(bx, by + bh / 2);
+  p.closePath();
+  ctx.fillStyle = 'rgba(6,12,18,0.88)'; ctx.fill(p);
+  if (lit) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
+  ctx.strokeStyle = lit ? color : color + '66';
+  ctx.lineWidth = 1; ctx.stroke(p);
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 12px Arial';
+  ctx.fillStyle = lit ? color : 'rgba(255,255,255,0.5)';
+  ctx.fillText(label, bx + pad, by + bh / 2 + 1);
+  ctx.font = '9px Arial';
+  ctx.fillStyle = lit ? '#ffffff' : 'rgba(255,255,255,0.45)';
+  ctx.fillText(nm, bx + pad + lw + gap, by + bh / 2 + 1);
+  ctx.restore();
+}
+
+// ── 航線：一節一節的石板棧道（示意圖的鎖鏈狀路徑）──
+function drawMapChain(ctx, x0, y0, x1, y1, done, dim) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 6) return;
+  const ang = Math.atan2(dy, dx);
+  const step = 9;
+  const n = Math.max(1, Math.round(len / step));
+  ctx.save();
+  ctx.globalAlpha = dim ? 0.22 : 1;
+  for (let k = 1; k < n; k++) {
+    const f = k / n;
+    // 稍微弧一點，避免死板的直線
+    const bow = Math.sin(f * Math.PI) * Math.min(10, len * 0.08);
+    const bxp = x0 + dx * f - Math.sin(ang) * 0 + Math.cos(ang + Math.PI / 2) * bow;
+    const byp = y0 + dy * f + Math.sin(ang + Math.PI / 2) * bow;
+    ctx.save();
+    ctx.translate(bxp, byp);
+    ctx.rotate(ang + Math.PI / 2);
+    ctx.fillStyle   = done ? 'rgba(232,203,138,0.92)' : 'rgba(190,205,215,0.3)';
+    ctx.strokeStyle = done ? 'rgba(120,90,36,0.85)'   : 'rgba(120,140,150,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(-5, -2.4, 10, 4.8, 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ── 未揭示區域遮罩（美術需求說明 編號 20）──
+//    整片覆蓋：分界線以上全是霧，不是每個地標各罩一團
+function mapFogTop() { return MAP_PY + MAP_JP_H - 8; }
+// rev = 已揭示的最高步驟索引 → 霧的底緣 y
+function mapFogEdgeFor(rev) {
+  if (rev >= 4) return mapFogTop() - 6;               // 全開：退到標題下緣以上
+  return (MAP_STEP_YS[rev] + MAP_STEP_YS[rev + 1]) / 2 + 9;
+}
+// 目前的霧底緣：解鎖演繹進行中時，整片霧從舊分界往上退
+function mapFogEdgeY() {
+  for (let i = 4; i >= 1; i--) {
+    if (mapMaskAnim[i] > 0) {
+      const k = mapMaskAnim[i] / TF(TIMING.mapMask);  // 1 → 0
+      return mapFogEdgeFor(i) + (mapFogEdgeFor(i - 1) - mapFogEdgeFor(i)) * k;
+    }
+  }
+  return mapFogEdgeFor(questReveal);
+}
+function drawMapFog(ctx, edgeY, t) {
+  const px = MAP_PX, py = MAP_PY, pw = MAP_PW;
+  const top = mapFogTop();
+  if (edgeY <= top + 1) return;
+  const amp = 5;
+  ctx.save();
+  // 只在面板內側，不蓋到描金外框
+  ctx.beginPath(); ctx.roundRect(px + 5, py + 5, pw - 10, MAP_PH - 10, 7); ctx.clip();
+
+  // 整片霧：底緣走波浪，避免變成一條直線
+  const fogY = x => edgeY + Math.sin(x / 23 + t / 1600) * amp
+                          + Math.sin(x / 9  - t / 2400) * amp * 0.35;
+  const p = new Path2D();
+  p.moveTo(px, top);
+  p.lineTo(px + pw, top);
+  for (let x = px + pw; x >= px; x -= 6) p.lineTo(x, fogY(x));
+  p.closePath();
+
+  ctx.save();
+  ctx.clip(p);
+  // 深處濃、邊緣淡：未探索區壓暗，最後 22px 淡出，讓分界是「散開」不是一道稜線
+  const span0 = Math.max(24, edgeY - top);
+  const fade  = 1 - 22 / span0;
+  const g = ctx.createLinearGradient(0, top, 0, edgeY);
+  g.addColorStop(0,             'rgba(44,60,84,0.95)');
+  g.addColorStop(0.55 * fade,   'rgba(74,94,124,0.90)');
+  g.addColorStop(fade,          'rgba(116,138,170,0.84)');
+  g.addColorStop(1,             'rgba(150,170,198,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(px, top, pw, edgeY + amp * 2 - top);
+  // 霧流：扁長的橫向流動，維持「一整片」的感覺
+  const span = Math.max(1, edgeY - top);
+  for (let k = 0; k < 4; k++) {
+    const wy = top + ((k * span / 4) + (t / 70) % span) % span;
+    const wx = px + pw * (0.5 + Math.sin(t / 3400 + k * 2.1) * 0.22);
+    const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.55);
+    rg.addColorStop(0, 'rgba(226,236,248,0.13)');
+    rg.addColorStop(1, 'rgba(226,236,248,0)');
+    ctx.fillStyle = rg;
+    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.24); ctx.translate(-wx, -wy);
+    ctx.beginPath(); ctx.arc(wx, wy, pw * 0.55, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // 底緣稍微提亮，暗示霧在這裡翻捲散開（不畫實線，避免變成稜線）
+  const eg = ctx.createLinearGradient(0, edgeY - 26, 0, edgeY + 4);
+  eg.addColorStop(0,   'rgba(214,228,244,0)');
+  eg.addColorStop(0.6, 'rgba(214,228,244,0.16)');
+  eg.addColorStop(1,   'rgba(214,228,244,0)');
+  ctx.fillStyle = eg;
+  ctx.save(); ctx.clip(p); ctx.fillRect(px, edgeY - 26, pw, 30); ctx.restore();
+  ctx.restore();
+}
+
+// ── 旗子（已抵達的地標）──
+function drawMapFlag(ctx, x, y, color, anim, t) {
+  const fa = anim;                       // 1 → 0（淡入）
+  const wave = Math.sin(t / 380) * 5;
+  ctx.save();
+  ctx.globalAlpha = 1 - fa;
+  const fy = y + fa * 6;
+  ctx.strokeStyle = '#e8cb8a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, fy); ctx.lineTo(x, fy - 24); ctx.stroke();
+  ctx.fillStyle = '#e8cb8a';
+  ctx.beginPath(); ctx.arc(x, fy - 25, 1.8, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(x, fy - 23);
+  ctx.rotate((wave * Math.PI) / 180);
+  ctx.fillStyle = color;
+  ctx.shadowColor = color; ctx.shadowBlur = 7;
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(15, 4); ctx.lineTo(0, 9); ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawMapPanel(ctx) {
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
   const allLit = questProgress >= 5;
@@ -2233,309 +2718,130 @@ function drawMapPanel(ctx) {
 
   ctx.save();
 
-  // ── 整體背景 ──
-  const bg = ctx.createLinearGradient(px, py, px + pw, py + ph);
-  bg.addColorStop(0, '#0a1628');
-  bg.addColorStop(1, '#0d2818');
-  ctx.fillStyle = bg;
-  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 8); ctx.fill();
-
-  // ── JP 獎勵框 ──
-  const jpY = py, jpH = MAP_JP_H;
-  const jpGrad = ctx.createLinearGradient(px, jpY, px + pw, jpY + jpH);
-  jpGrad.addColorStop(0, allLit ? '#2a1800' : '#1a1208');
-  jpGrad.addColorStop(1, allLit ? '#1a0e00' : '#110c05');
-  ctx.fillStyle = jpGrad;
-  ctx.beginPath(); ctx.roundRect(px, jpY, pw, jpH, [8, 8, 0, 0]); ctx.fill();
-
-  if (allLit) {
-    const glow = 0.4 + Math.sin(t / 320) * 0.28;
-    ctx.save();
-    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 20 + Math.sin(t / 250) * 8;
-    ctx.globalAlpha = glow;
-    ctx.fillStyle = '#ffd70020';
-    ctx.beginPath(); ctx.roundRect(px + 4, jpY + 4, pw - 8, jpH - 8, 6); ctx.fill();
-    ctx.restore();
-  }
-
-  // 任務板標題（僅顯示任務名稱）
-  ctx.font = 'bold 11px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = allLit ? '#ffd700' : '#a07830';
-  if (allLit) { ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8; }
-  ctx.fillText('📜  亞格號任務', px + pw / 2, jpY + MAP_JP_H / 2);
-  ctx.shadowBlur = 0;
-
-  // JP框底部分隔線
-  ctx.strokeStyle = allLit ? '#ffd70044' : '#ffffff14';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(px + 8, jpY + jpH - 1); ctx.lineTo(px + pw - 8, jpY + jpH - 1); ctx.stroke();
-
-  // ── 像素格線（地圖區） ──
+  // ── 海域底圖（示意圖：深青海面＋波紋＋小島礁＋雲霧）──
   ctx.save();
-  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 8); ctx.clip();
-  ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 10); ctx.clip();
+  const bg = ctx.createLinearGradient(px, py, px + pw * 0.4, py + ph);
+  bg.addColorStop(0,   '#0b2733');
+  bg.addColorStop(0.5, '#0d3040');
+  bg.addColorStop(1,   '#08202c');
+  ctx.fillStyle = bg;
+  ctx.fillRect(px, py, pw, ph);
+  // 波紋：橫向細弧
+  ctx.strokeStyle = 'rgba(150,220,235,0.055)';
   ctx.lineWidth = 1;
-  for (let gx = px; gx <= px + pw; gx += 20) {
-    ctx.beginPath(); ctx.moveTo(gx, py + jpH); ctx.lineTo(gx, py + ph); ctx.stroke();
+  for (let k = 0; k < 26; k++) {
+    const wy = py + 14 + k * (ph / 26);
+    ctx.beginPath();
+    for (let wx = px; wx <= px + pw; wx += 10) {
+      const yy = wy + Math.sin(wx / 26 + k * 0.7 + t / 5200) * 2.2;
+      if (wx === px) ctx.moveTo(wx, yy); else ctx.lineTo(wx, yy);
+    }
+    ctx.stroke();
   }
-  for (let gy = py + jpH; gy <= py + ph; gy += 20) {
-    ctx.beginPath(); ctx.moveTo(px, gy); ctx.lineTo(px + pw, gy); ctx.stroke();
+  // 邊緣雲霧
+  for (const [cxp, cyp, cr] of [[px + 6, py + ph * 0.28, 34], [px + pw - 4, py + ph * 0.52, 30],
+                                [px + 10, py + ph * 0.78, 26]]) {
+    const cg = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, cr);
+    cg.addColorStop(0, 'rgba(190,215,235,0.16)');
+    cg.addColorStop(1, 'rgba(190,215,235,0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(cxp, cyp, cr, 0, Math.PI * 2); ctx.fill();
   }
+  // 羅盤玫瑰（右下角裝飾）
+  drawCompassRose(ctx, px + pw - 32, py + ph - 40, 20);
   ctx.restore();
 
-  // ── 外框 ──
+  // ── 頂端標題橫幅（v2 為區域名「科爾基斯聖林」，v1 沿用任務板標題）──
+  const jpY = py, jpH = MAP_JP_H;
+  drawMapTitleBanner(ctx, px, jpY, pw, jpH, allLit, t);
+
+  // ── 外框：雙線描金＋四角飾點 ──
   if (allLit) { ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 18; }
-  ctx.strokeStyle = allLit ? '#ffd700' : 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = allLit ? 2 : 1;
-  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 8); ctx.stroke();
+  ctx.strokeStyle = allLit ? '#ffd700' : 'rgba(206,170,102,0.55)';
+  ctx.lineWidth = allLit ? 2 : 1.5;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 10); ctx.stroke();
   ctx.shadowBlur = 0;
-
-  // ── 垂直航線：出發港 → 步驟1 → … → 步驟5（只畫到 questReveal）──
-  for (let i = 0; i < MAP_STEP_YS.length; i++) {
-    if (i > questReveal) break; // 尚未揭示的步驟不畫航線
-    const fromY = i === 0 ? MAP_HOME_Y : MAP_STEP_YS[i - 1];
-    const toY   = MAP_STEP_YS[i];
-    const segDone = questProgress > i;
-    ctx.setLineDash(segDone ? [] : [3, 6]);
-    ctx.strokeStyle = segDone ? 'rgba(255,235,180,0.5)' : 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = segDone ? 2 : 1;
-    ctx.beginPath(); ctx.moveTo(MAP_STEP_X, fromY); ctx.lineTo(MAP_STEP_X, toY); ctx.stroke();
-  }
-  ctx.setLineDash([]);
-
-  // ── 雲霧遮罩（美術需求說明 編號 20：未解鎖區域遮罩）──
-  //    未揭示 → 常駐緩慢飄動（遮罩待機演繹）；剛揭示 → 向上散去（遮罩移動演繹）
-  function _drawFogMask(bx, by, bw, bh, alpha, rise, seed) {
-    if (alpha <= 0.01) return;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    const fg = ctx.createLinearGradient(bx, by - rise, bx, by + bh - rise);
-    fg.addColorStop(0,   'rgba(178,196,222,0.72)');
-    fg.addColorStop(0.5, 'rgba(126,148,182,0.80)');
-    fg.addColorStop(1,   'rgba(84,104,140,0.74)');
-    ctx.fillStyle = fg;
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 5; k++) {
-      const ph  = t / (2600 + k * 430) + seed + k;
-      const cxp = bx + (Math.sin(ph) * 0.5 + 0.5) * bw;
-      const cyp = by + bh * (0.25 + 0.5 * ((k % 3) / 2)) - rise;
-      const rr  = bh * (0.42 + 0.16 * ((k % 2) + 1));
-      const rg  = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, rr);
-      rg.addColorStop(0, 'rgba(255,255,255,0.34)');
-      rg.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = rg;
-      ctx.beginPath(); ctx.arc(cxp, cyp, rr, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
+  ctx.strokeStyle = allLit ? '#ffd70066' : 'rgba(206,170,102,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(px + 4, py + 4, pw - 8, ph - 8, 7); ctx.stroke();
+  ctx.fillStyle = allLit ? '#ffd700' : 'rgba(206,170,102,0.6)';
+  for (const [ox, oy] of [[6, 6], [pw - 6, 6], [6, ph - 6], [pw - 6, ph - 6]]) {
+    ctx.beginPath(); ctx.arc(px + ox, py + oy, 2.2, 0, Math.PI * 2); ctx.fill();
   }
 
-  // ── 5 條地標帶：色彩／壓黑／雲霧遮罩三態（藏寶圖美術）──
-  const BAND_H = 58;
-  const STEP_LEFT_LABELS = ['×2', '×3', '×5', '×10', 'JP'];
-  for (let i = 0; i < 5; i++) {
-    const y  = MAP_STEP_YS[i];
-    const bx = px + 5, bw = pw - 10, bh = BAND_H, by = y - bh / 2;
-    const isAdv     = (i === 4);
-    const isDone    = (i < questProgress);
-    const isCurrent = (i === questProgress && questProgress < 5);
-    const bandImg   = isAdv ? mapJPImg : mapBandImgs[questOrder[i]];
-    const bandColor = isAdv ? '#c4b5fd' : COLOR_HEX[questOrder[i]];
-
-    ctx.save();
-    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.clip();
-    if (!drawCover(ctx, bandImg, bx, by, bw, bh)) {
-      ctx.fillStyle = '#0d1a2a';
-      ctx.fillRect(bx, by, bw, bh);
+  // ── 航線棧道：出發港 → 第1站 → … → 頂端神殿（分歧後左右各一條）──
+  //    只畫到已揭示的關卡；落選分支畫得很淡
+  for (let i = 0; i <= Math.min(4, questReveal); i++) {
+    const toSides = stepSides(i);
+    for (const ts of toSides) {
+      const to = nodePos(i, ts);
+      // 上一站：分歧關的前一站在中欄，其餘同欄
+      const fromSides = i === 0 ? null : stepSides(i - 1);
+      const fs = i === 0 ? 0 : (fromSides.length === 1 ? 0 : ts);
+      const from = i === 0 ? { x: MAP_HOME_X, y: MAP_HOME_Y } : nodePos(i - 1, fs);
+      const segDone = questProgress > i && !sideLost(i, ts);
+      drawMapChain(ctx, from.x, from.y, to.x, to.y, segDone, sideLost(i, ts));
     }
-    // 壓黑狀態：尚未插旗的地標
-    if (!isDone) {
-      ctx.fillStyle = isCurrent ? 'rgba(3,7,16,0.48)' : 'rgba(3,7,16,0.72)';
-      ctx.fillRect(bx, by, bw, bh);
-    }
-    const maskT = mapMaskAnim[i] / TF(TIMING.mapMask);   // 1 → 0
-    if (i > questReveal)  _drawFogMask(bx, by, bw, bh, 1, 0, i * 1.7);
-    else if (maskT > 0)   _drawFogMask(bx, by, bw, bh, maskT, (1 - maskT) * bh, i * 1.7);
-    ctx.restore();
+  }
 
-    // 外框（當前目標脈動）
-    if (isCurrent && i <= questReveal) {
-      const pulse = 0.5 + Math.sin(t / 280) * 0.5;
+  // ── 地標節點（方塊＋名牌＋旗子）──
+  //    未揭示的節點整個不畫，由上方那一整片霧覆蓋
+  const NODE_RH = 20;   // 方塊半高：44→40，讓名牌與下一格之間留得出間隙
+  for (let i = 0; i <= Math.min(4, questReveal); i++) {
+    const sides = stepSides(i);
+    for (const side of sides) {
+      const { x: ncx, y: ncy } = nodePos(i, side);
+      const lost      = sideLost(i, side);
+      const isDone    = i < questProgress && !lost;
+      const isCurrent = i === questProgress && questProgress < 5 && !lost;
+      const color     = nodeColor(i, side);
+      const rw = sides.length > 1 ? 58 : 78;
+
       ctx.save();
-      ctx.shadowColor = bandColor; ctx.shadowBlur = 8 + pulse * 14;
-      ctx.strokeStyle = bandColor; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.stroke();
-      ctx.restore();
-    } else {
-      ctx.strokeStyle = isDone ? bandColor + 'aa' : 'rgba(255,255,255,0.12)';
-      ctx.lineWidth   = isDone ? 1.5 : 1;
-      ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.stroke();
-    }
+      if (lost) ctx.globalAlpha = 0.32;   // 落選分支：整組壓淡
 
-    if (i > questReveal) continue;   // 未揭示：只有雲霧，不畫名牌與旗子
-
-    // 倍數／地名名牌
-    const label = STEP_LEFT_LABELS[i];
-    const name  = isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]];
-    ctx.save();
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.font = 'bold 13px Arial';
-    const lw = ctx.measureText(label).width;
-    ctx.font = '9px Arial';
-    const nw = ctx.measureText(name).width;
-    const plateW = lw + nw + 16, plateH = 18;
-    const plateX = bx + bw - plateW - 5, plateY = by + bh - plateH - 4;
-    ctx.fillStyle = 'rgba(8,12,20,0.78)';
-    ctx.beginPath(); ctx.roundRect(plateX, plateY, plateW, plateH, 4); ctx.fill();
-    ctx.strokeStyle = isDone ? bandColor : bandColor + '66';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.roundRect(plateX, plateY, plateW, plateH, 4); ctx.stroke();
-    ctx.font = 'bold 13px Arial';
-    ctx.fillStyle = isDone ? bandColor : 'rgba(255,255,255,0.55)';
-    ctx.fillText(label, plateX + 6, plateY + plateH / 2 + 1);
-    ctx.font = '9px Arial';
-    ctx.fillStyle = isDone ? '#ffffff' : 'rgba(255,255,255,0.5)';
-    ctx.fillText(name, plateX + 10 + lw, plateY + plateH / 2 + 1);
-    ctx.restore();
-
-    // 插旗演繹：旗子淡入、插入地標
-    if (mapFlags[i]) {
-      const fa   = mapFlagAnim[i] / TF(TIMING.mapFlag);   // 1 → 0
-      const wave = Math.sin(t / 400) * 4;
-      ctx.save();
-      ctx.globalAlpha = 1 - fa;
-      const fx = bx + 14, fy = by + bh - 8 + fa * 6;
-      ctx.strokeStyle = '#f0d089'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 22); ctx.stroke();
-      ctx.translate(fx, fy - 22);
-      ctx.rotate((wave * Math.PI) / 180);
-      ctx.fillStyle   = bandColor;
-      ctx.shadowColor = bandColor; ctx.shadowBlur = 6;
-      ctx.beginPath();
-      ctx.moveTo(0, 0); ctx.lineTo(13, 3.5); ctx.lineTo(0, 7); ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  // ── 舊版節點繪製（保留給無美術圖時的備援）──
-  for (let i = 0; i < 5; i++) {
-    if (mapBandImgs[0]) break;  // 已有藏寶圖美術則不畫節點
-    if (i > questReveal) break; // 尚未揭示的步驟不顯示
-    const x = MAP_STEP_X;
-    const y = MAP_STEP_YS[i];
-    const isAdv    = (i === 4);
-    const isDone   = (i < questProgress);
-    const isCurrent = (i === questProgress && questProgress < 5);
-    // 4色陣列（第5步用）
-    const _4c = [COLOR_HEX[0], COLOR_HEX[1], COLOR_HEX[2], COLOR_HEX[3]];
-    // stepColor：第5步每500ms循環4色，其餘步驟用固定色
-    const stepColor = isAdv
-      ? _4c[Math.floor(t / 500) % 4]
-      : COLOR_HEX[questOrder[i]];
-
-    // 當前目標脈動光暈
-    if (isCurrent) {
-      if (isAdv) {
-        // 4色分層光暈（每色獨立脈動）
-        for (let _c = 0; _c < 4; _c++) {
-          const _ph = (t / 420 + _c * Math.PI / 2);
-          const _cp = 0.4 + Math.sin(_ph) * 0.4;
-          ctx.save();
-          ctx.shadowColor = _4c[_c]; ctx.shadowBlur = 10 + _cp * 18;
-          ctx.fillStyle   = _4c[_c] + Math.floor(_cp * 0x30).toString(16).padStart(2, '0');
-          ctx.beginPath(); ctx.arc(x, y, 14 + _cp * 5, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
-        }
-      } else {
+      // 地標方塊
+      const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), color);
+      // 未插旗：壓黑
+      if (!isDone) {
+        ctx.save(); ctx.clip(isle);
+        ctx.fillStyle = isCurrent ? 'rgba(3,7,16,0.40)' : 'rgba(3,7,16,0.62)';
+        ctx.fillRect(ncx - rw - 2, ncy - NODE_RH - 2, rw * 2 + 4, NODE_RH * 2 + 4);
+        ctx.restore();
+      }
+      // 神殿佔位：色塊上放尊位圖示（美術未到位）
+      if (i === 4 && !nodeArt(i, side)) {
+        ctx.save(); ctx.clip(isle);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '22px Arial';
+        ctx.globalAlpha *= isDone ? 1 : 0.8;
+        ctx.fillText(nodeIcon(i, side), ncx, ncy - 1);
+        ctx.restore();
+      }
+      // 當前目標：島緣脈動光暈
+      if (isCurrent) {
         const pulse = 0.5 + Math.sin(t / 280) * 0.5;
         ctx.save();
-        ctx.shadowColor = stepColor; ctx.shadowBlur = 14 + pulse * 14;
-        ctx.fillStyle   = stepColor + Math.floor(pulse * 0x44).toString(16).padStart(2, '0');
-        ctx.beginPath(); ctx.arc(x, y, 18 + pulse * 3, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowColor = color; ctx.shadowBlur = 8 + pulse * 16;
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.stroke(isle);
         ctx.restore();
       }
-    }
-    // 已完成常態光暈
-    if (isDone) {
-      if (isAdv) {
-        for (let _c = 0; _c < 4; _c++) {
-          ctx.save();
-          ctx.shadowColor = _4c[_c]; ctx.shadowBlur = 8;
-          ctx.fillStyle   = _4c[_c] + '25';
-          ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
-        }
-      } else {
-        ctx.save();
-        ctx.shadowColor = stepColor; ctx.shadowBlur = 10;
-        ctx.fillStyle   = stepColor + '30';
-        ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+      // 名牌（方塊正下方，緊貼下緣）
+      drawMapPlate(ctx, ncx, ncy + NODE_RH + 9, nodeRewardLabel(i, side), nodeName(i, side),
+                   color, isDone || isCurrent, sides.length > 1 ? MAP_PW * 0.45 : MAP_PW - 30);
+      // 旗子（已抵達）
+      if (mapFlags[i] && !lost) {
+        drawMapFlag(ctx, ncx + rw * 0.62, ncy - NODE_RH * 0.1,
+                    color, mapFlagAnim[i] / TF(TIMING.mapFlag), t);
       }
-    }
-
-    // 節點圓
-    if (isAdv && (isDone || isCurrent)) {
-      // 圓底色
-      ctx.fillStyle = isDone ? 'rgba(40,20,60,0.55)' : 'rgba(20,10,35,0.22)';
-      ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
-      // 4色分段邊框（每90度換色）
-      for (let _c = 0; _c < 4; _c++) {
-        ctx.save();
-        ctx.strokeStyle = _4c[_c];
-        ctx.lineWidth   = 2;
-        if (isDone) { ctx.shadowColor = _4c[_c]; ctx.shadowBlur = 8; }
-        ctx.beginPath();
-        ctx.arc(x, y, 14, (_c / 4) * Math.PI * 2 - Math.PI / 2,
-                           ((_c + 1) / 4) * Math.PI * 2 - Math.PI / 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-    } else {
-      ctx.fillStyle   = isDone ? stepColor + '55' : isCurrent ? stepColor + '22' : '#0d1a2a';
-      ctx.strokeStyle = (isDone || isCurrent) ? stepColor : '#2d3f55';
-      ctx.lineWidth   = (isDone || isCurrent) ? 2 : 1;
-      if (isDone) { ctx.shadowColor = stepColor; ctx.shadowBlur = 8; }
-      ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-    ctx.shadowBlur = 0;
-
-    // 圖示
-    ctx.font = '17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.globalAlpha = (isDone || isCurrent) ? 1 : 0.22;
-    ctx.fillText(isAdv ? '🐏' : PLACE_ICONS[questOrder[i]], x, y);
-    ctx.globalAlpha = 1;
-
-    // 左側標籤（乘倍 / JP）
-    const textColor = isAdv ? '#c4b5fd' : stepColor;
-    const STEP_LEFT_LABELS = ['×2', '×3', '×5', '×10', 'JP'];
-    const leftLabel = STEP_LEFT_LABELS[i];
-    const leftFontSize = (leftLabel === '×10') ? 10 : 12; // ×10 略縮字
-    ctx.font = `bold ${leftFontSize}px Arial`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = (isDone || isCurrent) ? textColor : 'rgba(255,255,255,0.2)';
-    ctx.fillText(leftLabel, x - 20, y);
-
-    // 右側條件說明
-    ctx.font = '11px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = isDone ? textColor : isCurrent ? textColor : 'rgba(255,255,255,0.18)';
-    ctx.fillText(isAdv ? '科爾基斯聖林' : PLACE_NAMES[questOrder[i]], x + 22, y);
-
-    // 旗子（船已到達）
-    if (mapFlags[i]) {
-      const wave = Math.sin(t / 400) * 3;
-      ctx.strokeStyle = '#d4a017'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x + 14, y - 6); ctx.lineTo(x + 14, y - 18); ctx.stroke();
-      ctx.save();
-      ctx.translate(x + 14, y - 18);
-      ctx.rotate((wave * Math.PI) / 180);
-      ctx.fillStyle = textColor;
-      ctx.fillRect(0, 0, 10, 6);
       ctx.restore();
     }
   }
+
+  // ── 未揭示區域：一整片霧（分界線以上全覆蓋）──
+  drawMapFog(ctx, mapFogEdgeY(), t);
 
   // ── 濺起粒子 ──
   for (const s of mapSplash) {
@@ -2576,21 +2882,29 @@ function drawTMAnim(ctx) {
   const scaleT = prog < 0.15 ? 0.3 + (prog / 0.15) * 0.7 : 1;
   const scale  = scaleT + pulse;
 
+  // 第 5 步達成 → 🏆；完成第 4 步（本次動畫結束就揭開第 5 格）→ 公布本局 JP 尊位；其餘 → 🗺️
+  const isJPStep   = tmAnim.stepIdx === 4;
+  const isJPReveal = tmAnim.stepIdx === jpRevealStepIdx();
+  const boss  = jpBossDef();
+  const emoji = isJPStep ? '🏆' : (isJPReveal ? boss.icon : '🗺️');
+  const text  = isJPStep ? '獲得JP！'
+              : isJPReveal ? (RULE_VERSION === 2 ? `${boss.label}航線！` : `本局 JP：${boss.label}`)
+              : '獲得藏寶圖！';
+  const tone  = isJPReveal ? boss.color : '#ffd700';
+  const glowC = isJPReveal ? boss.glow  : '#ffd700';
+
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
 
-  // 金色光暈
-  ctx.shadowColor = '#ffd700';
+  ctx.shadowColor = glowC;
   ctx.shadowBlur  = 28 + Math.abs(pulse) * 80;
 
-  // emoji（第5階用 🏆，其餘用 🗺️）
-  const isJPStep = tmAnim.stepIdx === 4;
   ctx.font = '54px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(isJPStep ? '🏆' : '🗺️', 0, 0);
+  ctx.fillText(emoji, 0, 0);
 
   ctx.restore();
 
@@ -2598,12 +2912,12 @@ function drawTMAnim(ctx) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = 'bold 13px Arial';
-  ctx.fillStyle = '#ffd700';
+  ctx.fillStyle = tone;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.shadowColor = '#ffd700';
+  ctx.shadowColor = glowC;
   ctx.shadowBlur  = 10;
-  ctx.fillText(isJPStep ? '獲得JP！' : '獲得藏寶圖！', cx, cy + 36);
+  ctx.fillText(text, cx, cy + 36);
   ctx.restore();
 }
 
@@ -2731,168 +3045,43 @@ function drawFlyingScores(ctx) {
 
 
 
-// ── 抽牌更新 ──
-function updateBossCardPick() {
-  if (!bossCardPick.active) return;
-  if (bossCardPick.phase === 'flipping') {
-    bossCardPick.flipTimer++;
-    if (bossCardPick.flipTimer >= bossCardPick.flipDuration) {
-      bossCardPick.phase = 'result';
-      bossCardPick.resultTimer = TF(TIMING.cardPickResult); // 翻牌後停留展示
-    }
-  } else if (bossCardPick.phase === 'result') {
-    bossCardPick.resultTimer--;
-    if (bossCardPick.resultTimer <= 0) {
-      bossCardPick.active = false;
-      // JP 發放（grantBossCardJP 已移除，直接結算）
-      const bossDefs = [
-        { name: '宙斯', fallback: 999999, label: '⚡ 宙斯', color: '#facc15', glow: '#fbbf24' },
-        { name: '赫拉', fallback: 888888, label: '👑 赫拉', color: '#f472b6', glow: '#ec4899' },
-      ];
-      const bossId = bossCardPick.order[bossCardPick.selected];
-      const def = bossDefs[bossId];
-      const val = def.fallback;
-      totalScore += val;
-      // 觸發報獎動畫
-      startJpWinAnim(def.label, val, def.color, def.glow);
-    }
-  }
+// ── JP 發放：第 5 步達成、連爆結束後直接結算本局尊位（不經抽牌）──
+function grantJpBoss() {
+  const boss = jpBossDef();
+  if (!boss.value) return;   // v2 分歧未定（理論上到不了第 5 關）
+  totalScore += boss.value;
+  enqueueWinAnim({ label: boss.label, value: boss.value, color: boss.color, glow: boss.glow,
+                   size: 'jp', caption: 'J A C K P O T' });
 }
 
-// ── 抽牌繪製 ──
-function drawBossCardPick(ctx) {
-  if (!bossCardPick.active) return;
-
-  const CW = 200, CH = 280; // 牌尺寸
-  const gap = 80;
-  const cx = 640, cy = 330;
-  const card0x = cx - gap / 2 - CW; // 左牌左邊 x
-  const card1x = cx + gap / 2;      // 右牌左邊 x
-  const cardY = cy - CH / 2;
-
-  const BOSS_INFO = [
-    { icon: '⚡', name: '宙斯', color: '#facc15', glow: '#fbbf24', jackpot: (() => { const m = monsters.find(b=>b.name==='宙斯'); return m ? m.jackpot : 999999; })() },
-    { icon: '👑', name: '赫拉', color: '#ec4899', glow: '#f472b6', jackpot: (() => { const m = monsters.find(b=>b.name==='赫拉'); return m ? m.jackpot : 888888; })() },
-  ];
-
-  // 壓暗背景
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,8,0.78)';
-  ctx.fillRect(0, 0, 1280, 720);
-
-  // 標題
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#fde68a';
-  ctx.font = 'bold 28px Arial';
-  ctx.shadowColor = '#facc15'; ctx.shadowBlur = 18;
-  ctx.fillText('✨ 選擇你的命運 ✨', cx, 120);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#94a3b8'; ctx.font = '16px Arial';
-  ctx.fillText('點擊一張牌，獲得對應的 JP 彩金', cx, 158);
-
-  // 繪製每張牌
-  [card0x, card1x].forEach((bx, i) => {
-    const bossId = bossCardPick.order[i];
-    const boss = BOSS_INFO[bossId];
-    const isHovered = bossCardPick.phase === 'picking' && bossCardPick.hover === i;
-    const isSelected = bossCardPick.selected === i;
-    const isOther = bossCardPick.selected !== -1 && !isSelected;
-
-    // hover 向上彈起
-    const liftY = isHovered ? -18 : 0;
-    const by = cardY + liftY;
-
-    ctx.save();
-
-    // 翻牌動畫：只有被選中的牌才翻
-    let scaleX = 1;
-    let showFace = false;
-    if (isSelected && bossCardPick.phase === 'flipping') {
-      const t = bossCardPick.flipTimer / bossCardPick.flipDuration;
-      scaleX = Math.abs(Math.cos(t * Math.PI));
-      showFace = t >= 0.5;
-    } else if (isSelected && bossCardPick.phase === 'result') {
-      showFace = true;
-    }
-
-    // 非選中的牌在翻牌/結果階段淡出
-    if (isOther) {
-      ctx.globalAlpha = bossCardPick.phase === 'flipping'
-        ? Math.max(0, 1 - bossCardPick.flipTimer / bossCardPick.flipDuration * 2)
-        : 0;
-    }
-
-    // 縮放（翻牌效果）
-    const pivotX = bx + CW / 2;
-    ctx.translate(pivotX, 0);
-    ctx.scale(scaleX, 1);
-    ctx.translate(-pivotX, 0);
-
-    if (showFace) {
-      // 正面：Boss 圖案
-      const fgrad = ctx.createLinearGradient(bx, by, bx, by + CH);
-      fgrad.addColorStop(0, '#1a0a30');
-      fgrad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = fgrad;
-      ctx.beginPath(); ctx.roundRect(bx, by, CW, CH, 16); ctx.fill();
-      ctx.strokeStyle = boss.glow; ctx.lineWidth = 3;
-      ctx.shadowColor = boss.glow; ctx.shadowBlur = 22;
-      ctx.beginPath(); ctx.roundRect(bx, by, CW, CH, 16); ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = '72px Arial';
-      ctx.fillText(boss.icon, bx + CW / 2, by + 110);
-      ctx.fillStyle = boss.color; ctx.font = 'bold 24px Arial';
-      ctx.shadowColor = boss.glow; ctx.shadowBlur = 10;
-      ctx.fillText(boss.name, bx + CW / 2, by + 185);
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Arial';
-      ctx.fillText('JP  ' + boss.jackpot.toLocaleString(), bx + CW / 2, by + 222);
-    } else {
-      // 背面
-      const bgrad = ctx.createLinearGradient(bx, by, bx + CW, by + CH);
-      bgrad.addColorStop(0, '#1e3a5f');
-      bgrad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = bgrad;
-      ctx.beginPath(); ctx.roundRect(bx, by, CW, CH, 16); ctx.fill();
-
-      const borderColor = isHovered ? '#facc15' : '#334155';
-      ctx.strokeStyle = borderColor; ctx.lineWidth = isHovered ? 3 : 2;
-      if (isHovered) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 20; }
-      ctx.beginPath(); ctx.roundRect(bx, by, CW, CH, 16); ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // 牌背花紋
-      ctx.strokeStyle = 'rgba(250,204,21,0.15)'; ctx.lineWidth = 1;
-      for (let d = 20; d < CW + CH; d += 22) {
-        ctx.beginPath(); ctx.moveTo(bx + Math.max(0, d - CH), by + Math.min(CH, d));
-        ctx.lineTo(bx + Math.min(CW, d), by + Math.max(0, d - CW)); ctx.stroke();
-      }
-
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = '54px Arial';
-      ctx.globalAlpha *= isOther ? 1 : (isHovered ? 1 : 0.85);
-      ctx.fillText('🃏', bx + CW / 2, by + CH / 2 - 15);
-      if (isHovered) {
-        ctx.fillStyle = '#facc15';
-        ctx.font = 'bold 15px Arial';
-        ctx.fillText('點擊選擇', bx + CW / 2, by + CH / 2 + 50);
-      }
-    }
-
-    ctx.restore();
-  });
-
-  ctx.restore();
+// ── v2 赫拉航線：結算彩金（只給達成的最遠一關，不與盤面倍數相乘）──
+function grantHeraCash() {
+  // 只給最遠一關、不重複給：已發過較低關卡（SFG 地圖跨局）時補差額
+  const tierMult = V2_HERA_CASH[heraCashTier] || 0;
+  const owe = tierMult - (V2_HERA_CASH[heraCashPaidTier] || 0);
+  if (owe <= 0) return;
+  heraCashPaidTier = heraCashTier;
+  const boss = JP_BOSSES[1];
+  const amount = owe * betAmount;   // SFG 跨局補差額時，標籤寫達成的關卡倍數、金額只給差額
+  totalScore += amount;
+  enqueueWinAnim({ label: `${boss.label} ${tierMult}×`, value: amount, color: boss.color, glow: boss.glow,
+                   size: 'cash', caption: '結 算 彩 金' });
 }
 
-// ── JP 報獎動畫 ──
+// ── 報獎動畫（JP／結算彩金共用；一次結算可能兩者都有，依序播）──
+// 報獎時長：彩金用較短的 cashWin
+function jpWinDur() { return TF(jpWinAnim.size === 'cash' ? TIMING.cashWin : TIMING.jpWin); }
 
-function startJpWinAnim(label, value, color, glow) {
-  jpWinAnim = { active: true, timer: 0, label, value, color, glow };
+function enqueueWinAnim(item) {
+  if (jpWinAnim.active) jpWinQueue.push(item);
+  else startJpWinAnim(item);
+}
+
+function startJpWinAnim(item) {
+  jpWinAnim = { active: true, timer: 0, ...item };
   jpWinParticles = [];
-  for (let i = 0; i < 120; i++) {
+  const _n = item.size === 'cash' ? 60 : 120;
+  for (let i = 0; i < _n; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 2 + Math.random() * 6;
     jpWinParticles.push({
@@ -2909,11 +3098,16 @@ function startJpWinAnim(label, value, color, glow) {
 }
 
 function updateJpWinAnim() {
-  if (!jpWinAnim.active) return;
+  if (!jpWinAnim.active) {
+    if (jpWinQueue.length) startJpWinAnim(jpWinQueue.shift());   // 防呆：佇列不會卡住
+    return;
+  }
+  const _dur = jpWinDur();
   jpWinAnim.timer++;
-  if (jpWinAnim.timer >= TF(TIMING.jpWin)) {
+  if (jpWinAnim.timer >= _dur) {
     jpWinAnim.active = false;
     jpWinParticles = [];
+    if (jpWinQueue.length) startJpWinAnim(jpWinQueue.shift());   // 彩金播完接著播 JP
     return;
   }
   for (const p of jpWinParticles) {
@@ -2923,7 +3117,7 @@ function updateJpWinAnim() {
     p.life -= p.decay;
   }
   // 持續補充粒子
-  if (jpWinAnim.timer < TF(TIMING.jpWin) - 60 && jpWinParticles.length < 180) {
+  if (jpWinAnim.timer < _dur - 60 && jpWinParticles.length < (jpWinAnim.size === 'cash' ? 90 : 180)) {
     for (let i = 0; i < 3; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 5;
@@ -2944,14 +3138,18 @@ function updateJpWinAnim() {
 function drawJpWinAnim(ctx) {
   if (!jpWinAnim.active) return;
   const t = jpWinAnim.timer;
+  const _dur = jpWinDur();
   const fadeIn  = Math.min(1, t / 20);
-  const fadeOut = t > TF(TIMING.jpWin) - 40 ? 1 - (t - (TF(TIMING.jpWin) - 40)) / 40 : 1;
+  const fadeOut = t > _dur - 40 ? 1 - (t - (_dur - 40)) / 40 : 1;
   const alpha = fadeIn * fadeOut;
+  // 結算彩金：畫小一號、不壓暗全畫面，與真 JP 報獎明顯區隔
+  const isCash = jpWinAnim.size === 'cash';
+  const sz     = isCash ? 0.62 : 1;
 
   ctx.save();
 
-  // 暗底
-  ctx.globalAlpha = alpha * 0.72;
+  // 暗底（彩金只淡淡壓一層，盤面仍看得見）
+  ctx.globalAlpha = alpha * (isCash ? 0.3 : 0.72);
   ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fillRect(0, 0, 1280, 720);
 
@@ -2975,7 +3173,7 @@ function drawJpWinAnim(ctx) {
   const scale = 0.4 + 0.6 * (scaleT < 0.7 ? (scaleT / 0.7) : (1 + 0.08 * Math.sin((scaleT - 0.7) / 0.3 * Math.PI)));
 
   ctx.translate(640, 320);
-  ctx.scale(scale, scale);
+  ctx.scale(scale * sz, scale * sz);
   ctx.translate(-640, -320);
 
   // 光暈大圓
@@ -2987,7 +3185,7 @@ function drawJpWinAnim(ctx) {
   ctx.arc(640, 320, 280, 0, Math.PI * 2);
   ctx.fill();
 
-  // Boss 標籤
+  // 尊位標籤
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = jpWinAnim.color;
@@ -2996,12 +3194,12 @@ function drawJpWinAnim(ctx) {
   ctx.font = 'bold 64px Arial';
   ctx.fillText(jpWinAnim.label, 640, 250);
 
-  // JP 獲得文字
+  // 獎項名稱（JACKPOT／結算彩金）
   ctx.fillStyle = '#ffffff';
   ctx.shadowColor = jpWinAnim.glow;
   ctx.shadowBlur = 20;
   ctx.font = 'bold 36px Arial';
-  ctx.fillText('J A C K P O T', 640, 320);
+  ctx.fillText(jpWinAnim.caption || 'J A C K P O T', 640, 320);
 
   // 金額
   ctx.fillStyle = '#fde68a';
@@ -3048,9 +3246,9 @@ function update(dt) {
   updateParticles();
   updateMapPanel();
   updateTMAnim();
+  updateQuestPending();   // 地圖一關一關解鎖：上一關的演繹播完才推進下一關
   updateScoreTexts();
   updateFlyingScores();
-  updateBossCardPick();
   updateJpWinAnim();
   switch (currentState) {
     case STATE.SPINNING:    updateSpinning(); break;
@@ -3154,7 +3352,7 @@ function update(dt) {
 
       // 無計時器：根據 phase 決定下一步
       if (synthOpPhase === 'idle') {
-        if (tmAnim.active || bossCardPick.active) break; // 藏寶圖動畫 / JP抽牌中，暫停連爆
+        if (tmAnim.active) break; // 藏寶圖動畫中，暫停連爆
         if (synthOpIdx < synthOps.length) {
           const op = synthOps[synthOpIdx];
           const a = board[op.col]?.[op.row];
@@ -3188,8 +3386,7 @@ function update(dt) {
 
       if (synthOpPhase !== 'settle' || synthOpTimer > 0) break;
 
-      // JP 抽牌 / JP 報獎動畫進行中 → 凍結（此路徑只作保護，正常由 win===0 else 分支處理）
-      if (bossCardPick.active) break;
+      // JP 報獎動畫進行中 → 凍結（此路徑只作保護，正常由 win===0 else 分支處理）
       if (jpWinAnim.active) break;
 
       // 緩衝結束 → 結算（進階合成已在進入 settle 前套用）
@@ -3213,12 +3410,14 @@ function update(dt) {
       } else {
         // 連爆到不能再連爆 → 本局結算，排入三階大獎判定（大獎播完才進 FG／SFG）
         pendingBigWinCheck = true;
-        if (questProgress >= 5 && !bossCardPick.active) {
-          bossCardPick.active = true;
-          bossCardPick.phase = 'picking';
-          bossCardPick.hover = -1;
-          bossCardPick.selected = -1;
-          bossCardPick.order = Math.random() < 0.5 ? [0,1] : [1,0];
+        // v2 赫拉航線的結算彩金：本局結算給一次（只給最遠一關，不與盤面倍數相乘）
+        if (RULE_VERSION === 2 && questRoute === 1 && heraCashTier > heraCashPaidTier) {
+          grantHeraCash();
+        }
+        // 第 5 步已達成 → 發放本局航線的 JP（尊位在分歧／揭開第 5 格時就公布過了）
+        if (questProgress >= 5 && !jpGranted) {
+          jpGranted = true;
+          grantJpBoss();
         }
         if (shipSFGPending) {
           // 相鄰合成 → SFG：等JP動畫播完後再顯示SFG面板
@@ -3236,7 +3435,7 @@ function update(dt) {
           // SFG 結束 → 重置地圖
           mapFlags = [false, false, false, false, false];
           questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
-          questOrder = [0,1,2,3].sort(() => Math.random()-0.5);
+          buildQuestPlan();
           tmAnim = { active: false, timer: 0, stepIdx: -1 };
         } else if (inFG && fgSpinsLeft <= 0) {
           // FG 全部局數打完，結束FG
@@ -3254,7 +3453,7 @@ function update(dt) {
     case STATE.IDLE:
       // 連爆全部結束、飛行分數收完後才判定三階大獎
       if (pendingBigWinCheck && !flyingScores.length &&
-          !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
+          !jpWinAnim.active && !jpWinQueue.length) {
         pendingBigWinCheck = false;
         totalScore += winScore;
         maybeTriggerBigWin(winScore);
@@ -3262,7 +3461,7 @@ function update(dt) {
       // 大獎／轉場／載入頁播放中：不進 FG／SFG，也不自動轉
       if (bigWin.active || transition.active) break;
 
-      if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
+      if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length) {
         // SC 中獎演繹（強度高／1.2s）。若已在 ship_flash 階段播過（tag==='sfg'）就直接開面板
         if (!scWinAnim.active && scWinAnim.tag !== 'sfg') {
           scWinAnim = { active: true, timer: TF(TIMING.scWinSFG), total: TF(TIMING.scWinSFG), tag: 'sfg' };
@@ -3273,7 +3472,7 @@ function update(dt) {
           showSFGPanel = true;
         }
       }
-      if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
+      if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length) {
         // SC 中獎演繹（強度中／0.8s）：進 FG 轉場前，圖示發光放大縮小＋些微盤面震動
         if (!scWinAnim.active && scWinAnim.tag !== 'fg') {
           scWinAnim = { active: true, timer: TF(TIMING.scWinFG), total: TF(TIMING.scWinFG), tag: 'fg' };
@@ -4465,21 +4664,30 @@ function drawSceneBackground(ctx) {
 
 // ── 三階大獎跑分（編號 35-37，爬階大獎）────────────────────
 const BIGWIN_TIERS = [
-  { name: 'BIG WIN',   key: 'winBig',   ratio: 25  },   // 25~49 倍
-  { name: 'SUPER WIN', key: 'winSuper', ratio: 50  },   // 50~99 倍
-  { name: 'MEGA WIN',  key: 'winMega',  ratio: 100 },   // 100 倍以上
+  { name: 'BIG WIN',   key: 'winBig',   ratio: 25,  run: 'bigWinRunBig',   hold: 'bigWinHoldBig'   }, // 25~49 倍
+  { name: 'SUPER WIN', key: 'winSuper', ratio: 50,  run: 'bigWinRunSuper', hold: 'bigWinHoldSuper' }, // 50~99 倍
+  { name: 'MEGA WIN',  key: 'winMega',  ratio: 100, run: 'bigWinRunMega',  hold: 'bigWinHoldMega'  }, // 100 倍以上
 ];
-let bigWin = { active: false, tier: 0, maxTier: 0, shown: 0, target: 0, timer: 0, total: 1, hold: 0 };
+let bigWin = { active: false, tier: 0, maxTier: 0, shown: 0, target: 0, marks: [], timer: 0, total: 1, hold: 0 };
 let pendingBigWinCheck = false;   // 連爆結束後待判定大獎（大獎播完才進 FG／SFG）
 
 function maybeTriggerBigWin(amount) {
-  const ratio = amount / Math.max(betAmount, 1);
+  const bet   = Math.max(betAmount, 1);
+  const ratio = amount / bet;
   let maxTier = -1;
   for (let i = 0; i < BIGWIN_TIERS.length; i++) if (ratio >= BIGWIN_TIERS[i].ratio) maxTier = i;
   if (maxTier < 0) return false;
+  // 跑分從第一階門檻（25 倍）起跳，逐段往上爬到最終金額。
+  // marks = [25倍, (50倍), (100倍), 最終金額]；跑分時間平均分給每一段，
+  // BIG → SUPER → MEGA 每一階才都停得夠久看得到。
+  const marks = [];
+  for (let i = 0; i <= maxTier; i++) marks.push(BIGWIN_TIERS[i].ratio * bet);
+  marks.push(amount);
   bigWin = {
-    active: true, tier: 0, maxTier, shown: 0, target: amount,
-    timer: 0, total: TF(TIMING.bigWinRun) + maxTier * TF(TIMING.bigWinTierAdd), hold: TF(TIMING.bigWinHold),
+    active: true, tier: 0, maxTier, shown: marks[0], target: amount, marks,
+    timer: 0,
+    total: TF(TIMING[BIGWIN_TIERS[maxTier].run]),
+    hold:  TF(TIMING[BIGWIN_TIERS[maxTier].hold]),
   };
   return true;
 }
@@ -4488,7 +4696,13 @@ function updateBigWin() {
   if (!bigWin.active) return;
   bigWin.timer++;
   const p = Math.min(1, bigWin.timer / bigWin.total);
-  bigWin.shown = Math.floor(bigWin.target * (p < 1 ? 1 - Math.pow(1 - p, 2.2) : 1));
+  // 逐段跑分：每段等時，最後一段收尾放慢
+  const segs = Math.max(1, bigWin.marks.length - 1);
+  const sp   = p * segs;
+  const si   = Math.min(segs - 1, Math.floor(sp));
+  let   f    = sp - si;
+  if (si === segs - 1) f = 1 - Math.pow(1 - Math.min(1, f), 2.2);
+  bigWin.shown = Math.floor(bigWin.marks[si] + (bigWin.marks[si + 1] - bigWin.marks[si]) * f);
   // 爬階：跑分數字跨過門檻就升級大獎層級
   const r = bigWin.shown / Math.max(betAmount, 1);
   while (bigWin.tier < bigWin.maxTier && r >= BIGWIN_TIERS[bigWin.tier + 1].ratio) bigWin.tier++;
@@ -4531,10 +4745,11 @@ function drawBigWin(ctx) {
   const plateTop = y + h * 0.66, plateSolid = y + h * 0.745;
   const plate = ctx.createLinearGradient(0, plateTop, 0, plateSolid);
   plate.addColorStop(0, 'rgba(6,3,1,0)');
-  plate.addColorStop(1, 'rgba(6,3,1,0.97)');
+  plate.addColorStop(1, 'rgba(6,3,1,1)');
   ctx.fillStyle = plate;
   ctx.fillRect(x, plateTop, w, plateSolid - plateTop);
-  ctx.fillStyle = 'rgba(6,3,1,0.97)';
+  // 全不透明：0.97 會讓美術圖烙印的示意金額透出約 3%，在深底上還是看得到
+  ctx.fillStyle = 'rgb(6,3,1)';
   ctx.fillRect(x, plateSolid, w, y + h - plateSolid);
   ctx.restore();
 
@@ -4684,7 +4899,6 @@ function draw() {
   drawBottomBar(ctx);
   drawSpinButton(ctx);
   if (showStatsPanel) drawTopStats(ctx);
-  drawBossCardPick(ctx);
   drawJpWinAnim(ctx);
   drawForceMenu(ctx);
   drawFGHUD(ctx);
@@ -4717,7 +4931,7 @@ canvas.addEventListener('click', e => {
     mapMaskAnim = [0, 0, 0, 0, 0];
     mapFlagAnim = [0, 0, 0, 0, 0];
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
-    questOrder = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    buildQuestPlan();
     tmAnim = { active: false, timer: 0, stepIdx: -1 };
     mapSplash = [];
     if (mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y) {
@@ -4779,22 +4993,6 @@ canvas.addEventListener('click', e => {
       showFGEndPanel = false;
       startTransition('exit', null);
     }
-    return;
-  }
-
-  // Boss 抽牌：選牌
-  if (bossCardPick.active && bossCardPick.phase === 'picking') {
-    const CW = 200, CH = 280, gap = 80, cx = 640, cy = 330;
-    const card0x = cx - gap / 2 - CW, card1x = cx + gap / 2;
-    const cardY = cy - CH / 2;
-    [card0x, card1x].forEach((bx, i) => {
-      const liftY = bossCardPick.hover === i ? -18 : 0;
-      if (mx >= bx && mx <= bx + CW && my >= cardY + liftY && my <= cardY + liftY + CH) {
-        bossCardPick.selected = i;
-        bossCardPick.phase = 'flipping';
-        bossCardPick.flipTimer = 0;
-      }
-    });
     return;
   }
 
@@ -4861,20 +5059,6 @@ canvas.addEventListener('mousemove', e => {
   const my = (e.clientY - rect.top) * (720 / rect.height);
   isMouseHoverSpin = inLayoutBox(LAYOUT.spinBtn, mx, my);
   isMouseHoverAuto = inLayoutBox(LAYOUT.autoBtn, mx, my);
-
-  // Boss 抽牌：hover 偵測
-  if (bossCardPick.active && bossCardPick.phase === 'picking') {
-    const CW = 200, CH = 280, gap = 80, cx = 640, cy = 330;
-    const card0x = cx - gap / 2 - CW, card1x = cx + gap / 2;
-    const cardY = cy - CH / 2;
-    let newHover = -1;
-    [card0x, card1x].forEach((bx, i) => {
-      if (mx >= bx && mx <= bx + CW && my >= cardY - 18 && my <= cardY + CH) {
-        newHover = i;
-      }
-    });
-    bossCardPick.hover = newHover;
-  }
 });
 
 // === 遊戲主迴圈 ===
@@ -4893,7 +5077,7 @@ function gameLoop(ts) {
 const TUNE_KEY = 'argo_tuning';
 const TUNE_VERSION = 2;  // v2: 套用企劃 2026-08-03 匯出的取圖焦點；移除載入頁。舊存檔自動作廃。
 let tunePanelOpen = false;
-let tuneTab = 'timing';        // 'timing' | 'layout' | 'crop'
+let tuneTab = 'timing';        // 'timing' | 'layout' | 'crop' | 'rules'
 let layoutEditMode = false;    // 佈局分頁開啟中 = 編輯模式（攔截畫布輸入）
 let layoutSelected = null;     // 選中的 LAYOUT key
 let layoutDrag = null;         // { mx, my, ox, oy } 拖曳起點
@@ -4906,6 +5090,7 @@ function saveTuning() {
     localStorage.setItem(TUNE_KEY, JSON.stringify({
       version: TUNE_VERSION,
       timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP,
+      ruleVersion: RULE_VERSION,
     }));
     return true;
   } catch (e) { return false; }
@@ -4939,6 +5124,8 @@ function loadTuning() {
         });
         if (typeof c.zoom === 'number' && isFinite(c.zoom)) CROP[i].zoom = Math.min(3, Math.max(0.5, c.zoom));
       }
+      // 地圖規則版本（舊存檔沒這個欄位 → 沿用預設 v1）
+      if (RULE_VERSIONS[d.ruleVersion]) RULE_VERSION = Number(d.ruleVersion);
     }
   } catch (e) { /* 資料損毀：退回預設 */ }
   syncLayoutDerived();
@@ -5253,12 +5440,102 @@ function buildCropTab() {
   drawCropPreview();
 }
 
+// --- 規則分頁：地圖規則版本切換 ---
+// 各版本的關卡摘要（純顯示用；實際邏輯在 buildQuestPlan / applyQuestReward）
+const RULE_SUMMARY = {
+  1: [
+    ['1', '隨機色 ①，合成 1 次', '盤面 ×2'],
+    ['2', '隨機色 ②，合成 1 次', '盤面 ×3'],
+    ['3', '隨機色 ③，合成 1 次', '盤面 ×5'],
+    ['4', '隨機色 ④，合成 1 次', '盤面 ×10'],
+    ['5', '任意色進階合成 1 次', 'JP（尊位開局隨機）'],
+  ],
+  2: [
+    ['1', '藍／綠 隨機一色，合成 1 次', '盤面 ×2'],
+    ['2', '藍／綠 另一色，合成 1 次', '盤面 ×3'],
+    ['3', '紅｜金 分歧，先合成者定航線', '⚡ 盤面 ×5 ／ 👑 彩金 50×'],
+    ['4', '第 3 關另一色，合成 1 次', '⚡ 盤面 ×20 ／ 👑 彩金 100×'],
+    ['5', '任意色進階合成 1 次', '對應航線之 JP'],
+  ],
+};
+function buildRulesTab() {
+  tuneBody.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '切換地圖規則版本。切換後立即重置地圖進度，從下一局生效（設定會存進 localStorage 並納入「匯出全部設定」）。';
+  tuneBody.appendChild(hint);
+
+  const h = document.createElement('div');
+  h.className = 'tune-group'; h.textContent = '規則版本';
+  tuneBody.appendChild(h);
+
+  Object.keys(RULE_VERSIONS).forEach(v => {
+    const ver = Number(v);
+    const row = document.createElement('div'); row.className = 'tune-row';
+    const lab = document.createElement('label');
+    lab.style.flex = '0 0 auto';
+    const rb = document.createElement('input');
+    rb.type = 'radio'; rb.name = 'ruleVersion'; rb.checked = (RULE_VERSION === ver);
+    rb.style.marginRight = '6px';
+    lab.append(rb, document.createTextNode(RULE_VERSIONS[ver].name));
+    const desc = document.createElement('span');
+    desc.style.cssText = 'color:#94a3b8;font-size:11px;';
+    desc.textContent = RULE_VERSIONS[ver].desc;
+    rb.addEventListener('change', () => {
+      if (!rb.checked) return;
+      RULE_VERSION = ver;
+      // 立即重置地圖進度，避免舊版本的 questPlan 殘留
+      questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
+      mapFlags = [false, false, false, false, false];
+      mapMaskAnim = [0, 0, 0, 0, 0]; mapFlagAnim = [0, 0, 0, 0, 0];
+      tmAnim = { active: false, timer: 0, stepIdx: -1 };
+      buildQuestPlan();
+      saveTuning();
+      refreshTuneBody();
+      setTuneStatus(`已切換為 ${RULE_VERSIONS[ver].name}`);
+    });
+    row.append(lab, desc);
+    tuneBody.appendChild(row);
+  });
+
+  const h2 = document.createElement('div');
+  h2.className = 'tune-group'; h2.textContent = `${RULE_VERSIONS[RULE_VERSION].name}　關卡與獎勵`;
+  tuneBody.appendChild(h2);
+
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;';
+  tbl.innerHTML = '<tr><th style="text-align:left;color:#94a3b8;padding:3px 4px;">關</th>'
+                + '<th style="text-align:left;color:#94a3b8;padding:3px 4px;">條件</th>'
+                + '<th style="text-align:left;color:#94a3b8;padding:3px 4px;">完成獎勵</th></tr>';
+  RULE_SUMMARY[RULE_VERSION].forEach(([n, cond, reward]) => {
+    const tr = document.createElement('tr');
+    [n, cond, reward].forEach((txt, ci) => {
+      const td = document.createElement('td');
+      td.textContent = txt;
+      td.style.cssText = `padding:3px 4px;border-top:1px solid #1e293b;color:${ci === 2 ? '#facc15' : '#cbd5e1'};`;
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+  tuneBody.appendChild(tbl);
+
+  if (RULE_VERSION === 2) {
+    const note = document.createElement('div');
+    note.className = 'tune-hint';
+    note.style.marginTop = '8px';
+    note.textContent = '紅色→宙斯航線（給盤面倍數）、金色→赫拉航線（給結算彩金）。彩金只給達成的最遠一關，'
+                     + '彩金與 JP 都不與盤面倍數相乘。JP 尊位於第 3 關分歧、船轉向時公布。';
+    tuneBody.appendChild(note);
+  }
+}
+
 function refreshTuneBody() {
   layoutEditMode = tunePanelOpen && tuneTab === 'layout';
   if (!layoutEditMode) { layoutDrag = null; canvas.style.cursor = 'default'; }
   cropPreviewCanvas = null;
   if (tuneTab === 'timing') buildTimingTab();
   else if (tuneTab === 'layout') buildLayoutTab();
+  else if (tuneTab === 'rules') buildRulesTab();
   else buildCropTab();
 }
 function syncLayoutFields() {
@@ -5314,6 +5591,11 @@ document.getElementById('tuneReset').addEventListener('click', () => {
     const def = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
     Object.keys(def).forEach(k => { LAYOUT[k] = def[k]; });
     syncLayoutDerived();
+  } else if (tuneTab === 'rules') {
+    RULE_VERSION = 1;
+    questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
+    mapFlags = [false, false, false, false, false];
+    buildQuestPlan();
   } else {
     CROP = JSON.parse(JSON.stringify(DEFAULT_CROP));
   }
@@ -5323,7 +5605,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
 });
 document.getElementById('tuneExport').addEventListener('click', e => {
   // 一次匯出完整設定（節奏／甘特起點／佈局／取圖），貼回工程端即可寫成正式預設
-  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP }, null, 2);
+  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION }, null, 2);
   const btn = e.target, orig = btn.textContent;
   const done = () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = orig; }, 1200); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -5418,6 +5700,7 @@ function drawLayoutOverlay() {
 
 // 啟動時載入已保存的調校值（損毀／版本不符自動退回預設）
 loadTuning();
+buildQuestPlan();   // 依載入後的 RULE_VERSION 產生第一份關卡計畫
 window.addEventListener('storage', e => {
   if (e.key !== TUNE_KEY) return;
   loadTuning();
