@@ -180,6 +180,188 @@
             transition: all 0.2s;
         }
         #infoPanelClose:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+        /* === 調校面板（節奏 / 佈局 / 取圖）=== */
+        #tuneBtn {
+            position: absolute;
+            top: 70px; left: 15px;
+            width: 45px; height: 45px;
+            background-color: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            color: #cbd5e1;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            padding: 0;
+        }
+        #tuneBtn:hover { background-color: #38bdf8; color: #fff; border-color: #0284c7; }
+        #tuneBtn.active { border-color: #facc15; color: #facc15; }
+        #tunePanel {
+            display: none;
+            position: absolute;
+            top: 15px; right: 70px;
+            width: 430px; max-height: 690px;
+            background: rgba(8, 15, 30, 0.97);
+            border: 2px solid #334155;
+            border-radius: 14px;
+            z-index: 250;
+            color: #e2e8f0;
+            font-size: 13px;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tunePanel.visible { display: flex; }
+        #tuneDragBar {
+            padding: 7px 12px 5px;
+            color: #64748b; font-size: 11px; letter-spacing: 1px;
+            background: #0b1322;
+            border-bottom: 1px solid #1e293b;
+            cursor: move; user-select: none;
+            touch-action: none;
+        }
+        #tuneDragBar:hover { color: #94a3b8; }
+        #tuneTabs { display: flex; gap: 6px; padding: 10px 12px 0; }
+        .tune-tab {
+            flex: 1;
+            background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; border-radius: 8px 8px 0 0;
+            padding: 6px 0; cursor: pointer; font-size: 13px;
+        }
+        .tune-tab.active { background: #0f3460; color: #38bdf8; border-color: #38bdf8; }
+        #tuneBody {
+            overflow-y: auto;
+            padding: 8px 14px 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 transparent;
+        }
+        .tune-group {
+            margin: 8px 0 4px;
+            color: #38bdf8; font-size: 12px; letter-spacing: 1px;
+            border-bottom: 1px solid #1e293b; padding-bottom: 2px;
+        }
+        .tune-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+        .tune-row label { flex: 0 0 112px; color: #cbd5e1; font-size: 12px; }
+        .tune-row input[type=range] { flex: 1; min-width: 0; accent-color: #38bdf8; }
+        .tune-row input[type=number] {
+            width: 58px;
+            background: #0b1322; border: 1px solid #334155;
+            color: #f8fafc; border-radius: 6px;
+            padding: 2px 4px; font-size: 12px;
+        }
+        .tune-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 10px 14px;
+            border-top: 1px solid #1e293b;
+        }
+        .tune-actions button {
+            background: #1e293b; border: 1px solid #475569;
+            color: #cbd5e1; border-radius: 8px;
+            padding: 6px 0; cursor: pointer; font-size: 13px;
+        }
+        .tune-actions button:hover { background: #0f3460; border-color: #38bdf8; color: #38bdf8; }
+        #tuneApplySpin {
+            grid-column: 1 / -1;
+            background: #0f766e;
+            border-color: #14b8a6;
+            color: #f0fdfa;
+            font-weight: 700;
+        }
+        #tuneApplySpin:hover { background: #0d9488; border-color: #5eead4; color: #fff; }
+        #tuneStatus {
+            grid-column: 1 / -1;
+            min-height: 16px;
+            color: #64748b;
+            font-size: 11px;
+            line-height: 16px;
+            text-align: center;
+        }
+        #tuneStatus.ok { color: #86efac; }
+        #tuneStatus.wait { color: #fde68a; }
+        .tune-hint { color: #64748b; font-size: 11px; margin: 6px 0; line-height: 1.6; }
+        .gantt-editor {
+            margin: 8px 0 12px;
+            padding: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+        }
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 96px minmax(120px, 1fr) 44px 44px;
+            gap: 5px;
+            align-items: center;
+            margin: 6px 0;
+            color: #cbd5e1;
+            font-size: 11px;
+        }
+        .gantt-row > label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gantt-track {
+            position: relative;
+            height: 20px;
+            border-radius: 6px;
+            background: repeating-linear-gradient(90deg, #0f172a 0, #0f172a 23px, #1e293b 24px);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .gantt-bar {
+            position: absolute;
+            top: 3px;
+            height: 14px;
+            min-width: 8px;
+            border-radius: 5px;
+            cursor: grab;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+        }
+        .gantt-bar:active { cursor: grabbing; }
+        .gantt-handle {
+            position: absolute;
+            top: 0; right: 0;
+            width: 8px; height: 100%;
+            background: rgba(255, 255, 255, 0.35);
+            cursor: ew-resize;
+        }
+        .gantt-row input {
+            width: 42px;
+            box-sizing: border-box;
+            background: #0b1322;
+            border: 1px solid #334155;
+            color: #f8fafc;
+            border-radius: 5px;
+            padding: 2px 3px;
+            font-size: 11px;
+        }
+        .tune-obj-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+        .tune-obj-btn {
+            background: #1e293b; border: 1px solid #334155;
+            color: #cbd5e1; border-radius: 6px;
+            padding: 3px 8px; cursor: pointer; font-size: 12px;
+        }
+        .tune-obj-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+        .tune-obj-btn.selected { background: #423a06; border-color: #facc15; color: #facc15; }
+        /* 取圖分頁：分裂條帶即時預覽 */
+        #cropPreview {
+            display: block;
+            width: 100%;
+            margin: 6px 0 4px;
+            background: #0b1322;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+        }
+        .tune-mode-row { display: flex; gap: 6px; margin: 6px 0 2px; }
+        .tune-mode-btn {
+            flex: 1;
+            background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; border-radius: 6px;
+            padding: 4px 0; cursor: pointer; font-size: 12px;
+        }
+        .tune-mode-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+        .tune-mode-btn.selected { background: #0f3460; border-color: #38bdf8; color: #38bdf8; }
     </style>
 </head>
 <body>
@@ -187,7 +369,24 @@
 <div id="game-container">
     <button id="fsBtn" title="全螢幕 (Fullscreen)">⛶</button>
     <button id="statsBtn" class="active" title="測試面板">📊</button>
+    <button id="tuneBtn" title="調校面板（節奏/佈局/取圖）">🔧</button>
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <div id="tunePanel">
+        <div id="tuneDragBar">⠿ 調校面板（按住此列可拖曳移動）</div>
+        <div id="tuneTabs">
+            <button class="tune-tab active" data-tab="timing">⏱️ 節奏</button>
+            <button class="tune-tab" data-tab="layout">📐 佈局</button>
+            <button class="tune-tab" data-tab="crop">✂️ 取圖</button>
+        </div>
+        <div id="tuneBody"></div>
+        <div class="tune-actions">
+            <button id="tuneApplySpin">套用並試轉</button>
+            <button id="tuneReset">重設為預設</button>
+            <button id="tuneExport">匯出全部設定</button>
+            <div id="tuneStatus" aria-live="polite"></div>
+        </div>
+    </div>
 
     <div id="infoPanel">
         <button id="infoPanelClose">✕</button>
@@ -324,8 +523,213 @@ const ROWS = 4;
 const CELL_SIZE = 130;
 const GRID_W = COLS * CELL_SIZE;   // 650
 const GRID_H = ROWS * CELL_SIZE;   // 520
-const GRID_X = Math.floor((1280 - GRID_W) / 2);  // 315，水平置中
-const GRID_Y = 120;
+let GRID_X = Math.floor((1280 - GRID_W) / 2);  // 315，水平置中（可由調校面板調整）
+let GRID_Y = 120;                              // （可由調校面板調整）
+
+// ============================================================
+// === 調校系統：節奏（秒）／佈局（px）／取圖 單一事實來源 ===
+// 預設值對齊「視覺流程圖」與「美術需求說明」編號 18／19／20／21
+//（亞格號_260730_新增美術說明.xlsx）
+// ============================================================
+const DEFAULT_TIMING = {
+  // 掉落（停輪）：4×5 單格滾輪，左→右、上→下依序落定
+  reelFirstStop:     0.80,  // 首格落定（視覺流程圖：首格 0.8s 落定）
+  reelStopInterval:  0.05,  // 每格落定間隔（視覺流程圖：其後每格 0.05s）
+  landSquash:        0.05,  // 落定回彈：壓扁約5%再回彈
+  reelSpeed:         24,    // 滾輪全速（px/幀），非時間值
+  reelBounce:        10,    // 落定彈跳初始幅度（px），非時間值
+  autoSpinDelay:     0.50,  // 自動轉：上一局結束→下一局開始
+  // 消除／得分（編號 21：得分／消除演繹各三階強度）
+  winFxLow:          0.10,  // 得分演繹・低（框起＋旋轉）
+  winFxMid:          0.40,  // 得分演繹・中
+  winFxHigh:         0.45,  // 得分演繹・高
+  popFxLow:          0.20,  // 消除演繹・低（圖示爆破）
+  popFxMid:          0.40,  // 消除演繹・中
+  popFxHigh:         0.45,  // 消除演繹・高
+  popDimAlpha:       0.40,  // 未得分圖示壓暗強度 0~1（視覺流程圖：壓暗至約60%，RD 可調）
+  scorePop:          0.20,  // 得分數字於中央放大彈出
+  multFly:           0.50,  // 倍數數字從大到小打入得分數
+  comboPause:        1.50,  // 連爆之間的停頓
+  refillStagger:     0.10,  // 補盤逐欄錯落
+  unifiedHold:       0.80,  // 倍數／號角／WILD 指示器齊停
+  fireInterval:      0.13,  // 指示器依序飛出的間隔
+  // 合成／分裂（編號 21）
+  synthMark:         0.10,  // 框框標示演繹
+  synthFlash:        0.80,  // 合成演繹（閃光後轉 1×2）
+  synthAdvFlash:     0.80,  // 進階合成演繹（閃亞格號標誌後轉 1×4）
+  synthSplit:        0.15,  // 分裂演繹（橫切）
+  synthGap:          0.83,  // 合成組與組之間的緩衝
+  // 藏寶圖（編號 20）
+  mapShipFly:        0.30,  // 船移動：原地彈起同步淡出
+  mapShipLand:       0.40,  // 船落海淡入＋水花濺起
+  mapShipPause:      0.20,  // 抵達後停頓
+  mapMask:           0.10,  // 遮罩移動演繹：雲霧向上散去
+  mapFlag:           0.40,  // 插旗演繹：旗子淡入
+  mapQuest:          1.50,  // 任務達成動畫
+  // SC 船頭／船尾（編號 18／19）
+  scAppear:          0.30,  // 登場演繹：滾輪回彈時觸發
+  scWinFG:           0.80,  // 中獎演繹（強度中）：進入 FG 轉場前
+  scWinSFG:          1.20,  // 中獎演繹（強度高）：進入 SFG 轉場前（組船）
+  shakeSmall:        0.80,  // 盤面震動・小（SC 出現且中獎）
+  shakeBig:          1.20,  // 盤面震動・大（SC 合成瞬間）
+  shakeSmallAmp:     4,     // 震動幅度・小（±px），非時間值
+  shakeBigAmp:       10,    // 震動幅度・大（±px），非時間值
+  // 大獎／轉場
+  bigWinRun:         1.83,  // 大獎跑分（基底時長）
+  bigWinTierAdd:     1.17,  // 每爬一階加長
+  bigWinHold:        1.50,  // 跑完停留
+  jpWin:             3.50,  // JP 全畫面報獎
+  transEnter:        1.60,  // 進場轉場・總長
+  transEnterMid:     0.87,  // 進場轉場・畫面切換點
+  transExit:         1.10,  // 結束轉場・總長
+  transExitMid:      0.50,  // 結束轉場・畫面切換點
+  loading:           2.17,  // 載入頁
+  chestUnlock:       2.50,  // 寶箱解鎖
+  cardPickResult:    1.50,  // 翻牌結果停留
+};
+// 面板顯示：分組、中文名、[min, max, step]（未填 = 0~5 秒、步進 0.05）
+const TIMING_META = [
+  { group: '掉落（停輪）', items: [
+    ['reelFirstStop','首格落定'], ['reelStopInterval','每格落定間隔'], ['landSquash','落定回彈'],
+    ['reelSpeed','滾輪速度(px/幀)', 4, 60, 1], ['reelBounce','彈跳幅度(px)', 0, 40, 1],
+    ['autoSpinDelay','自動轉間隔']] },
+  { group: '消除／得分', items: [
+    ['winFxLow','得分演繹・低'], ['winFxMid','得分演繹・中'], ['winFxHigh','得分演繹・高'],
+    ['popFxLow','消除演繹・低'], ['popFxMid','消除演繹・中'], ['popFxHigh','消除演繹・高'],
+    ['popDimAlpha','壓暗強度(0~1)', 0, 1, 0.05],
+    ['scorePop','得分數字彈出'], ['multFly','倍數打入'], ['comboPause','連爆間停頓'],
+    ['refillStagger','補盤逐欄錯落'], ['unifiedHold','指示器齊停'], ['fireInterval','指示器飛出間隔']] },
+  { group: '合成／分裂', items: [
+    ['synthMark','框框標示'], ['synthFlash','合成演繹'], ['synthAdvFlash','進階合成演繹'],
+    ['synthSplit','分裂演繹'], ['synthGap','合成組間緩衝']] },
+  { group: '藏寶圖', items: [
+    ['mapShipFly','船彈起淡出'], ['mapShipLand','船落海＋水花'], ['mapShipPause','抵達停頓'],
+    ['mapMask','遮罩移動'], ['mapFlag','插旗淡入'], ['mapQuest','任務達成動畫']] },
+  { group: 'SC 船頭／船尾', items: [
+    ['scAppear','登場演繹'], ['scWinFG','中獎演繹(進FG)'], ['scWinSFG','中獎演繹(進SFG)'],
+    ['shakeSmall','盤面震動・小'], ['shakeBig','盤面震動・大'],
+    ['shakeSmallAmp','震動幅度小(px)', 0, 30, 1], ['shakeBigAmp','震動幅度大(px)', 0, 30, 1]] },
+  { group: '大獎／轉場', items: [
+    ['bigWinRun','大獎跑分'], ['bigWinTierAdd','每階加長'], ['bigWinHold','跑完停留'],
+    ['jpWin','JP 報獎', 0, 6, 0.05],
+    ['transEnter','進場轉場總長'], ['transEnterMid','進場切換點'],
+    ['transExit','結束轉場總長'], ['transExitMid','結束切換點'],
+    ['loading','載入頁'], ['chestUnlock','寶箱解鎖'], ['cardPickResult','翻牌結果停留']] },
+];
+// 各參數範圍表（載入時鉗制用）：key → [min, max]
+const TIMING_RANGE = {};
+TIMING_META.forEach(g => g.items.forEach(it => {
+  TIMING_RANGE[it[0]] = [it[2] !== undefined ? it[2] : 0, it[3] !== undefined ? it[3] : 5];
+}));
+let TIMING = { ...DEFAULT_TIMING };
+// 非時長參數（px／強度／倍率）不畫甘特色條，改走一般數值滑桿
+const NON_GANTT_TIMING = new Set(['reelSpeed', 'reelBounce', 'popDimAlpha', 'shakeSmallAmp', 'shakeBigAmp']);
+const TIMING_COLORS = ['#38bdf8', '#facc15', '#fb7185', '#a78bfa', '#34d399', '#f97316', '#60a5fa'];
+function isGanttTimingKey(key) {
+  return Object.prototype.hasOwnProperty.call(DEFAULT_TIMING, key) && !NON_GANTT_TIMING.has(key);
+}
+// 各演繹在「所屬階段時間軸」上的起點（秒）。每個分組是一條獨立時間軸（t=0 為該階段開始），
+// 同組內起點＋時長＝甘特圖色條位置。起點僅供排程視覺化，實際時長仍由 TIMING 控制。
+const GANTT_START_PRESET = {
+  reelFirstStop: 0.00, reelStopInterval: 0.80, landSquash: 0.80, autoSpinDelay: 0.00,
+  winFxLow: 0.00, winFxMid: 0.00, winFxHigh: 0.00,
+  popFxLow: 0.45, popFxMid: 0.45, popFxHigh: 0.45,
+  scorePop: 0.10, multFly: 0.30, comboPause: 0.90, refillStagger: 0.90,
+  unifiedHold: 0.00, fireInterval: 0.80,
+  synthMark: 0.00, synthFlash: 0.10, synthAdvFlash: 0.10, synthSplit: 0.90, synthGap: 1.05,
+  mapShipFly: 0.00, mapShipLand: 0.30, mapShipPause: 0.70, mapMask: 0.90, mapFlag: 1.00, mapQuest: 0.00,
+  scAppear: 0.00, scWinFG: 0.30, scWinSFG: 0.30, shakeSmall: 0.30, shakeBig: 0.30,
+  bigWinRun: 0.00, bigWinTierAdd: 0.00, bigWinHold: 1.85,
+  jpWin: 0.00, transEnter: 0.00, transEnterMid: 0.00, transExit: 0.00, transExitMid: 0.00,
+  loading: 0.00, chestUnlock: 0.00, cardPickResult: 0.00,
+};
+const DEFAULT_TIMING_START = {};
+TIMING_META.forEach(g => g.items.forEach(([key]) => {
+  if (!isGanttTimingKey(key)) return;
+  DEFAULT_TIMING_START[key] = GANTT_START_PRESET[key] !== undefined ? GANTT_START_PRESET[key] : 0;
+}));
+let TIMING_START = { ...DEFAULT_TIMING_START };
+function TS(key) { return Math.max(0, TIMING_START[key] || 0); }
+const TF = s => Math.max(1, Math.round(s * 60));   // 秒 → 幀（60fps）
+
+// === 佈局：預設值 = 原程式寫死座標 ===
+const DEFAULT_LAYOUT = {
+  grid:      { x: 315,  y: 120 },                    // 盤面左上角
+  mapPanel:  { x: 970,  y: 120, w: 200, h: 462 },    // 航海地圖面板
+  jpBar:     { x: 0,    y: 0 },                      // JP 橫幅（相對盤面的偏移）
+  ways:      { x: 0,    y: 0 },                      // WAYS 欄位（相對盤面的偏移）
+  bottomUI:  { x: 0,    y: 650 },                    // 下方 UI 列頂端
+  spinBtn:   { x: 560,  y: 658, w: 160, h: 54 },     // SPIN 鈕（繪製＋判定共用）
+  autoBtn:   { x: 730,  y: 658, w: 160, h: 54 },     // AUTO SPIN 鈕
+  forceBtn:  { x: 155,  y: 658, w: 68,  h: 54 },     // 強開鈕
+  infoBtn:   { x: 233,  y: 658, w: 60,  h: 54 },     // INFO 鈕
+  fgCounter: { x: 640,  y: 4 },                      // FG 局數欄（水平中心／頂端）
+};
+// JP 橫幅與 WAYS 欄位錨定於盤面，故存相對偏移；以下兩式為其實際繪製位置。
+function jpBarPos()  { return { cx: GRID_X + GRID_W / 2 + LAYOUT.jpBar.x, by: GRID_Y - 58 + LAYOUT.jpBar.y }; }
+function waysPos()   { return { cx: GRID_X - 68 + LAYOUT.ways.x, cy: GRID_Y + CELL_SIZE + Math.round(CELL_SIZE / 2) + LAYOUT.ways.y }; }
+// 佈局註冊表：key、面板顯示名、外框（點選/顯示用）、是否可調尺寸
+const LAYOUT_META = [
+  ['grid',      '盤面',       o => ({ x: o.x, y: o.y, w: GRID_W, h: GRID_H }), false],
+  ['mapPanel',  '藏寶圖面板', o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
+  ['jpBar',     'JP橫幅',     () => { const p = jpBarPos(); return { x: p.cx - 320, y: p.by, w: 640, h: 44 }; }, false],
+  ['ways',      'WAYS欄位',   () => { const p = waysPos();  return { x: p.cx - 55, y: p.cy - 30, w: 110, h: 60 }; }, false],
+  ['bottomUI',  '下方UI列',   o => ({ x: o.x, y: o.y, w: 1280, h: 70 }), false],
+  ['fgCounter', 'FG局數欄',   o => ({ x: o.x - 130, y: o.y, w: 260, h: 30 }), false],
+  ['spinBtn',   'SPIN鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
+  ['autoBtn',   'AUTO鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
+  ['forceBtn',  '強開鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
+  ['infoBtn',   'INFO鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
+];
+let LAYOUT = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+// 按鈕點擊判定：與繪製共用同一組 LAYOUT 座標
+function inLayoutBox(o, mx, my) { return mx >= o.x && mx <= o.x + o.w && my >= o.y && my <= o.y + o.h; }
+// 佈局變更後同步既有全域變數（盤面／地圖座標被大量引用，維持原名）
+function syncLayoutDerived() {
+  GRID_X = LAYOUT.grid.x;
+  GRID_Y = LAYOUT.grid.y;
+  MAP_PX = LAYOUT.mapPanel.x; MAP_PY = LAYOUT.mapPanel.y;
+  MAP_PW = LAYOUT.mapPanel.w; MAP_PH = LAYOUT.mapPanel.h;
+  MAP_STEP_X = MAP_PX + MAP_PW / 2;
+  MAP_STEP_YS = [310, 245, 180, 115, 50].map(d => MAP_PY + MAP_JP_H + d);
+  MAP_HOME_X = MAP_PX + MAP_PW / 2;
+  MAP_HOME_Y = MAP_PY + MAP_JP_H + 355;
+  // 面板搬動後把待機中的船拉回新出發港（飛行中不動，避免打斷演繹）
+  if (mapShip && !mapShip.flying) {
+    mapShip.x = mapShip.sx = mapShip.tx = MAP_HOME_X;
+    mapShip.y = mapShip.sy = mapShip.ty = MAP_HOME_Y;
+  }
+}
+
+// === 取圖：分裂演繹橫切成細條時，要取原圖的哪一部分 ===
+// 每個一般圖示（id 0-7）一組，×2／×3／×4 三種分裂數共用。
+// mode: 'cover' 等比裁切（現行）／'contain' 整張縮進條帶留邊／'stretch' 拉伸填滿
+const DEFAULT_CROP = [];
+for (let i = 0; i < 8; i++) DEFAULT_CROP.push({ mode: 'cover', fx: 0.5, fy: 0.5, zoom: 1 });
+const CROP_MODES = [['cover', '裁切'], ['contain', '完整'], ['stretch', '壓扁']];
+let CROP = JSON.parse(JSON.stringify(DEFAULT_CROP));
+
+// 依取圖設定把圖畫進指定矩形（取代分裂條帶的 drawCover）
+function drawFocus(ctx, img, x, y, w, h, crop) {
+  if (!img) return false;
+  const c = crop || { mode: 'cover', fx: 0.5, fy: 0.5, zoom: 1 };
+  if (c.mode === 'stretch') { ctx.drawImage(img, x, y, w, h); return true; }
+  const zoom = c.zoom > 0 ? c.zoom : 1;
+  if (c.mode === 'contain') {
+    const s = Math.min(w / img.width, h / img.height) * zoom;
+    const dw = img.width * s, dh = img.height * s;
+    ctx.drawImage(img, x + (w - dw) * c.fx, y + (h - dh) * c.fy, dw, dh);
+    return true;
+  }
+  // cover：等比放大填滿後，依焦點決定取樣位置
+  const s  = Math.max(w / img.width, h / img.height) * zoom;
+  const sw = Math.min(img.width,  w / s);
+  const sh = Math.min(img.height, h / s);
+  const sx = (img.width  - sw) * Math.min(1, Math.max(0, c.fx));
+  const sy = (img.height - sh) * Math.min(1, Math.max(0, c.fy));
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  return true;
+}
 
 // id 偶數 = 高分角色（character），奇數 = 低分武器（weapon）
 // colorId = Math.floor(id / 2)：0=紅,1=金,2=藍,3=綠（對應美術需求說明的四大主色）
@@ -372,11 +776,12 @@ let board = [];          // board[col][row] = { id, yOffset, isMatched, scale, _
 let splitCount = [1, 1, 1, 1];      // 各色分裂倍數（0=紅,1=黃,2=藍,3=綠）
 let synthesizedColors = new Set();   // 本局已合成的顏色（JP判定用）
 // === 航海地圖面板常數與狀態 ===
-const MAP_PX = 970, MAP_PY = 120, MAP_PW = 200, MAP_PH = 462;
+// 以下座標由調校面板的 LAYOUT.mapPanel 驅動，syncLayoutDerived() 會重算
+let MAP_PX = 970, MAP_PY = 120, MAP_PW = 200, MAP_PH = 462;
 const MAP_JP_H = 72;  // JP獎勵框高度
 // 循序漸進任務：5個里程碑節點，垂直排列（index 0=底部第1步, 4=頂部第5步）
-const MAP_STEP_X  = MAP_PX + 100;
-const MAP_STEP_YS = [
+let MAP_STEP_X  = MAP_PX + MAP_PW / 2;
+let MAP_STEP_YS = [
   MAP_PY + MAP_JP_H + 310,
   MAP_PY + MAP_JP_H + 245,
   MAP_PY + MAP_JP_H + 180,
@@ -386,15 +791,15 @@ const MAP_STEP_YS = [
 const COLOR_ICONS  = ['🔴', '🟡', '🔵', '🟢'];
 const PLACE_ICONS  = ['🌋', '🏜️', '🧊', '🌿']; // colorId 0-3 對應地點圖示
 const PLACE_NAMES  = ['赫淮斯托斯島', '黃金海岸', '撞岩海峽', '密西亞'];  // colorId 0-3 對應地名
-const MAP_HOME_X = MAP_PX + 100, MAP_HOME_Y = MAP_PY + MAP_JP_H + 355;
-const MAP_FLY_FRAMES   = 20;
-const MAP_PAUSE_FRAMES = 12;
+let MAP_HOME_X = MAP_PX + MAP_PW / 2, MAP_HOME_Y = MAP_PY + MAP_JP_H + 355;
+// 船移動總幀數 = 彈起淡出 + 落海淡入（編號 20：0.3s + 0.4s）
+function mapFlyFrames() { return TF(TIMING.mapShipFly) + TF(TIMING.mapShipLand); }
 
 let mapShip = {
   x: MAP_HOME_X, y: MAP_HOME_Y,
   sx: MAP_HOME_X, sy: MAP_HOME_Y,
   tx: MAP_HOME_X, ty: MAP_HOME_Y,
-  frame: 0, totalFrames: MAP_FLY_FRAMES,
+  frame: 0, totalFrames: mapFlyFrames(),
   flying: false,
   pauseTimer: 0,
   targetColorId: -1,  // 0-3=色彩步驟索引, 4=進階合成步驟, -1=回家
@@ -406,22 +811,15 @@ let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）
 let questProgress = 0;            // 已完成步驟數 0-5
 let questReveal   = 0;            // 目前地圖上已揭示的最高步驟索引（0=只顯示步驟1）
 // 藏寶圖演繹（美術需求說明 編號 20）
-const MAP_MASK_FRAMES = 36;                 // 遮罩移動演繹：雲霧向上散去（0.6s）
-const MAP_FLAG_FRAMES = 24;                 // 插旗演繹：旗子淡入（0.4s）
 let mapMaskAnim = [0, 0, 0, 0, 0];          // 各步驟雲霧散去剩餘幀數
 let mapFlagAnim = [0, 0, 0, 0, 0];          // 各步驟插旗淡入剩餘幀數
 let _mapFlagPrev = [false, false, false, false, false];
 const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10]; // 達成任務後的連爆得分倍數（index=questProgress）
 let questScoreMultiplier = 1;     // 當前連爆得分倍數
-const TM_ANIM_FRAMES = 90;        // 藏寶圖動畫幀數
 let tmAnim = { active: false, timer: 0, stepIdx: -1 }; // 藏寶圖動畫狀態
 let mergedCells = [];                // [{col, row, colorId, size, colorId2?}]
 // 合成動畫序列
 // 幀數依美術需求說明 編號 21「圖示共用效果」的特效時長換算（60fps）
-const SYNTH_MARK_FRAMES      = 6;    // 框框標示演繹 0.1s
-const SYNTH_FLASH_FRAMES     = 48;   // 合成演繹 0.8s
-const SYNTH_SPLIT_FRAMES     = 9;    // 分裂演繹 0.15s
-const SYNTH_ADV_FLASH_FRAMES = 48;   // 進階合成演繹 0.8s（閃亞格號標誌）
 let synthOps     = [];           // [{col, row, colorId}] 待執行合成佇列
 let synthOpIdx   = -1;           // -1 = 尚未初始化
 let synthOpPhase = 'idle';       // 'idle' | 'mark' | 'flash' | 'split' | 'adv_mark' | 'adv_flash' | …
@@ -475,7 +873,6 @@ let necklaceCount = 0; // 赫拉：累積項鍊數（每局重置，到3觸發JP
 let pendingMultToScoreApply = null; // JP動畫播放中時暫存倍數結算資料
 let triggeredChests = new Set(); // 本局已觸發的機制 idx（每次 SPIN 重置）
 let chestUnlockAnim = { active: false, timer: 0, idx: -1 }; // 解鎖動畫
-const CHEST_UNLOCK_FRAMES = 150;
 let pendingChestReward = -1; // 動畫結束後要觸發的獎勵 idx
 let showFGPanel = false;     // 厄倪俄：進入 FG 的面板
 let inFG = false;            // 是否在 Free Game 中
@@ -485,9 +882,6 @@ let showFGEndPanel = false;  // FG 結束面板
 let fgMultCollectedThisRound = false; // 本局FG是否收集到倍數
 const FG_TOTAL_SPINS = 10;
 // === 船頭／船尾（SC）演繹（美術需求說明 編號 18／19）===
-const SC_APPEAR_FRAMES  = 18;  // 登場演繹 0.3s
-const SC_WIN_FG_FRAMES  = 48;  // 中獎演繹（強度中）0.8s：進入 FG 轉場前
-const SC_WIN_SFG_FRAMES = 72;  // 中獎演繹（強度高）1.2s：進入 SFG 轉場前（組船）
 let scWinAnim  = { active: false, timer: 0, total: 1, tag: null };
 let boardShake = { timer: 0, total: 1, mag: 0 };   // 盤面震動演繹
 function triggerBoardShake(mag, frames) {
@@ -545,7 +939,6 @@ let pendingMultFlights = [];      // checkPaylines 蒐集的帶倍數格 [{value
 let multFlightSeq = [];           // 飛行佇列 [{value,c,r,fx,fy}]（含格子座標以便管理格子）
 let multFlightIdx = 0;
 let multFlightTimer = 0;
-const MULT_HOLD_FRAMES = 35;      // 倍數停留幀數
 let erisMultiplierAnim = {
   active: false,
   phase: 'idle',          // idle | intro | rolling | settle | fly | land
@@ -562,8 +955,6 @@ let erisMultiplierAnim = {
 let unifiedRevealSeq = [];   // [{type:'mult'|'key'|'wild', c, r, fx, fy, value?}]
 let unifiedRevealIdx = 0;    // 目前飛出的索引（hold 階段固定為 0）
 let unifiedRevealTimer = 0;  // 全局計時器
-const UNIFIED_HOLD_FRAMES = 48;  // 所有指示器同時停留的幀數
-const FIRE_INTERVAL = 8;         // 依序飛出的間隔（幀）
 let scoreTexts = [];
 let comboTexts = [];
 
@@ -582,8 +973,9 @@ let spinFrameCount = 0;    // 本次 spin 累積幀數
 let popWaitTimer = 0;
 // === 得分／消除演繹三階（美術需求說明 編號 21）===
 // 特效強度 低／中／高：得分演繹 0.1/0.4/0.45s、消除演繹 0.2/0.4/0.45s
-const WIN_FX_FRAMES = [6, 24, 27];
-const POP_FX_FRAMES = [12, 24, 27];
+// 得分／消除三階時長由 TIMING 推導（面板可調）
+function winFxFrames(tier) { return TF([TIMING.winFxLow, TIMING.winFxMid, TIMING.winFxHigh][tier] || TIMING.winFxLow); }
+function popFxFrames(tier) { return TF([TIMING.popFxLow, TIMING.popFxMid, TIMING.popFxHigh][tier] || TIMING.popFxLow); }
 let winFxTier  = 0;   // 0=低 1=中 2=高
 let winFxTimer = 0;   // 得分演繹（框起＋旋轉）剩餘幀數
 let winFxTotal = 1;
@@ -721,7 +1113,7 @@ function resetRoundState() {
     if (_notHome) {
       mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
       mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
-      mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES;
+      mapShip.frame = 0; mapShip.totalFrames = mapFlyFrames();
       mapShip.flying = true;
     } else {
       mapShip.flying = false;
@@ -791,12 +1183,12 @@ function startSpin() {
       if (_id === 9) { _hasStern = true; _sternCol = c; _sternRow = r; _colHasFG = true; }
       board[c][r]          = { id: _id, yOffset: 0, isMatched: false, scale: 1 };
       reelOffset[c][r]     = 0;
-      reelSpeed[c][r]      = REEL_SPEED;
+      reelSpeed[c][r]      = TIMING.reelSpeed;
       reelState[c][r]      = 'spinning';
       reelDispId[c][r]     = randomReelSymId(c);
       reelTopId[c][r]      = randomReelSymId(c);
       reelCellBounce[c][r] = 0;
-      reelStopFrame[c][r]  = REEL_MIN_SPIN + (c + r * COLS) * REEL_STOP_DELAY;
+      reelStopFrame[c][r]  = TF(TIMING.reelFirstStop) + (c + r * COLS) * TF(TIMING.reelStopInterval);
     }
   }
   // 強開覆寫：直接設定最終符號
@@ -839,14 +1231,14 @@ function startSpin() {
       // 強開SFG：同列相鄰放置船頭+船尾 → 合成觸發SFG
       board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
       board[4][0] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
-      reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
-      reelStopFrame[4][0] = REEL_MIN_SPIN + 4 * REEL_STOP_DELAY;
+      reelStopFrame[3][0] = TF(TIMING.reelFirstStop) + 3 * TF(TIMING.reelStopInterval);
+      reelStopFrame[4][0] = TF(TIMING.reelFirstStop) + 4 * TF(TIMING.reelStopInterval);
     } else {
       // 強開FG：不同列放置船頭+船尾 → 不相鄰，觸發FG
       board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
       board[4][1] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
-      reelStopFrame[3][0] = REEL_MIN_SPIN + 3 * REEL_STOP_DELAY;
-      reelStopFrame[4][1] = REEL_MIN_SPIN + (4 + 1) * REEL_STOP_DELAY;
+      reelStopFrame[3][0] = TF(TIMING.reelFirstStop) + 3 * TF(TIMING.reelStopInterval);
+      reelStopFrame[4][1] = TF(TIMING.reelFirstStop) + (4 + 1) * TF(TIMING.reelStopInterval);
     }
   }
 
@@ -865,14 +1257,9 @@ function startSpin() {
   }
 
   currentState = STATE.SPINNING;
-  if (isAutoSpinning) autoSpinDelay = AUTO_SPIN_DELAY;
+  if (isAutoSpinning) autoSpinDelay = TF(TIMING.autoSpinDelay);
 }
 
-const REEL_SPEED       = 24;   // px/frame 全速
-const REEL_STOP_DELAY  = 8;    // 每格之間停止間隔（幀）
-const REEL_MIN_SPIN    = 60;   // 最短旋轉幀數（第一格停止前）
-const REEL_BOUNCE_INIT = 10;   // 停止後彈跳初始值
-const LAND_SQUASH_FRAMES = 3;  // 圖示回彈演繹：落定壓扁 5% 再回彈（0.05s）
 
 function computeCurrentWays() {
   // 每欄有效符號數之積（分裂格按 splitCount 計算）
@@ -923,7 +1310,7 @@ function triggerShipToStep(stepIdx) {
   mapShip.tx            = MAP_STEP_X;
   mapShip.ty            = MAP_STEP_YS[stepIdx] - 22;
   mapShip.frame         = 0;
-  mapShip.totalFrames   = MAP_FLY_FRAMES;
+  mapShip.totalFrames   = mapFlyFrames();
   mapShip.flying        = true;
   mapShip.pauseTimer    = 0;
   mapShip.targetColorId = stepIdx; // 0-3=色彩步驟, 4=進階合成步驟
@@ -958,7 +1345,7 @@ function applySingleSynthesis(col, row) {
     questProgress++;
     questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
     triggerShipToStep(questProgress - 1);
-    tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: questProgress - 1 };
+    tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
   }
   return true;
 }
@@ -1016,7 +1403,7 @@ function applyAdvancedSynthesis() {
             questScoreMultiplier = QUEST_MULTIPLIERS[questProgress] ?? 10;
             triggerShipToStep(questProgress - 1);
             // 每次步驟推進都觸發藏寶圖動畫（同一幀多步時以最後一步為準）
-            tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: questProgress - 1 };
+            tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
           }
         }
         // 第5步：達成1組進階合成（需先完成前4步）
@@ -1024,7 +1411,7 @@ function applyAdvancedSynthesis() {
           questProgress = 5;
           questScoreMultiplier = QUEST_MULTIPLIERS[5];
           triggerShipToStep(4);
-          tmAnim = { active: true, timer: TM_ANIM_FRAMES, stepIdx: 4 };
+          tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: 4 };
         }
       }
     }
@@ -1089,7 +1476,7 @@ function updateSpinning() {
 
       allDone = false;
 
-      const stopFrame = reelStopFrame[c]?.[r] ?? (REEL_MIN_SPIN + (c + r * COLS) * REEL_STOP_DELAY);
+      const stopFrame = reelStopFrame[c]?.[r] ?? (TF(TIMING.reelFirstStop) + (c + r * COLS) * TF(TIMING.reelStopInterval));
 
       if (st === 'spinning' && spinFrameCount >= stopFrame) {
         reelState[c][r] = 'stopping';
@@ -1102,13 +1489,13 @@ function updateSpinning() {
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
           reelState[c][r]      = 'done';
-          reelCellBounce[c][r] = REEL_BOUNCE_INIT;
+          reelCellBounce[c][r] = TIMING.reelBounce;
           // 圖示回彈演繹：落定瞬間壓扁 5% 再回彈（0.05s）
           if (board[c][r]) {
-            board[c][r]._landSquash = LAND_SQUASH_FRAMES;
+            board[c][r]._landSquash = TF(TIMING.landSquash);
             // SC 登場演繹（0.3s）：船頭／船尾落定時微晃發光
             if (board[c][r].id === 8 || board[c][r].id === 9) {
-              board[c][r]._scAppear = SC_APPEAR_FRAMES;
+              board[c][r]._scAppear = TF(TIMING.scAppear);
             }
           }
           continue;
@@ -1227,7 +1614,7 @@ function endRound() {
   } else if (shipFGPending) {
     shipFGPending = false; shipFGReady = true;
   } else if (isAutoSpinning) {
-    autoSpinDelay = AUTO_SPIN_DELAY;
+    autoSpinDelay = TF(TIMING.autoSpinDelay);
   }
 }
 
@@ -1264,13 +1651,14 @@ function updateScoreTexts() {
 function drawCenterWin(ctx) {
   if (currentState !== STATE.SHOWING_WIN) return;
 
-  const t   = popWaitTimer;   // 90→0
-  const MAX = 90;
+  const t   = popWaitTimer;   // MAX→0
+  const MAX = TF(TIMING.comboPause);
 
-  // 縮放：前 12 幀彈入
+  // 縮放：得分數字於中央放大彈出（編號 29）
+  const POP_IN = TF(TIMING.scorePop);
   let scale = 1.0;
-  if (t > MAX - 12) {
-    const p = (MAX - t) / 12;
+  if (t > MAX - POP_IN) {
+    const p = (MAX - t) / POP_IN;
     scale = 0.5 + 0.7 * p - 0.2 * p * p;
   }
   // 透明度：最後 8 幀淡出
@@ -1284,7 +1672,7 @@ function drawCenterWin(ctx) {
   const multText = `×${questScoreMultiplier}`;
 
   // ── 倍數打擊動畫時間節點（以 popWaitTimer 值為準）──
-  const SLAM_ARRIVE = 50;  // t 降到此值時 ×N 被「打」出現
+  const SLAM_ARRIVE = Math.max(1, MAX - TF(TIMING.multFly));  // t 降到此值時 ×N 被「打」出現
   const SETTLE_DUR  = 8;   // 彈跳緩衝幀數（阻尼振盪）
   const FLASH_DUR   = 12;  // 撞擊光效持續幀數
 
@@ -1450,7 +1838,7 @@ function updatePopping() {
   popWaitTimer++;
 
   // Phase 1：消除演繹（圖示爆破），時長依特效強度 低/中/高 = 0.2/0.4/0.45s
-  const popFrames = POP_FX_FRAMES[winFxTier];
+  const popFrames = popFxFrames(winFxTier);
   if (popWaitTimer <= popFrames) {
     for (let c = 0; c < COLS; c++)
       for (let r = 0; r < ROWS; r++)
@@ -1529,12 +1917,18 @@ function updateMapPanel() {
   if (mapShip.flying) {
     mapShip.frame++;
     const t = Math.min(mapShip.frame / mapShip.totalFrames, 1);
+    // 編號 20：前段「原地彈起同步淡出」、後段「淡入掉落至海面」
+    const riseF = Math.min(mapShip.totalFrames - 1, TF(TIMING.mapShipFly));
+    mapShip.alpha = mapShip.frame <= riseF
+      ? 1 - mapShip.frame / riseF
+      : (mapShip.frame - riseF) / Math.max(1, mapShip.totalFrames - riseF);
 
     if (t >= 1) {
       // 落地
       mapShip.x = mapShip.tx;
       mapShip.y = mapShip.ty;
       mapShip.flying = false;
+      mapShip.alpha = 1;
 
       // 濺起粒子（5 個）
       const _si = mapShip.targetColorId; // step index: 0-3=色彩, 4=進階, -1=回家
@@ -1552,12 +1946,12 @@ function updateMapPanel() {
       // 落地插旗：連帶補旗所有已完成的步驟（跳格時中間步驟也補上）
       if (_si >= 0 && _si < 5) {
         for (let _f = 0; _f <= _si; _f++) {
-          if (!mapFlags[_f]) mapFlagAnim[_f] = MAP_FLAG_FRAMES;  // 插旗演繹：旗子淡入
+          if (!mapFlags[_f]) mapFlagAnim[_f] = TF(TIMING.mapFlag);  // 插旗演繹：旗子淡入
           mapFlags[_f] = true;
         }
       }
 
-      mapShip.pauseTimer = MAP_PAUSE_FRAMES;
+      mapShip.pauseTimer = TF(TIMING.mapShipPause);
 
     } else {
       // 拋物線插值
@@ -1574,7 +1968,7 @@ function updateMapPanel() {
       // 已插旗目標，飛回出發港
       mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
       mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
-      mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES;
+      mapShip.frame = 0; mapShip.totalFrames = mapFlyFrames();
       mapShip.flying = true;
       mapShip.returnPending = false;
       mapShip.targetColorId = -1;
@@ -1592,7 +1986,7 @@ function updateTMAnim() {
     const _prevReveal = questReveal;
     questReveal = Math.min(4, tmAnim.stepIdx + 1);
     // 遮罩移動演繹：新揭示的地標，雲霧向上散去
-    for (let i = _prevReveal + 1; i <= questReveal; i++) mapMaskAnim[i] = MAP_MASK_FRAMES;
+    for (let i = _prevReveal + 1; i <= questReveal; i++) mapMaskAnim[i] = TF(TIMING.mapMask);
     // 第5步動畫結束後繼續連爆；JP抽牌在連爆全部結束（win===0）時才觸發
   }
 }
@@ -1629,12 +2023,12 @@ function applyGravity() {
         if (_gId === 9) _gHasStern = true;
         board[c][r]          = { id: _gId, yOffset: 0, isMatched: false, scale: 1 };
         reelOffset[c][r]     = 0;
-        reelSpeed[c][r]      = REEL_SPEED;
+        reelSpeed[c][r]      = TIMING.reelSpeed;
         reelState[c][r]      = 'spinning';
         reelDispId[c][r]     = randomReelSymId(c);
         reelTopId[c][r]      = randomReelSymId(c);
         reelCellBounce[c][r] = 0;
-        reelStopFrame[c][r]  = REEL_MIN_SPIN + idx * REEL_STOP_DELAY;
+        reelStopFrame[c][r]  = TF(TIMING.reelFirstStop) + idx * TF(TIMING.refillStagger);
         idx++;
       }
     }
@@ -1672,13 +2066,13 @@ function updateGravity() {
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
           reelState[c][r]      = 'done';
-          reelCellBounce[c][r] = REEL_BOUNCE_INIT;
+          reelCellBounce[c][r] = TIMING.reelBounce;
           // 圖示回彈演繹：落定瞬間壓扁 5% 再回彈（0.05s）
           if (board[c][r]) {
-            board[c][r]._landSquash = LAND_SQUASH_FRAMES;
+            board[c][r]._landSquash = TF(TIMING.landSquash);
             // SC 登場演繹（0.3s）：船頭／船尾落定時微晃發光
             if (board[c][r].id === 8 || board[c][r].id === 9) {
-              board[c][r]._scAppear = SC_APPEAR_FRAMES;
+              board[c][r]._scAppear = TF(TIMING.scAppear);
             }
           }
           continue;
@@ -1703,8 +2097,9 @@ function updateGravity() {
 
 // === JP 顯示條（倍數欄位左右兩側）===
 function drawJPBars(ctx) {
-  const cx = GRID_X + GRID_W / 2;   // 與倍數欄位同中心
-  const by = GRID_Y - 58;
+  const _jp = jpBarPos();
+  const cx = _jp.cx;   // 與倍數欄位同中心
+  const by = _jp.by;
   const bh = 44;
   const bw = 210;
   const gap = 10;                    // 與倍數欄位的間距
@@ -1752,8 +2147,9 @@ function drawJPBars(ctx) {
 // === Ways 顯示（盤面左方）===
 function drawWaysDisplay(ctx) {
   const ways = computeCurrentWays();
-  const cx = GRID_X - 68;                              // 貼近盤面左側 ≈ 247
-  const cy = GRID_Y + CELL_SIZE + Math.round(CELL_SIZE / 2); // 第二格中心 ≈ 315
+  const _wp = waysPos();
+  const cx = _wp.cx;   // 貼近盤面左側 ≈ 247
+  const cy = _wp.cy;   // 第二格中心 ≈ 315
 
   // 背景面板
   const pw = 110, ph = 60;
@@ -1788,6 +2184,7 @@ function drawMapShip(ctx) {
   ctx.globalCompositeOperation = 'source-over';
   ctx.shadowBlur = 0;
   ctx.filter = 'none';
+  ctx.globalAlpha = mapShip.alpha !== undefined ? mapShip.alpha : 1;
   ctx.font = '18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('⛵', mapShip.x, mapShip.y);
   ctx.restore();
@@ -1921,7 +2318,7 @@ function drawMapPanel(ctx) {
       ctx.fillStyle = isCurrent ? 'rgba(3,7,16,0.48)' : 'rgba(3,7,16,0.72)';
       ctx.fillRect(bx, by, bw, bh);
     }
-    const maskT = mapMaskAnim[i] / MAP_MASK_FRAMES;   // 1 → 0
+    const maskT = mapMaskAnim[i] / TF(TIMING.mapMask);   // 1 → 0
     if (i > questReveal)  _drawFogMask(bx, by, bw, bh, 1, 0, i * 1.7);
     else if (maskT > 0)   _drawFogMask(bx, by, bw, bh, maskT, (1 - maskT) * bh, i * 1.7);
     ctx.restore();
@@ -1968,7 +2365,7 @@ function drawMapPanel(ctx) {
 
     // 插旗演繹：旗子淡入、插入地標
     if (mapFlags[i]) {
-      const fa   = mapFlagAnim[i] / MAP_FLAG_FRAMES;   // 1 → 0
+      const fa   = mapFlagAnim[i] / TF(TIMING.mapFlag);   // 1 → 0
       const wave = Math.sin(t / 400) * 4;
       ctx.save();
       ctx.globalAlpha = 1 - fa;
@@ -2127,7 +2524,7 @@ function drawMapPanel(ctx) {
 // ── 藏寶圖動畫（地圖面板中央浮現，閃光後消失）──
 function drawTMAnim(ctx) {
   if (!tmAnim.active) return;
-  const prog  = 1 - tmAnim.timer / TM_ANIM_FRAMES; // 0→1
+  const prog  = 1 - tmAnim.timer / TF(TIMING.mapQuest); // 0→1
   // 透明度：前15%淡入，後15%淡出，中間段全亮
   let alpha;
   if      (prog < 0.15) alpha = prog / 0.15;
@@ -2334,7 +2731,7 @@ function updateBossCardPick() {
     bossCardPick.flipTimer++;
     if (bossCardPick.flipTimer >= bossCardPick.flipDuration) {
       bossCardPick.phase = 'result';
-      bossCardPick.resultTimer = 90; // 翻牌後停留展示
+      bossCardPick.resultTimer = TF(TIMING.cardPickResult); // 翻牌後停留展示
     }
   } else if (bossCardPick.phase === 'result') {
     bossCardPick.resultTimer--;
@@ -2484,7 +2881,6 @@ function drawBossCardPick(ctx) {
 }
 
 // ── JP 報獎動畫 ──
-const JP_WIN_DURATION = 210; // 約3.5秒 @60fps
 
 function startJpWinAnim(label, value, color, glow) {
   jpWinAnim = { active: true, timer: 0, label, value, color, glow };
@@ -2508,7 +2904,7 @@ function startJpWinAnim(label, value, color, glow) {
 function updateJpWinAnim() {
   if (!jpWinAnim.active) return;
   jpWinAnim.timer++;
-  if (jpWinAnim.timer >= JP_WIN_DURATION) {
+  if (jpWinAnim.timer >= TF(TIMING.jpWin)) {
     jpWinAnim.active = false;
     jpWinParticles = [];
     return;
@@ -2520,7 +2916,7 @@ function updateJpWinAnim() {
     p.life -= p.decay;
   }
   // 持續補充粒子
-  if (jpWinAnim.timer < JP_WIN_DURATION - 60 && jpWinParticles.length < 180) {
+  if (jpWinAnim.timer < TF(TIMING.jpWin) - 60 && jpWinParticles.length < 180) {
     for (let i = 0; i < 3; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 5;
@@ -2542,7 +2938,7 @@ function drawJpWinAnim(ctx) {
   if (!jpWinAnim.active) return;
   const t = jpWinAnim.timer;
   const fadeIn  = Math.min(1, t / 20);
-  const fadeOut = t > JP_WIN_DURATION - 40 ? 1 - (t - (JP_WIN_DURATION - 40)) / 40 : 1;
+  const fadeOut = t > TF(TIMING.jpWin) - 40 ? 1 - (t - (TF(TIMING.jpWin) - 40)) / 40 : 1;
   const alpha = fadeIn * fadeOut;
 
   ctx.save();
@@ -2622,7 +3018,7 @@ function update(dt) {
       if (cell._landSquash > 0) cell._landSquash--;   // 落定回彈演繹
       if (cell._scAppear   > 0) cell._scAppear--;     // SC 登場演繹
       if (cell.splitAnim !== undefined && cell.splitAnim < 1) {
-        cell.splitAnim = Math.min(1, cell.splitAnim + 1 / SYNTH_SPLIT_FRAMES);
+        cell.splitAnim = Math.min(1, cell.splitAnim + 1 / TF(TIMING.synthSplit));
       }
     }
   }
@@ -2663,13 +3059,13 @@ function update(dt) {
               if (ca && cb && !ca.isMerged && !cb.isMerged &&
                   ((ca.id === 8 && cb.id === 9) || (ca.id === 9 && cb.id === 8))) {
                 // SC 中獎演繹（強度高／1.2s）：船頭＋船尾合成為一艘完整的船
-                ca._flashTimer = SC_WIN_SFG_FRAMES;
-                cb._flashTimer = SC_WIN_SFG_FRAMES;
-                scWinAnim = { active: true, timer: SC_WIN_SFG_FRAMES, total: SC_WIN_SFG_FRAMES, tag: 'sfg' };
-                triggerBoardShake(10, SC_WIN_SFG_FRAMES);   // 合成瞬間較大的盤面震動
+                ca._flashTimer = TF(TIMING.scWinSFG);
+                cb._flashTimer = TF(TIMING.scWinSFG);
+                scWinAnim = { active: true, timer: TF(TIMING.scWinSFG), total: TF(TIMING.scWinSFG), tag: 'sfg' };
+                triggerBoardShake(TIMING.shakeBigAmp, TF(TIMING.shakeBig));   // 合成瞬間較大的盤面震動
                 shipSFGPending = true; // 相鄰合成 → SFG
                 synthOpPhase = 'ship_flash';
-                synthOpTimer = SC_WIN_SFG_FRAMES;
+                synthOpTimer = TF(TIMING.scWinSFG);
                 synthOpIdx   = 0; // 防止重新初始化
                 _shipFound   = true;
                 break outer;
@@ -2711,16 +3107,16 @@ function update(dt) {
               synthOpPhase = 'idle';
             } else {
               a._markTimer = 0; b._markTimer = 0;
-              a._flashTimer = SYNTH_FLASH_FRAMES;
-              b._flashTimer = SYNTH_FLASH_FRAMES;
-              synthOpTimer  = SYNTH_FLASH_FRAMES;
+              a._flashTimer = TF(TIMING.synthFlash);
+              b._flashTimer = TF(TIMING.synthFlash);
+              synthOpTimer  = TF(TIMING.synthFlash);
               synthOpPhase  = 'flash';
             }
           } else if (synthOpPhase === 'adv_mark') {
             // 框框標示結束 → 進階合成演繹（閃亞格號標誌 0.8s）
-            for (const m of _advPairsPending) { m._advMark = 0; m._advFlash = SYNTH_ADV_FLASH_FRAMES; }
+            for (const m of _advPairsPending) { m._advMark = 0; m._advFlash = TF(TIMING.synthAdvFlash); }
             _advPairsPending = [];
-            synthOpTimer = SYNTH_ADV_FLASH_FRAMES;
+            synthOpTimer = TF(TIMING.synthAdvFlash);
             synthOpPhase = 'adv_flash';
           } else if (synthOpPhase === 'flash') {
             const op = synthOps[synthOpIdx];
@@ -2728,7 +3124,7 @@ function update(dt) {
             if (board[op.col + 1]?.[op.row])     board[op.col + 1][op.row]._flashTimer   = 0;
             applySingleSynthesis(op.col, op.row);
             triggerSplitAnim(op.colorId);
-            synthOpTimer = SYNTH_SPLIT_FRAMES;
+            synthOpTimer = TF(TIMING.synthSplit);
             synthOpPhase = 'split';
           } else if (synthOpPhase === 'split') {
             synthOpIdx++;
@@ -2736,7 +3132,7 @@ function update(dt) {
           } else if (synthOpPhase === 'adv_flash') {
             applyAdvancedSynthesis(); // 先套用 1×4，讓玩家在停頓期間看到最終盤面
             synthOpPhase = 'settle';
-            synthOpTimer = 50;
+            synthOpTimer = TF(TIMING.synthGap);
           } else if (synthOpPhase === 'ship_flash') {
             // 船閃光結束 → 合成成1×2格，再繼續一般合成流程
             applyShipMerge();
@@ -2756,9 +3152,9 @@ function update(dt) {
           const b = board[op.col + 1]?.[op.row];
           if (!a || !b || a.isMerged || b.isMerged) { synthOpIdx++; break; }
           // 框框標示演繹（0.1s）：先框起目標合成圖示，再進合成閃光
-          a._markTimer = SYNTH_MARK_FRAMES;
-          b._markTimer = SYNTH_MARK_FRAMES;
-          synthOpTimer = SYNTH_MARK_FRAMES;
+          a._markTimer = TF(TIMING.synthMark);
+          b._markTimer = TF(TIMING.synthMark);
+          synthOpTimer = TF(TIMING.synthMark);
           synthOpPhase = 'mark';
           break;
         }
@@ -2766,9 +3162,9 @@ function update(dt) {
         const advPairs = findAdvSynthPairs();
         if (advPairs.length > 0) {
           // 框框標示演繹（0.1s）：標示進階合成目標
-          for (const m of advPairs) m._advMark = SYNTH_MARK_FRAMES;
+          for (const m of advPairs) m._advMark = TF(TIMING.synthMark);
           _advPairsPending = advPairs;
-          synthOpTimer = SYNTH_MARK_FRAMES;
+          synthOpTimer = TF(TIMING.synthMark);
           synthOpPhase = 'adv_mark';
           break;
         }
@@ -2777,7 +3173,7 @@ function update(dt) {
 
       if (synthOpPhase === 'finish') {
         synthOpPhase = 'settle';
-        synthOpTimer = 50; // 約 0.83 秒緩衝
+        synthOpTimer = TF(TIMING.synthGap);
         break;
       }
 
@@ -2799,10 +3195,10 @@ function update(dt) {
         roundScore = multipliedWin;
         comboCount++;
         if (comboCount === 1) stats.hits++;
-        popWaitTimer = 90;
+        popWaitTimer = TF(TIMING.comboPause);
         // 得分演繹強度（低／中／高）
         winFxTier  = calcWinFxTier(multipliedWin);
-        winFxTotal = WIN_FX_FRAMES[winFxTier];
+        winFxTotal = winFxFrames(winFxTier);
         winFxTimer = winFxTotal;
         currentState = STATE.SHOWING_WIN;
       } else {
@@ -2860,8 +3256,8 @@ function update(dt) {
       if (shipSFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
         // SC 中獎演繹（強度高／1.2s）。若已在 ship_flash 階段播過（tag==='sfg'）就直接開面板
         if (!scWinAnim.active && scWinAnim.tag !== 'sfg') {
-          scWinAnim = { active: true, timer: SC_WIN_SFG_FRAMES, total: SC_WIN_SFG_FRAMES, tag: 'sfg' };
-          triggerBoardShake(10, SC_WIN_SFG_FRAMES);
+          scWinAnim = { active: true, timer: TF(TIMING.scWinSFG), total: TF(TIMING.scWinSFG), tag: 'sfg' };
+          triggerBoardShake(TIMING.shakeBigAmp, TF(TIMING.shakeBig));
         } else if (!scWinAnim.active) {
           scWinAnim.tag = null;
           shipSFGReady = false;
@@ -2871,8 +3267,8 @@ function update(dt) {
       if (shipFGReady && !jpWinAnim.active && !jpWinQueue.length && !bossCardPick.active) {
         // SC 中獎演繹（強度中／0.8s）：進 FG 轉場前，圖示發光放大縮小＋些微盤面震動
         if (scWinAnim.tag !== 'fg') {
-          scWinAnim = { active: true, timer: SC_WIN_FG_FRAMES, total: SC_WIN_FG_FRAMES, tag: 'fg' };
-          triggerBoardShake(4, SC_WIN_FG_FRAMES);
+          scWinAnim = { active: true, timer: TF(TIMING.scWinFG), total: TF(TIMING.scWinFG), tag: 'fg' };
+          triggerBoardShake(TIMING.shakeSmallAmp, TF(TIMING.shakeSmall));
         } else if (!scWinAnim.active) {
           scWinAnim.tag = null;
           shipFGReady = false;
@@ -2905,7 +3301,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
   if (id === 8 || id === 9) {
     const isBow   = (id === 8);
     const now     = Date.now();
-    const appearP = scFx > 0 ? scFx / SC_APPEAR_FRAMES : 0;             // 1 → 0
+    const appearP = scFx > 0 ? scFx / TF(TIMING.scAppear) : 0;             // 1 → 0
     const winP    = scWinAnim.active ? scWinAnim.timer / scWinAnim.total : 0;
     // 預報演繹（LOOP）：持續微晃 ±2°、合成部位呼吸發光
     const wobble  = Math.sin(now / 170) * 2 * Math.PI / 180;
@@ -3036,7 +3432,9 @@ function drawSymbolSplit(ctx, id, x, y, size, alpha, count) {
     ctx.roundRect(ix, iy, iw, ih, 10);
     ctx.clip();
     const seg = ih / count;
-    for (let i = 0; i < count; i++) drawCover(ctx, art, ix, iy + i * seg, iw, seg);
+    // 取圖：依 CROP 決定橫切條帶取原圖的哪一部分（調校面板「✂️ 取圖」分頁）
+    const crop = CROP[id];
+    for (let i = 0; i < count; i++) drawFocus(ctx, art, ix, iy + i * seg, iw, seg, crop);
     // 橫切分隔線
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = 2;
@@ -3236,7 +3634,7 @@ function drawBoard(ctx) {
         else             drawSymbol(ctx, dispId, x, y + off,              CELL_SIZE, 1);
 
         // 動態模糊黑幕（速度越快越深）
-        ctx.globalAlpha = Math.min(0.45, reelSpeed[c][r] / REEL_SPEED * 0.45);
+        ctx.globalAlpha = Math.min(0.45, reelSpeed[c][r] / TIMING.reelSpeed * 0.45);
         ctx.fillStyle = '#000';
         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
         ctx.restore();
@@ -3266,10 +3664,10 @@ function drawBoard(ctx) {
       // ── 靜態格繪製 ──
       // 得分演繹：得分組亮起、其餘壓暗至約 60%
       const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
-      const alpha = cell.isMatched ? 1.0 : (dimOthers ? 0.6 : 1.0);
+      const alpha = cell.isMatched ? 1.0 : (dimOthers ? 1 - TIMING.popDimAlpha : 1.0);
       const sc    = cell.scale || 1;
       // 圖示回彈演繹：落定壓扁 5% 再回彈
-      const sq    = cell._landSquash > 0 ? cell._landSquash / LAND_SQUASH_FRAMES : 0;
+      const sq    = cell._landSquash > 0 ? cell._landSquash / TF(TIMING.landSquash) : 0;
       // 得分演繹：框起得分圖示並旋轉圖示角度
       const wp    = (cell.isMatched && winFxTimer > 0) ? winFxTimer / winFxTotal : 0;
       const rot   = wp > 0
@@ -3305,7 +3703,7 @@ function drawBoard(ctx) {
 
       // 閃光特效（合成前的金色脈衝）
       if (cell._flashTimer > 0) {
-        const flashProg = cell._flashTimer / SYNTH_FLASH_FRAMES;
+        const flashProg = cell._flashTimer / TF(TIMING.synthFlash);
         const pulse = Math.abs(Math.sin(flashProg * Math.PI * 4)) * 0.65;
         ctx.save();
         ctx.globalAlpha = alpha * pulse;
@@ -3319,7 +3717,7 @@ function drawBoard(ctx) {
       }
 
       // 框框標示演繹（0.1s）：標示為合成目標
-      if (cell._markTimer > 0) drawMarkFrame(ctx, x, y, CELL_SIZE, CELL_SIZE, cell._markTimer / SYNTH_MARK_FRAMES);
+      if (cell._markTimer > 0) drawMarkFrame(ctx, x, y, CELL_SIZE, CELL_SIZE, cell._markTimer / TF(TIMING.synthMark));
 
       // 得分框（三階：麻繩／木頭風格）
       if (cell.isMatched) {
@@ -3342,7 +3740,7 @@ function drawBoard(ctx) {
     const y = GRID_Y + m.row * CELL_SIZE;
     const isMatched = !!board[m.col]?.[m.row]?.isMatched;
     const _dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
-    const alpha = isMatched ? 1.0 : (_dimOthers ? 0.6 : 1.0);
+    const alpha = isMatched ? 1.0 : (_dimOthers ? 1 - TIMING.popDimAlpha : 1.0);
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -3418,7 +3816,7 @@ function drawBoard(ctx) {
       ctx.restore();
     }
     // 框框標示演繹：標示為進階合成目標
-    if (m._advMark > 0) drawMarkFrame(ctx, x, y, w, CELL_SIZE, m._advMark / SYNTH_MARK_FRAMES);
+    if (m._advMark > 0) drawMarkFrame(ctx, x, y, w, CELL_SIZE, m._advMark / TF(TIMING.synthMark));
 
     // 中央圖示（無美術圖時的備援）＋分裂倍數徽章
     ctx.textAlign = 'center';
@@ -3439,7 +3837,7 @@ function drawBoard(ctx) {
 
     // 進階合成強力閃光特效
     if (m._advFlash > 0) {
-      const prog  = m._advFlash / SYNTH_ADV_FLASH_FRAMES;
+      const prog  = m._advFlash / TF(TIMING.synthAdvFlash);
       const pulse = Math.abs(Math.sin(prog * Math.PI * 5));
 
       // 白色覆蓋層
@@ -3560,7 +3958,7 @@ function drawTopStats(ctx) {
 }
 
 function drawBottomBar(ctx) {
-  const BAR_Y = 650;
+  const BAR_Y = LAYOUT.bottomUI.y;
   const BAR_H = 70;
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.fillRect(0, BAR_Y, 1280, BAR_H);
@@ -3582,24 +3980,24 @@ function drawBottomBar(ctx) {
   // 強開 按鈕
   ctx.fillStyle = forceSpinType ? '#7c3aed' : '#334155';
   ctx.beginPath();
-  ctx.roundRect(155, 658, 68, 54, 8);
+  ctx.roundRect(LAYOUT.forceBtn.x, LAYOUT.forceBtn.y, LAYOUT.forceBtn.w, LAYOUT.forceBtn.h, 8);
   ctx.fill();
   ctx.fillStyle = forceSpinType ? '#fff' : '#e2e8f0';
   ctx.font = 'bold 14px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('強開', 189, 685);
+  ctx.fillText('強開', LAYOUT.forceBtn.x + LAYOUT.forceBtn.w / 2, LAYOUT.forceBtn.y + LAYOUT.forceBtn.h / 2);
 
   // INFO 按鈕
   ctx.fillStyle = '#334155';
   ctx.beginPath();
-  ctx.roundRect(233, 658, 60, 54, 8);
+  ctx.roundRect(LAYOUT.infoBtn.x, LAYOUT.infoBtn.y, LAYOUT.infoBtn.w, LAYOUT.infoBtn.h, 8);
   ctx.fill();
   ctx.fillStyle = '#e2e8f0';
   ctx.font = 'bold 14px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('INFO', 263, 685);
+  ctx.fillText('INFO', LAYOUT.infoBtn.x + LAYOUT.infoBtn.w / 2, LAYOUT.infoBtn.y + LAYOUT.infoBtn.h / 2);
 }
 
 function drawForceMenu(ctx) {
@@ -3649,8 +4047,7 @@ function drawForceMenu(ctx) {
 }
 
 function drawSpinButton(ctx) {
-  const BAR_Y = 650;
-  const spinX = 560, spinY = BAR_Y + 8, spinW = 160, spinH = 54;
+  const spinX = LAYOUT.spinBtn.x, spinY = LAYOUT.spinBtn.y, spinW = LAYOUT.spinBtn.w, spinH = LAYOUT.spinBtn.h;
   const inputLocked = erisMultiplierAnim.active;
   let spinColor = (currentState !== STATE.IDLE || inputLocked) ? '#475569' : (isMouseHoverSpin ? '#38bdf8' : '#0ea5e9');
   ctx.fillStyle = spinColor;
@@ -3663,7 +4060,7 @@ function drawSpinButton(ctx) {
   ctx.textBaseline = 'middle';
   ctx.fillText('SPIN', spinX + spinW / 2, spinY + spinH / 2);
 
-  const autoX = 730, autoY = BAR_Y + 8, autoW = 160, autoH = 54;
+  const autoX = LAYOUT.autoBtn.x, autoY = LAYOUT.autoBtn.y, autoW = LAYOUT.autoBtn.w, autoH = LAYOUT.autoBtn.h;
   let autoColor = inputLocked ? '#475569' : (isAutoSpinning ? '#059669' : (isMouseHoverAuto ? '#6d28d9' : '#4f46e5'));
   ctx.fillStyle = autoColor;
   ctx.beginPath();
@@ -3843,7 +4240,7 @@ function drawFGEndPanel(ctx) {
 function drawFGHUD(ctx) {
   if (!inFG && !inSFG) return;
   const hudW = 320, hudH = 42;
-  const hudX = (1280 - hudW) / 2, hudY = 4;
+  const hudX = LAYOUT.fgCounter.x - hudW / 2, hudY = LAYOUT.fgCounter.y;
   ctx.save();
   if (inSFG) {
     ctx.fillStyle = 'rgba(120,53,15,0.92)';
@@ -4043,7 +4440,7 @@ function maybeTriggerBigWin(amount) {
   if (maxTier < 0) return false;
   bigWin = {
     active: true, tier: 0, maxTier, shown: 0, target: amount,
-    timer: 0, total: 110 + maxTier * 70, hold: 90,
+    timer: 0, total: TF(TIMING.bigWinRun) + maxTier * TF(TIMING.bigWinTierAdd), hold: TF(TIMING.bigWinHold),
   };
   return true;
 }
@@ -4142,8 +4539,8 @@ let transition = { active: false, timer: 0, total: 1, mid: 0, fired: false, onMi
 function startTransition(kind, onMid) {
   transition = {
     active: true, timer: 0,
-    total: kind === 'enter' ? 96 : 66,
-    mid:   kind === 'enter' ? 52 : 30,
+    total: TF(kind === 'enter' ? TIMING.transEnter : TIMING.transExit),
+    mid:   TF(kind === 'enter' ? TIMING.transEnterMid : TIMING.transExitMid),
     fired: false, onMid, kind,
   };
 }
@@ -4231,7 +4628,7 @@ function drawTransition(ctx) {
 }
 
 // ── 載入頁（編號 38）────────────────────────────────────────
-let loadingScreen = { active: true, timer: 0, total: 130 };
+let loadingScreen = { active: true, timer: 0, total: TF(TIMING.loading) };
 function drawLoadingScreen(ctx) {
   if (!loadingScreen.active) return;
   loadingScreen.timer++;
@@ -4285,10 +4682,12 @@ function draw() {
   drawBigWin(ctx);        // 三階大獎跑分
   drawTransition(ctx);    // FG／SFG 進入・結束轉場
   drawLoadingScreen(ctx); // 載入頁
+  drawLayoutOverlay();    // 佈局編輯覆蓋層（僅編輯模式）
 }
 
 // === Canvas 事件監聽器 ===
 canvas.addEventListener('click', e => {
+  if (layoutEditMode) return;   // 佈局編輯中，輸入優先給編輯器
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (1280 / rect.width);
   const my = (e.clientY - rect.top) * (720 / rect.height);
@@ -4312,7 +4711,7 @@ canvas.addEventListener('click', e => {
     if (mapShip.x !== MAP_HOME_X || mapShip.y !== MAP_HOME_Y) {
       mapShip.sx = mapShip.x; mapShip.sy = mapShip.y;
       mapShip.tx = MAP_HOME_X; mapShip.ty = MAP_HOME_Y;
-      mapShip.frame = 0; mapShip.totalFrames = MAP_FLY_FRAMES; mapShip.flying = true;
+      mapShip.frame = 0; mapShip.totalFrames = mapFlyFrames(); mapShip.flying = true;
     }
     mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
     forceSpinType = null;
@@ -4410,29 +4809,29 @@ canvas.addEventListener('click', e => {
         hit = true;
       }
     });
-    if (!hit && !(mx >= 155 && mx <= 223 && my >= 658 && my <= 712)) {
+    if (!hit && !inLayoutBox(LAYOUT.forceBtn, mx, my)) {
       showForceMenu = false;
     }
   }
 
   // 強開 按鈕
-  if (mx >= 155 && mx <= 223 && my >= 658 && my <= 712) {
+  if (inLayoutBox(LAYOUT.forceBtn, mx, my)) {
     showForceMenu = !showForceMenu;
   }
 
   // SPIN 按鈕
-  if (mx >= 560 && mx <= 720 && my >= 658 && my <= 712 && currentState === STATE.IDLE) {
+  if (inLayoutBox(LAYOUT.spinBtn, mx, my) && currentState === STATE.IDLE) {
     if (!isAutoSpinning) { showForceMenu = false; startSpin(); }
   }
   // AUTO SPIN 按鈕
-  if (mx >= 730 && mx <= 890 && my >= 658 && my <= 712) {
+  if (inLayoutBox(LAYOUT.autoBtn, mx, my)) {
     showForceMenu = false;
     isAutoSpinning = !isAutoSpinning;
     autoSpinDelay = 0;
     if (isAutoSpinning && currentState === STATE.IDLE) startSpin();
   }
   // INFO 按鈕
-  if (mx >= 233 && mx <= 293 && my >= 658 && my <= 712) {
+  if (inLayoutBox(LAYOUT.infoBtn, mx, my)) {
     showInfoPanel = !showInfoPanel;
     document.getElementById('infoPanel').classList.toggle('visible', showInfoPanel);
   }
@@ -4448,8 +4847,8 @@ canvas.addEventListener('mousemove', e => {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (1280 / rect.width);
   const my = (e.clientY - rect.top) * (720 / rect.height);
-  isMouseHoverSpin = (mx >= 560 && mx <= 720 && my >= 658 && my <= 712);
-  isMouseHoverAuto = (mx >= 730 && mx <= 890 && my >= 658 && my <= 712);
+  isMouseHoverSpin = inLayoutBox(LAYOUT.spinBtn, mx, my);
+  isMouseHoverAuto = inLayoutBox(LAYOUT.autoBtn, mx, my);
 
   // Boss 抽牌：hover 偵測
   if (bossCardPick.active && bossCardPick.phase === 'picking') {
@@ -4475,6 +4874,543 @@ function gameLoop(ts) {
   draw();
   requestAnimationFrame(gameLoop);
 }
+
+// ============================================================
+// === 調校面板：節奏甘特圖 + 佈局拖曳 + 取圖 + localStorage ===
+// ============================================================
+const TUNE_KEY = 'argo_tuning';
+const TUNE_VERSION = 1;
+let tunePanelOpen = false;
+let tuneTab = 'timing';        // 'timing' | 'layout' | 'crop'
+let layoutEditMode = false;    // 佈局分頁開啟中 = 編輯模式（攔截畫布輸入）
+let layoutSelected = null;     // 選中的 LAYOUT key
+let layoutDrag = null;         // { mx, my, ox, oy } 拖曳起點
+let layoutFieldRefs = {};      // 佈局分頁數字框參照（拖曳時同步）
+let layoutRangeRefs = {};      // 佈局分頁滑桿參照（拖曳時同步）
+let cropSelected = 2;          // 取圖分頁目前選中的 symbol id（預設伊阿宋）
+
+function saveTuning() {
+  try {
+    localStorage.setItem(TUNE_KEY, JSON.stringify({
+      version: TUNE_VERSION,
+      timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP,
+    }));
+    return true;
+  } catch (e) { return false; }
+}
+function loadTuning() {
+  try {
+    const d = JSON.parse(localStorage.getItem(TUNE_KEY) || 'null');
+    if (!d || d.version !== TUNE_VERSION) { localStorage.removeItem(TUNE_KEY); }
+    else {
+      if (d.timing) for (const k in DEFAULT_TIMING) {
+        const v = d.timing[k];
+        const [lo, hi] = TIMING_RANGE[k] || [0, 5];
+        if (typeof v === 'number' && isFinite(v)) TIMING[k] = Math.min(hi, Math.max(lo, v));
+      }
+      if (d.timeline) for (const k in DEFAULT_TIMING_START) {
+        const v = d.timeline[k];
+        if (typeof v === 'number' && isFinite(v)) TIMING_START[k] = Math.min(5, Math.max(0, v));
+      }
+      if (d.layout) for (const k in DEFAULT_LAYOUT) {
+        const o = d.layout[k];
+        if (o && typeof o === 'object') for (const pr in DEFAULT_LAYOUT[k]) {
+          if (typeof o[pr] === 'number' && isFinite(o[pr])) LAYOUT[k][pr] = Math.round(o[pr]);
+        }
+      }
+      if (Array.isArray(d.crop)) for (let i = 0; i < 8; i++) {
+        const c = d.crop[i];
+        if (!c || typeof c !== 'object') continue;
+        if (CROP_MODES.some(m => m[0] === c.mode)) CROP[i].mode = c.mode;
+        ['fx', 'fy'].forEach(pr => {
+          if (typeof c[pr] === 'number' && isFinite(c[pr])) CROP[i][pr] = Math.min(1, Math.max(0, c[pr]));
+        });
+        if (typeof c.zoom === 'number' && isFinite(c.zoom)) CROP[i].zoom = Math.min(3, Math.max(0.5, c.zoom));
+      }
+    }
+  } catch (e) { /* 資料損毀：退回預設 */ }
+  syncLayoutDerived();
+}
+
+const tuneBtn    = document.getElementById('tuneBtn');
+const tunePanel  = document.getElementById('tunePanel');
+const tuneBody   = document.getElementById('tuneBody');
+const tuneStatus = document.getElementById('tuneStatus');
+let tuneStatusTimer = null;
+
+function setTuneStatus(text, state = 'ok') {
+  clearTimeout(tuneStatusTimer);
+  tuneStatus.textContent = text;
+  tuneStatus.className = state;
+  tuneStatusTimer = setTimeout(() => { tuneStatus.textContent = ''; tuneStatus.className = ''; }, 1800);
+}
+function commitFocusedTuningInput() {
+  const active = document.activeElement;
+  if (active instanceof HTMLInputElement && tunePanel.contains(active)) {
+    active.dispatchEvent(new Event('change', { bubbles: true }));
+    active.blur();
+  }
+}
+function applyTuningAndTestSpin() {
+  commitFocusedTuningInput();
+  syncLayoutDerived();
+  syncLayoutFields();
+  layoutDrag = null;
+  const saved = saveTuning();
+  const msg = saved ? '已套用 ✓ 後續SPIN皆用這組' : '已套用；瀏覽器未保存';
+  if (currentState === STATE.IDLE && !isAutoSpinning && !loadingScreen.active) {
+    startSpin();
+    setTuneStatus(msg, saved ? 'ok' : 'wait');
+  } else {
+    setTuneStatus(msg, 'wait');
+  }
+}
+
+function setTimingValue(key, rawValue, min, max) {
+  const parsed = parseFloat(rawValue);
+  const next = Math.min(max, Math.max(min, Number.isFinite(parsed) ? parsed : 0));
+  if (TIMING[key] === next) return next;
+  TIMING[key] = next;
+  saveTuning();
+  return next;
+}
+function setTimingStartValue(key, rawValue) {
+  const parsed = parseFloat(rawValue);
+  TIMING_START[key] = Math.min(5, Math.max(0, Number.isFinite(parsed) ? parsed : 0));
+  saveTuning();
+  return TIMING_START[key];
+}
+
+function buildNumberTimingRow(key, label, min, max, step) {
+  const row = document.createElement('div'); row.className = 'tune-row';
+  const lab = document.createElement('label'); lab.textContent = label;
+  const rng = document.createElement('input');
+  rng.type = 'range'; rng.min = String(min); rng.max = String(max); rng.step = String(step); rng.value = TIMING[key];
+  const num = document.createElement('input');
+  num.type = 'number'; num.min = String(min); num.max = String(max); num.step = String(step); num.value = TIMING[key];
+  const apply = (v, syncNumber = true) => {
+    v = setTimingValue(key, v, min, max);
+    rng.value = v;
+    if (syncNumber) num.value = v;
+    return v;
+  };
+  rng.addEventListener('input', () => apply(rng.value));
+  num.addEventListener('input', () => {
+    const raw = num.value.trim();
+    if (raw === '' || raw === '-' || raw === '.' || raw.endsWith('.')) return;
+    apply(raw, false);
+  });
+  num.addEventListener('change', () => { num.value = apply(num.value, true); });
+  row.append(lab, rng, num);
+  return row;
+}
+
+function buildGanttTimingRow(key, label, min, max, step, color, timelineMax) {
+  const row = document.createElement('div'); row.className = 'gantt-row';
+  const lab = document.createElement('label'); lab.textContent = label;
+  const track = document.createElement('div'); track.className = 'gantt-track';
+  const bar = document.createElement('div'); bar.className = 'gantt-bar'; bar.style.background = color;
+  const handle = document.createElement('div'); handle.className = 'gantt-handle';
+  const startNum = document.createElement('input');
+  startNum.type = 'number'; startNum.min = '0'; startNum.max = '5'; startNum.step = String(step); startNum.title = '起點';
+  const durNum = document.createElement('input');
+  durNum.type = 'number'; durNum.min = String(min); durNum.max = String(max); durNum.step = String(step); durNum.title = '時長';
+
+  const sync = () => {
+    const start = TS(key), dur = TIMING[key];
+    startNum.value = start;
+    durNum.value = dur;
+    const left = Math.max(0, Math.min(100, start / timelineMax * 100));
+    const width = Math.max(1.5, Math.min(100 - left, dur / timelineMax * 100));
+    bar.style.left = `${left}%`;
+    bar.style.width = `${width}%`;
+    bar.title = `${label}：${start.toFixed(2)}s → ${(start + dur).toFixed(2)}s`;
+  };
+  const applyStart = v => { setTimingStartValue(key, v); sync(); };
+  const applyDur   = v => { setTimingValue(key, v, min, max); sync(); };
+
+  // 拖曳色條主體改起點、拖右緣把手改時長
+  const startDrag = (e, mode) => {
+    e.preventDefault(); e.stopPropagation();
+    const rect = track.getBoundingClientRect();
+    const perPx = timelineMax / rect.width;
+    const x0 = e.clientX, s0 = TS(key), d0 = TIMING[key];
+    const snap = v => Math.round(v / step) * step;
+    const onMove = ev => {
+      const dv = (ev.clientX - x0) * perPx;
+      if (mode === 'move') applyStart(snap(Math.max(0, s0 + dv)));
+      else applyDur(snap(Math.max(min, Math.min(max, d0 + dv))));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  bar.addEventListener('pointerdown', e => startDrag(e, 'move'));
+  handle.addEventListener('pointerdown', e => startDrag(e, 'resize'));
+  startNum.addEventListener('change', () => applyStart(startNum.value));
+  durNum.addEventListener('change', () => applyDur(durNum.value));
+
+  bar.appendChild(handle); track.appendChild(bar);
+  row.append(lab, track, startNum, durNum);
+  sync();
+  return row;
+}
+
+function buildTimingTab() {
+  tuneBody.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '甘特圖：拖曳色條改起點，拖右緣改時長。右側兩欄為起點/時長；px 與 0~1 強度仍用數值滑桿。預設值取自企劃書秒數。';
+  tuneBody.appendChild(hint);
+
+  TIMING_META.forEach(g => {
+    const h = document.createElement('div');
+    h.className = 'tune-group'; h.textContent = g.group;
+    tuneBody.appendChild(h);
+    const gantt = document.createElement('div'); gantt.className = 'gantt-editor';
+    let hasGantt = false;
+    g.items.forEach(([key, label, mn, mx, st]) => {
+      const min = mn !== undefined ? mn : 0, max = mx !== undefined ? mx : 5, step = st !== undefined ? st : 0.05;
+      if (isGanttTimingKey(key)) {
+        const color = TIMING_COLORS[gantt.children.length % TIMING_COLORS.length];
+        gantt.appendChild(buildGanttTimingRow(key, label, min, max, step, color, 5));
+        hasGantt = true;
+      } else {
+        tuneBody.appendChild(buildNumberTimingRow(key, label, min, max, step));
+      }
+    });
+    if (hasGantt) tuneBody.appendChild(gantt);
+  });
+}
+
+function buildLayoutTab() {
+  tuneBody.innerHTML = '';
+  layoutFieldRefs = {}; layoutRangeRefs = {};
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '直接在畫面上點選物件拖曳；方向鍵微調 1px、Shift+方向鍵 10px。編輯中點畫布不會觸發 SPIN。';
+  tuneBody.appendChild(hint);
+
+  const list = document.createElement('div'); list.className = 'tune-obj-list';
+  LAYOUT_META.forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.className = 'tune-obj-btn' + (key === layoutSelected ? ' selected' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => { layoutSelected = key; buildLayoutTab(); });
+    list.appendChild(b);
+  });
+  tuneBody.appendChild(list);
+
+  if (!layoutSelected) return;
+  const meta = LAYOUT_META.find(m => m[0] === layoutSelected);
+  const o = LAYOUT[layoutSelected];
+  const h = document.createElement('div');
+  h.className = 'tune-group'; h.textContent = `選中：${meta[1]}`;
+  tuneBody.appendChild(h);
+  const RANGE = { x: [-300, 1400], y: [-300, 900], w: [0, 800], h: [0, 800] };
+  Object.keys(o).filter(pr => typeof o[pr] === 'number').forEach(pr => {
+    const row = document.createElement('div'); row.className = 'tune-row';
+    const lab = document.createElement('label'); lab.textContent = pr.toUpperCase();
+    const [min, max] = RANGE[pr] || [-500, 1500];
+    const rng = document.createElement('input');
+    rng.type = 'range'; rng.min = min; rng.max = max; rng.step = '1'; rng.value = o[pr];
+    const num = document.createElement('input');
+    num.type = 'number'; num.step = '1'; num.value = o[pr];
+    const applyLayoutValue = src => {
+      const v = parseInt(src.value, 10);
+      if (!isFinite(v)) return;
+      o[pr] = v; syncLayoutDerived(); saveTuning();
+      if (src !== rng) rng.value = v;
+      if (src !== num) num.value = v;
+    };
+    rng.addEventListener('input', () => applyLayoutValue(rng));
+    num.addEventListener('input', () => applyLayoutValue(num));
+    num.addEventListener('change', () => applyLayoutValue(num));
+    layoutFieldRefs[pr] = num; layoutRangeRefs[pr] = rng;
+    row.append(lab, rng, num);
+    tuneBody.appendChild(row);
+  });
+}
+
+// --- 取圖分頁：分裂條帶即時預覽 ---
+let cropPreviewCanvas = null;
+function drawCropPreview() {
+  if (!cropPreviewCanvas) return;
+  const cv = cropPreviewCanvas, c2 = cv.getContext('2d');
+  const CW = cv.width, CH = cv.height;
+  c2.clearRect(0, 0, CW, CH);
+  const art = iconImgs[cropSelected];
+  const crop = CROP[cropSelected];
+  const pad = 8, gap = 8, cells = 4;
+  const size = Math.floor((CW - pad * 2 - gap * (cells - 1)) / cells);
+  const labels = ['1×1', '÷2', '÷3', '÷4'];
+  for (let k = 0; k < cells; k++) {
+    const x = pad + k * (size + gap), y = pad;
+    const count = k + 1;
+    c2.save();
+    c2.beginPath(); c2.roundRect(x, y, size, size, 8); c2.clip();
+    c2.fillStyle = '#0f172a'; c2.fillRect(x, y, size, size);
+    if (art) {
+      const seg = size / count;
+      // 1×1 不切割：維持原本的 cover 置中，與遊戲一致
+      for (let i = 0; i < count; i++) {
+        if (count === 1) drawCover(c2, art, x, y, size, size);
+        else drawFocus(c2, art, x, y + i * seg, size, seg, crop);
+      }
+      c2.strokeStyle = 'rgba(0,0,0,0.55)'; c2.lineWidth = 2;
+      for (let i = 1; i < count; i++) {
+        c2.beginPath(); c2.moveTo(x, y + i * seg); c2.lineTo(x + size, y + i * seg); c2.stroke();
+      }
+    } else {
+      c2.fillStyle = '#334155'; c2.font = '11px sans-serif'; c2.textAlign = 'center';
+      c2.fillText('無圖', x + size / 2, y + size / 2);
+    }
+    c2.restore();
+    c2.strokeStyle = '#334155'; c2.lineWidth = 1;
+    c2.beginPath(); c2.roundRect(x, y, size, size, 8); c2.stroke();
+    c2.fillStyle = '#64748b'; c2.font = '10px sans-serif'; c2.textAlign = 'center'; c2.textBaseline = 'top';
+    c2.fillText(labels[k], x + size / 2, y + size + 3);
+  }
+}
+
+function buildCropTab() {
+  tuneBody.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '分裂演繹會把一格橫切成 2／3／4 條。這裡設定每張圖被切成細條時要取原圖的哪一部分（焦點Y 往 0 = 取頭部）。三種分裂數共用同一組設定。';
+  tuneBody.appendChild(hint);
+
+  const cv = document.createElement('canvas');
+  cv.id = 'cropPreview'; cv.width = 396; cv.height = 118;
+  tuneBody.appendChild(cv);
+  cropPreviewCanvas = cv;
+
+  const list = document.createElement('div'); list.className = 'tune-obj-list';
+  SYMBOLS.slice(0, 8).forEach(sym => {
+    const b = document.createElement('button');
+    b.className = 'tune-obj-btn' + (sym.id === cropSelected ? ' selected' : '');
+    b.textContent = sym.name;
+    b.addEventListener('click', () => { cropSelected = sym.id; buildCropTab(); });
+    list.appendChild(b);
+  });
+  tuneBody.appendChild(list);
+
+  const crop = CROP[cropSelected];
+  const h = document.createElement('div');
+  h.className = 'tune-group'; h.textContent = `選中：${SYMBOLS[cropSelected].name}`;
+  tuneBody.appendChild(h);
+
+  // 顯示模式
+  const modeRow = document.createElement('div'); modeRow.className = 'tune-mode-row';
+  CROP_MODES.forEach(([mode, label]) => {
+    const b = document.createElement('button');
+    b.className = 'tune-mode-btn' + (crop.mode === mode ? ' selected' : '');
+    b.textContent = label;
+    b.title = { cover: '等比放大後裁切（現行）', contain: '整張縮進條帶，留邊', stretch: '拉伸填滿，會變形' }[mode];
+    b.addEventListener('click', () => { crop.mode = mode; saveTuning(); buildCropTab(); });
+    modeRow.appendChild(b);
+  });
+  tuneBody.appendChild(modeRow);
+
+  [['fy', '焦點Y (0=上)', 0, 1, 0.01], ['fx', '焦點X (0=左)', 0, 1, 0.01], ['zoom', '縮放', 0.5, 3, 0.05]].forEach(([pr, label, min, max, step]) => {
+    const row = document.createElement('div'); row.className = 'tune-row';
+    const lab = document.createElement('label'); lab.textContent = label;
+    const rng = document.createElement('input');
+    rng.type = 'range'; rng.min = min; rng.max = max; rng.step = step; rng.value = crop[pr];
+    const num = document.createElement('input');
+    num.type = 'number'; num.min = min; num.max = max; num.step = step; num.value = crop[pr];
+    const apply = src => {
+      const v = parseFloat(src.value);
+      if (!isFinite(v)) return;
+      crop[pr] = Math.min(max, Math.max(min, v));
+      if (src !== rng) rng.value = crop[pr];
+      if (src !== num) num.value = crop[pr];
+      saveTuning();
+      drawCropPreview();
+    };
+    rng.addEventListener('input', () => apply(rng));
+    num.addEventListener('input', () => apply(num));
+    num.addEventListener('change', () => apply(num));
+    row.append(lab, rng, num);
+    tuneBody.appendChild(row);
+  });
+
+  drawCropPreview();
+}
+
+function refreshTuneBody() {
+  layoutEditMode = tunePanelOpen && tuneTab === 'layout';
+  if (!layoutEditMode) { layoutDrag = null; canvas.style.cursor = 'default'; }
+  cropPreviewCanvas = null;
+  if (tuneTab === 'timing') buildTimingTab();
+  else if (tuneTab === 'layout') buildLayoutTab();
+  else buildCropTab();
+}
+function syncLayoutFields() {
+  if (!layoutSelected) return;
+  const o = LAYOUT[layoutSelected];
+  for (const pr in layoutFieldRefs) layoutFieldRefs[pr].value = o[pr];
+  for (const pr in layoutRangeRefs) layoutRangeRefs[pr].value = o[pr];
+}
+
+tuneBtn.addEventListener('click', () => {
+  tunePanelOpen = !tunePanelOpen;
+  tunePanel.classList.toggle('visible', tunePanelOpen);
+  tuneBtn.classList.toggle('active', tunePanelOpen);
+  refreshTuneBody();
+});
+tunePanel.querySelectorAll('.tune-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    tuneTab = tab.dataset.tab;
+    tunePanel.querySelectorAll('.tune-tab').forEach(t => t.classList.toggle('active', t === tab));
+    refreshTuneBody();
+  });
+});
+// 面板拖曳：按住頂部把手可移動（避免佈局編輯時面板擋住要調的區域）
+document.getElementById('tuneDragBar').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const gc = document.getElementById('game-container');
+  const scale = gc.getBoundingClientRect().width / gc.offsetWidth;   // CSS transform 縮放比
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = tunePanel.offsetLeft, startTop = tunePanel.offsetTop;
+  tunePanel.style.left = startLeft + 'px';
+  tunePanel.style.top = startTop + 'px';
+  tunePanel.style.right = 'auto';
+  const onMove = ev => {
+    tunePanel.style.left = Math.max(-370, Math.min(1220, startLeft + (ev.clientX - startX) / scale)) + 'px';
+    tunePanel.style.top  = Math.max(0, Math.min(660, startTop + (ev.clientY - startY) / scale)) + 'px';
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+});
+
+const tuneApplySpinBtn = document.getElementById('tuneApplySpin');
+tuneApplySpinBtn.addEventListener('pointerdown', commitFocusedTuningInput);
+tuneApplySpinBtn.addEventListener('click', applyTuningAndTestSpin);
+document.getElementById('tuneReset').addEventListener('click', () => {
+  if (tuneTab === 'timing') {
+    Object.keys(DEFAULT_TIMING).forEach(k => { TIMING[k] = DEFAULT_TIMING[k]; });
+    Object.keys(DEFAULT_TIMING_START).forEach(k => { TIMING_START[k] = DEFAULT_TIMING_START[k]; });
+  } else if (tuneTab === 'layout') {
+    const def = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+    Object.keys(def).forEach(k => { LAYOUT[k] = def[k]; });
+    syncLayoutDerived();
+  } else {
+    CROP = JSON.parse(JSON.stringify(DEFAULT_CROP));
+  }
+  saveTuning();
+  refreshTuneBody();
+  setTuneStatus('已重設為預設值');
+});
+document.getElementById('tuneExport').addEventListener('click', e => {
+  // 一次匯出完整設定（節奏／甘特起點／佈局／取圖），貼回工程端即可寫成正式預設
+  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP }, null, 2);
+  const btn = e.target, orig = btn.textContent;
+  const done = () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = orig; }, 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => window.prompt('複製以下 JSON：', text));
+  } else {
+    window.prompt('複製以下 JSON：', text);
+  }
+});
+
+// --- 佈局編輯：畫布點選 / 拖曳 / 方向鍵 ---
+function tuneCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    mx: (e.clientX - rect.left) * (canvas.width / rect.width),
+    my: (e.clientY - rect.top) * (canvas.height / rect.height),
+  };
+}
+function layoutHitTest(mx, my) {
+  // 從註冊表尾端往前找（後註冊的視為上層、通常較小）
+  for (let i = LAYOUT_META.length - 1; i >= 0; i--) {
+    const [key, , boxFn] = LAYOUT_META[i];
+    const b = boxFn(LAYOUT[key]);
+    if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) return key;
+  }
+  return null;
+}
+canvas.addEventListener('mousedown', e => {
+  if (!layoutEditMode) return;
+  const { mx, my } = tuneCanvasPos(e);
+  const hit = layoutHitTest(mx, my);
+  layoutSelected = hit;
+  layoutDrag = hit ? { mx, my, ox: LAYOUT[hit].x, oy: LAYOUT[hit].y } : null;
+  buildLayoutTab();
+});
+window.addEventListener('mousemove', e => {
+  if (!layoutEditMode) return;
+  if (layoutDrag && layoutSelected) {
+    const { mx, my } = tuneCanvasPos(e);
+    LAYOUT[layoutSelected].x = Math.round(layoutDrag.ox + mx - layoutDrag.mx);
+    LAYOUT[layoutSelected].y = Math.round(layoutDrag.oy + my - layoutDrag.my);
+    syncLayoutDerived();
+    syncLayoutFields();
+  } else if (e.target === canvas) {
+    const { mx, my } = tuneCanvasPos(e);
+    canvas.style.cursor = layoutHitTest(mx, my) ? 'move' : 'default';
+  }
+});
+window.addEventListener('mouseup', () => { if (layoutDrag) { layoutDrag = null; saveTuning(); } });
+window.addEventListener('keydown', e => {
+  if (!layoutEditMode || !layoutSelected) return;
+  if (e.target instanceof HTMLInputElement) return;   // 面板輸入框打字不攔截
+  const step = e.shiftKey ? 10 : 1;
+  let dx = 0, dy = 0;
+  if (e.key === 'ArrowLeft') dx = -step;
+  else if (e.key === 'ArrowRight') dx = step;
+  else if (e.key === 'ArrowUp') dy = -step;
+  else if (e.key === 'ArrowDown') dy = step;
+  else return;
+  e.preventDefault();
+  LAYOUT[layoutSelected].x += dx;
+  LAYOUT[layoutSelected].y += dy;
+  syncLayoutDerived();
+  syncLayoutFields();
+  saveTuning();
+});
+
+// --- 佈局編輯：畫布覆蓋層（外框 + 名稱）---
+function drawLayoutOverlay() {
+  if (!layoutEditMode) return;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  LAYOUT_META.forEach(([key, label, boxFn]) => {
+    const o = LAYOUT[key];
+    const b = boxFn(o);
+    const sel = key === layoutSelected;
+    ctx.setLineDash(sel ? [] : [6, 4]);
+    ctx.lineWidth = sel ? 2.5 : 1.5;
+    ctx.strokeStyle = sel ? '#facc15' : 'rgba(56,189,248,0.75)';
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.setLineDash([]);
+    const text = label + (sel ? `  (${o.x}, ${o.y})` : '');
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+    ctx.fillStyle = sel ? '#facc15' : 'rgba(56,189,248,0.95)';
+    ctx.fillText(text, Math.max(2, Math.min(b.x + 2, 1150)), b.y - 16 < 2 ? b.y + 2 : b.y - 16);
+    ctx.shadowBlur = 0;
+  });
+  ctx.restore();
+  ctx.textBaseline = 'alphabetic';
+}
+
+// 啟動時載入已保存的調校值（損毀／版本不符自動退回預設）
+loadTuning();
+window.addEventListener('storage', e => {
+  if (e.key !== TUNE_KEY) return;
+  loadTuning();
+  if (tunePanelOpen) refreshTuneBody();
+});
 
 // === 入口 ===
 (async function main() {
