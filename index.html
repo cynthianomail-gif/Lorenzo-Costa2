@@ -2673,7 +2673,7 @@ function drawCompassRose(ctx, cx, cy, r) {
 
 // ── 地圖頂端標題橫幅（示意圖最上方那塊）──
 function drawMapTitleBanner(ctx, px, y, w, h, allLit, t) {
-  const title = RULE_VERSION === 2 ? '科爾基斯聖林' : '📜  亞格號任務';
+  const title = '📜  亞格號任務';
   const cx = px + w / 2, cy = y + h / 2;
   const bw = Math.min(w - 26, 190), bh = 30;
   const bx = cx - bw / 2, by = cy - bh / 2;
@@ -2882,16 +2882,15 @@ function drawMapFog(ctx, edgeY, t) {
 // ── v2 JP 小島：分歧上方左右各一座，島上的點＝所需的雙色進階合成次數 ──
 //    未開島時兩座都壓暗；開島後只有本局的神那一座亮起，另一座維持壓暗
 function drawJpIslands(ctx, t) {
-  const open = jpIslandOpen();
-  const litSide = open ? sideOfRoute(questRoute) : 0;
+  const litSide = sideOfRoute(questRoute);   // 呼叫端已確保分歧定案
   for (const side of [-1, 1]) {
     const boss   = JP_BOSSES[routeOfSide(side)];
-    const active = open && side === litSide;
+    const active = side === litSide;
     const cx = mapColX(side), cy = MAP_ISLAND_Y;
     const hw = MAP_PW * 0.20, hh = 26;
 
     ctx.save();
-    if (!active) ctx.globalAlpha = open ? 0.26 : 0.55;   // 落選那座壓更暗
+    if (!active) ctx.globalAlpha = 0.26;   // 落選那座壓暗
 
     // 島體
     const path = new Path2D();
@@ -3086,9 +3085,9 @@ function drawMapPanel(ctx) {
   // ── 未揭示區域：一整片霧（分界線以上全覆蓋）──
   drawMapFog(ctx, mapFogEdgeY(), t);
 
-  // ── v2：分歧兩側的 JP 小島。畫在霧之上——小島不是「待揭露的條件」，
-  //    開局就看得到兩尊神在等，分歧定案後才點亮其中一座 ──
-  if (RULE_VERSION === 2) drawJpIslands(ctx, t);
+  // ── v2：分歧兩側的 JP 小島。船還在起點（分歧未定）時整組不畫，
+  //    定案開島後才出現，畫在霧之上 ──
+  if (RULE_VERSION === 2 && jpIslandOpen()) drawJpIslands(ctx, t);
 
   // ── 濺起粒子 ──
   for (const s of mapSplash) {
