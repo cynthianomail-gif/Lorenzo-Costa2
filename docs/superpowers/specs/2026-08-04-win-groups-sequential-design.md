@@ -51,11 +51,15 @@ winLines.push({ symId, matchCount, ways, win: symWin, cells });
 
 同一個合成格可能同時屬於兩組（它帶的顏色對應到兩個 symId），組與組的 `cells` 允許重疊，重複標記 `isMatched` 沒有副作用。
 
-### 每組的入場力道
+### 每組的入場力道（搖晃）
 
-每點亮一組就把 `winFxTimer` 重設為 `winFxTotal`，讓新加入的那組有旋轉入場的動態。已經亮著的組會跟著再抖一次，視覺上是「新的一組加進來」的節拍。
+搖晃是**每一格自己的** `cell._winFx` 幀數倒數，不是全盤共用的計時器——框到哪一組，就只有那一組搖。`lightWinGroup()` 只對「這次新亮起來」的格子設 `_winFx`，已經屬於前面組別的格子（例如兩色合成格會同時屬於兩組）跳過不重設，所以第一組不會在第二組框起時又抖一次。
 
-`winFxTier`（低／中／高）依**全部組別加總後**的得分計算，在進入 `WIN_GROUPS` 前就決定，所以每一組的框都是同一階強度。
+角度由 `winFxRot(cell)` 算出，單格與合成格共用同一個函式。合成格（1×2／1×4）用主格的 `_winFx`，繞**整塊**的中心旋轉，框跟著一起轉。
+
+`_winFx` 在 `updateWinGroups()` 與 `updateShowingWin()` 每幀由 `tickWinFx()` 倒數，進入消除時一併清掉。
+
+`winFxTier`（低／中／高）依**全部組別加總後**的得分計算，在進入 `WIN_GROUPS` 前就決定，所以每一組的框與搖晃都是同一階強度。
 
 ### 得分數字
 
@@ -63,9 +67,9 @@ winLines.push({ symId, matchCount, ways, win: symWin, cells });
 
 ## 節奏參數
 
-新增 `TIMING.winGroupStep`，預設 **0.35 秒**，掛在調校面板「消除／得分」分組，甘特起點 0.00。
+新增 `TIMING.winGroupStep`，預設 **0.40 秒**，掛在調校面板「消除／得分」分組，甘特起點 0.00。
 
-兩組就是比舊版多 0.7 秒才看到得分數字。
+兩組就是比舊版多 0.8 秒才看到得分數字。
 
 ## 不動的部分
 
@@ -84,3 +88,5 @@ winLines.push({ symId, matchCount, ways, win: symWin, cells });
 | 1 組 | 直接 `SHOWING_WIN`(亮 4 格) → `POPPING`，不經過 `WIN_GROUPS` |
 
 並比對「第一組點亮時的 `isMatched` 集合」與 `winLines[0].cells` 完全相同，確認沒有提前洩漏第二組。
+
+搖晃另外用四組得分的盤面驗證：每次框起新的一組時，只有該組的格子 `_winFx` 非零，先前框好的組全是 0，確認不會重搖。合成格則以 1×2 盤面確認整塊一起傾斜，角度與同組單格相同。

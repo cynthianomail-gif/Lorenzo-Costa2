@@ -562,7 +562,7 @@ const DEFAULT_TIMING = {
   popFxMid:          0.40,  // 消除演繹・中
   popFxHigh:         0.45,  // 消除演繹・高
   popDimAlpha:       0.40,  // 未得分圖示壓暗強度 0~1（視覺流程圖：壓暗至約60%，RD 可調）
-  winGroupStep:      0.35,  // 多組得分時，每一組依序框起的間隔（只有一組時不套用）
+  winGroupStep:      0.40,  // 多組得分時，每一組依序框起的間隔（只有一組時不套用）
   scorePop:          0.20,  // 得分數字於中央放大彈出
   multFly:           0.50,  // 倍數數字從大到小打入得分數
   comboPause:        1.50,  // 連爆之間的停頓
@@ -1272,9 +1272,16 @@ let popWaitTimer = 0;
 // 特效強度 低／中／高：得分演繹 0.1/0.4/0.45s、消除演繹 0.2/0.4/0.45s
 // 得分／消除三階時長由 TIMING 推導（面板可調）
 function winFxFrames(tier) { return TF([TIMING.winFxLow, TIMING.winFxMid, TIMING.winFxHigh][tier] || TIMING.winFxLow); }
+// 得分搖晃角度（弧度）：由該格自己的 _winFx 倒數驅動，單格與合成格共用
+function winFxRot(cell) {
+  const f = cell && cell._winFx > 0 ? cell._winFx : 0;
+  if (!f) return 0;
+  const wp = f / winFxTotal;
+  return ([4, 7, 10][winFxTier] * Math.sin((1 - wp) * Math.PI * 2) * wp) * Math.PI / 180;
+}
 function popFxFrames(tier) { return TF([TIMING.popFxLow, TIMING.popFxMid, TIMING.popFxHigh][tier] || TIMING.popFxLow); }
 let winFxTier  = 0;   // 0=低 1=中 2=高
-let winFxTimer = 0;   // 得分演繹（框起＋旋轉）剩餘幀數
+// 得分演繹的搖晃改為每格自己的 cell._winFx（見 winFxRot），不再有全盤共用的計時器
 let winGroupIdx   = 0;   // 多組得分：目前已框到第幾組
 let winGroupTimer = 0;   // 距離下一組框起的剩餘幀數
 let winFxTotal = 1;
@@ -1426,7 +1433,6 @@ function resetRoundState() {
   mapSplash = [];
   synthOps = []; synthOpIdx = -1; synthOpPhase = 'idle'; synthOpTimer = 0;
   _advPairsPending = [];
-  winFxTimer = 0;
   winGroupIdx = 0; winGroupTimer = 0;
 }
 
@@ -1922,23 +1928,34 @@ function endRound() {
 
 // === 多組得分：一組一組框起 ===
 // 點亮第 i 組（標記 isMatched），得分框／壓暗／消除全都看這個旗標，所以會「亮到哪框到哪」。
+// 搖晃是每格自己的 _winFx，只有「這次新亮起來」的格子才搖——已經框好的組不會再抖一次。
 function lightWinGroup(i) {
   const g = winLines[i];
   if (!g) return;
-  g.cells.forEach(([c, r]) => { if (board[c]?.[r]) board[c][r].isMatched = true; });
-  winFxTimer = winFxTotal;   // 新加入的這組給一次旋轉入場的力道
+  g.cells.forEach(([c, r]) => {
+    const cell = board[c]?.[r];
+    if (!cell || cell.isMatched) return;   // 已屬於前面的組（例如兩色合成格）→ 不重搖
+    cell.isMatched = true;
+    cell._winFx = winFxTotal;
+  });
+}
+
+// 每格的搖晃各自倒數
+function tickWinFx() {
+  for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < ROWS; r++)
+      if (board[c]?.[r]?._winFx > 0) board[c][r]._winFx--;
 }
 
 // 全部框完 → 顯示綜合得分數字（沿用原本的 SHOWING_WIN）
 function enterShowingWin() {
   popWaitTimer = TF(TIMING.comboPause);
-  winFxTimer   = winFxTotal;
   currentState = STATE.SHOWING_WIN;
 }
 
 function updateWinGroups() {
   if (tmAnim.active && tmAnim.stepIdx === 4) return;   // JP動畫中，完全暫停
-  if (winFxTimer > 0) winFxTimer--;
+  tickWinFx();
   if (--winGroupTimer > 0) return;
   winGroupIdx++;
   if (winGroupIdx >= winLines.length) { enterShowingWin(); return; }
@@ -1950,7 +1967,7 @@ function updateWinGroups() {
 function updateShowingWin() {
   if (tmAnim.active && tmAnim.stepIdx === 4) return; // JP動畫中，完全暫停
   popWaitTimer--;
-  if (winFxTimer > 0) winFxTimer--;   // 得分演繹（框起＋旋轉）
+  tickWinFx();   // 得分演繹（框起＋旋轉）
 
   // 閃爍：每 12 幀切換一次 _flash
   const flashOn = (popWaitTimer % 12) < 6;
@@ -1961,10 +1978,12 @@ function updateShowingWin() {
   }
 
   if (popWaitTimer <= 0) {
-    // 清除 flash，進入消除
+    // 清除 flash 與搖晃，進入消除
     for (let c = 0; c < COLS; c++)
-      for (let r = 0; r < ROWS; r++)
+      for (let r = 0; r < ROWS; r++) {
         board[c][r]._flash = false;
+        board[c][r]._winFx = 0;
+      }
     currentState = STATE.POPPING;
     popWaitTimer = 0;
   }
@@ -3929,11 +3948,8 @@ function drawBoard(ctx) {
       const sc    = cell.scale || 1;
       // 圖示回彈演繹：落定壓扁 5% 再回彈
       const sq    = cell._landSquash > 0 ? cell._landSquash / TF(TIMING.landSquash) : 0;
-      // 得分演繹：框起得分圖示並旋轉圖示角度
-      const wp    = (cell.isMatched && winFxTimer > 0) ? winFxTimer / winFxTotal : 0;
-      const rot   = wp > 0
-        ? ([4, 7, 10][winFxTier] * Math.sin((1 - wp) * Math.PI * 2) * wp) * Math.PI / 180
-        : 0;
+      // 得分演繹：框起得分圖示並旋轉圖示角度（每格各自倒數，框到哪搖到哪）
+      const rot   = winFxRot(cell);
 
       ctx.save();
       if (sc !== 1 || sq > 0 || rot !== 0) {
@@ -4013,11 +4029,14 @@ function drawBoard(ctx) {
     const _dim = (!isMatched && _dimOthers) ? TIMING.popDimAlpha : 0;
     // 消除演繹：跟著主格的 scale 一起縮小，與單格圖示同時消失
     const _popSc = board[m.col]?.[m.row]?.scale ?? 1;
+    // 得分演繹：合成格整塊一起搖（用主格的 _winFx，繞整塊的中心轉）
+    const _rot = winFxRot(board[m.col]?.[m.row]);
 
     ctx.save();
-    if (_popSc !== 1) {
+    if (_popSc !== 1 || _rot !== 0) {
       ctx.translate(x + w / 2, y + CELL_SIZE / 2);
-      ctx.scale(_popSc, _popSc);
+      if (_rot !== 0) ctx.rotate(_rot);
+      if (_popSc !== 1) ctx.scale(_popSc, _popSc);
       ctx.translate(-(x + w / 2), -(y + CELL_SIZE / 2));
     }
 
