@@ -719,7 +719,10 @@ function syncLayoutDerived() {
   MAP_PX = LAYOUT.mapPanel.x; MAP_PY = LAYOUT.mapPanel.y;
   MAP_PW = LAYOUT.mapPanel.w; MAP_PH = LAYOUT.mapPanel.h;
   MAP_STEP_X = MAP_PX + MAP_PW / 2;
-  MAP_STEP_YS = [300, 236, 172, 108, 38].map(d => MAP_PY + MAP_JP_H + d);
+  // v2 只有 4 關，且第 1 關（分歧）上方要留一整列給左右兩座 JP 小島
+  MAP_STEP_YS = (RULE_VERSION === 2 ? [300, 164, 96, 28] : [300, 236, 172, 108, 38])
+    .map(d => MAP_PY + MAP_JP_H + d);
+  MAP_ISLAND_Y = MAP_PY + MAP_JP_H + 232;
   MAP_HOME_X = MAP_PX + MAP_PW / 2;
   MAP_HOME_Y = MAP_PY + MAP_JP_H + 352;
   // 面板搬動後把待機中的船拉回新出發港（飛行中不動，避免打斷演繹）
@@ -816,6 +819,7 @@ let synthesizedColors = new Set();   // 本局已合成的顏色（JP判定用�
 // === 航海地圖面板常數與狀態 ===
 // 以下座標由調校面板的 LAYOUT.mapPanel 驅動，syncLayoutDerived() 會重算
 let MAP_PX = 970, MAP_PY = 120, MAP_PW = 200, MAP_PH = 462;
+let MAP_ISLAND_Y = 0;   // v2：兩座 JP 小島所在的高度（分歧節點上方那一列）
 const MAP_JP_H = 72;  // JP獎勵框高度
 // 循序漸進任務：5個里程碑節點，垂直排列（index 0=底部第1步, 4=頂部第5步）
 let MAP_STEP_X  = MAP_PX + MAP_PW / 2;
@@ -863,7 +867,7 @@ let questScoreMultiplier = 1;     // 當前連爆得分倍數
 // ============================================================
 const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
-  2: { name: 'v2 航線分歧', desc: '藍綠→紅金分歧定航線，宙斯給倍數／赫拉給彩金' },
+  2: { name: 'v2 分歧競速', desc: '首關紅金競速定神並開島，之後三關剩餘三色隨機，JP 走小島節點' },
 };
 // 消除演繹風格（調校面板「消除／得分」可切換）
 const POP_STYLES = [
@@ -879,20 +883,17 @@ let RULE_VERSION = DEFAULT_RULE_VERSION;
 
 // v1：達成任務後的連爆得分倍數（index=questProgress）
 const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10];
-// v2 宙斯航線：盤面倍數（index=questProgress）
-const V2_ZEUS_MULT  = [1, 2, 3, 5, 20, 20];
-// v2 赫拉航線：盤面倍數只到第 2 關，第 3／4 關改給結算彩金（押注額倍數，只給最遠一關）
-const V2_HERA_MULT  = [1, 2, 3, 3, 3, 3];
-const V2_HERA_CASH  = [0, 0, 0, 50, 100, 100];
-// v2 顏色→航線：紅(0)→宙斯、金(1)→赫拉；恰好與 JP_BOSSES 索引同序
+// v2：四關共用同一張盤面倍數表，兩尊神只決定能拿哪一座 JP 小島，不影響倍數
+const V2_MULT = [1, 2, 3, 5, 10];
+// v2 顏色→神：紅(0)→宙斯、金(1)→赫拉；恰好與 JP_BOSSES 索引同序
 const V2_FORK_COLORS = [0, 1];
+// v2 每局關卡數（v1 仍為 5：四色＋進階合成）
+function questStepCount() { return RULE_VERSION === 2 ? 4 : 5; }
 
-// 每局的 5 關計畫。kind: 'synth'=完成該色合成 / 'adv'=任意色進階合成
-// colors: 可達成此關的顏色（分歧關為兩色）；fork: 是否為航線分歧關
+// 每局的關卡計畫。kind: 'synth'=完成該色合成 / 'adv'=任意色進階合成
+// colors: 可達成此關的顏色（分歧關為兩色）；fork: 是否為分歧關
 let questPlan  = [];
-let questRoute = -1;         // v2 航線：-1=未定 0=宙斯 1=赫拉（v1 恆為 -1）
-let heraCashTier = 0;        // v2 赫拉航線已達成的最遠彩金關卡（0=無）
-let heraCashPaidTier = 0;    // 已發放到哪一關（SFG 地圖跨局不重置，補差額用）
+let questRoute = -1;         // v2 本局的神：-1=未定 0=宙斯 1=赫拉（v1 恆為 -1）
 // 待補判佇列：一次合成可能同時湊出多個顏色、甚至多組 1×4，
 // 但地圖必須「一關一關解鎖」——推進一關後要等揭露動畫與雲霧散去才處理下一筆。
 let questPending    = [];    // [{ colors:[...], tieBreak, seq }]
@@ -900,24 +901,30 @@ let questPending    = [];    // [{ colors:[...], tieBreak, seq }]
 // 合成事件給流水號，比較「完成第 4 關的那次」與「最近一次進階合成」誰在後面，
 // 才不會出現早早做過進階合成、後面關卡一補齊就自動送 JP。
 let questEventSeq   = 0;     // 合成事件流水號（buildQuestPlan 重置；SFG 跨局延續）
-let questStage4Seq  = -1;    // 完成第 4 關的那次事件
-let questAdvSeq     = -1;    // 最近一次進階合成的那次事件
+let questStage4Seq  = -1;    // v1 第 4 關完成的那次事件
+let questAdvSeq     = -1;    // v1 最近一次進階合成的那次事件
+
+// ── v2 JP 小島 ──
+// 分歧定案時開島；之後每次雙色進階合成點亮一個節點，點滿給該神 JP。
+// 開島「前」已完成的進階合成不計入，所以記下開島當下的事件流水號來比先後。
+const DEFAULT_JP_NODES = 2;  // 節點數量正式版由 SERVER 給，demo 用調校面板調
+let JP_NODES     = DEFAULT_JP_NODES;
+let jpIslandSeq  = -1;       // 開島的那次事件（-1 = 尚未開島）
+let jpNodesLit   = 0;        // 已點亮的節點數
+function jpIslandOpen() { return RULE_VERSION === 2 && questRoute >= 0; }
 
 function buildQuestPlan() {
   questRoute   = -1;
-  heraCashTier = 0;
-  heraCashPaidTier = 0;
-  questPending = [];
+  questPending = []; jpAdvQueue = [];
   questEventSeq = 0; questStage4Seq = -1; questAdvSeq = -1;
+  jpIslandSeq = -1; jpNodesLit = 0;
   if (RULE_VERSION === 2) {
-    // 第 1／2 關：藍(2)／綠(3) 隨機決定先後
-    const soft = Math.random() < 0.5 ? [2, 3] : [3, 2];
+    // 第 1 關就是分歧：紅金同時開放競速；其餘三關等分歧定案後才填色
     questPlan = [
-      { colors: [soft[0]], kind: 'synth', fork: false },
-      { colors: [soft[1]], kind: 'synth', fork: false },
       { colors: V2_FORK_COLORS.slice(), kind: 'synth', fork: true },
-      { colors: [],        kind: 'synth', fork: false },  // 分歧定案後填入另一色
-      { colors: [],        kind: 'adv',   fork: false },
+      { colors: [], kind: 'synth', fork: false },
+      { colors: [], kind: 'synth', fork: false },
+      { colors: [], kind: 'synth', fork: false },
     ];
     // v2 的尊位由 questRoute 表示（分歧前 -1），jpBoss 只給 v1 用
   } else {
@@ -934,39 +941,50 @@ function buildQuestPlan() {
   jpGranted = false;
 }
 
-// 本局盤面倍數表（依版本與航線）
-function questMultTable() {
-  if (RULE_VERSION !== 2) return QUEST_MULTIPLIERS;
-  return questRoute === 1 ? V2_HERA_MULT : V2_ZEUS_MULT;
-}
-// 套用該關獎勵：盤面倍數依航線取表；赫拉航線改記結算彩金關卡（結算時才發）
+// 本局盤面倍數表（v2 兩尊神共用同一張）
+function questMultTable() { return RULE_VERSION === 2 ? V2_MULT : QUEST_MULTIPLIERS; }
+// 套用該關獎勵：只有盤面倍數，JP 彩金走小島節點且獨立不相乘
 function applyQuestReward() {
   const tbl = questMultTable();
   questScoreMultiplier = tbl[questProgress] ?? tbl[tbl.length - 1];
-  if (RULE_VERSION === 2 && questRoute === 1 && V2_HERA_CASH[questProgress] > 0) {
-    heraCashTier = questProgress;   // 只記最遠一關，不重複給
-  }
 }
 
+let jpAdvQueue = [];   // v2：待補判的雙色進階合成事件流水號（點亮小島節點用）
+
 // 排入待補判（不立即推進）。地圖一次只解鎖一關，實際推進交給 updateQuestPending()。
-// 回傳本次事件的流水號，供進階合成記錄先後。
+// atProgress = 合成當下已揭露到第幾關：規則要求「條件揭露後再合成才算」，
+// 所以這筆只能推進那一關，對不上就作廢。回傳流水號供進階合成記錄先後。
 function requestQuestAdvance(colors, tieBreak) {
-  questPending.push({ colors: colors.slice(), tieBreak, seq: ++questEventSeq });
+  questPending.push({ colors: colors.slice(), tieBreak, seq: ++questEventSeq, atProgress: questProgress });
   return questEventSeq;
 }
 
 // 每幀驅動待補判佇列：揭露動畫與雲霧都散完了，才推進下一關。
-// 同一筆可能連續推進兩關（例如一組 1×4 同時湊齊分歧兩色），所以推進成功時保留該筆，
-// 等這次解鎖播完再回來判；推不動了才丟棄。
 function updateQuestPending() {
   if (tmAnim.active) return;
   if (mapMaskAnim.some(v => v > 0)) return;   // 雲霧還在散 → 這一關還沒解鎖完
+
+  // 顏色關卡：一次合成事件最多推進一關（揭露前完成的合成 atProgress 對不上，直接作廢）
   while (questPending.length) {
-    const q = questPending[0];
+    const q = questPending.shift();
+    if (q.atProgress !== questProgress) continue;
     if (tryAdvanceQuest(q.colors, q.tieBreak, q.seq)) return;
-    questPending.shift();
   }
-  // 第 5 關：第 4 關完成「之後」才做的進階合成才算達成。
+
+  if (RULE_VERSION === 2) {
+    // JP 小島：開島之後的雙色進階合成，一次點亮一個節點
+    while (jpAdvQueue.length) {
+      const seq = jpAdvQueue.shift();
+      if (!jpIslandOpen() || seq <= jpIslandSeq) continue;   // 開島前（含開島當次）不計入
+      if (jpNodesLit >= JP_NODES) continue;
+      jpNodesLit++;
+      tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: -1, kind: 'node' };
+      return;
+    }
+    return;
+  }
+
+  // v1 第 5 關：第 4 關完成「之後」才做的進階合成才算達成。
   // 同一次事件既補完第 4 關又是進階合成（兩色 1×4 一次推兩關）也不算，seq 相等擋掉。
   if (questProgress === 4 && questAdvSeq > questStage4Seq) {
     questAdvSeq = -1;
@@ -978,27 +996,37 @@ function updateQuestPending() {
 }
 
 // 關卡推進：colorIds = 本次事件涉及的顏色。
-// tieBreak：一次事件同時湊齊分歧兩色時用哪一色定航線（1×4 取較左合成格的顏色）
+// tieBreak：一次事件同時湊齊分歧兩色時以哪一色為準（依盤面左至右、上至下的先觸發者）
 function tryAdvanceQuest(colorIds, tieBreak, seq) {
-  if (questProgress >= 4) return false;
+  if (questProgress >= questStepCount()) return false;
   const step = questPlan[questProgress];
   if (!step || step.kind !== 'synth') return false;
   const hit = step.colors.filter(c => colorIds.includes(c));
   if (!hit.length) return false;
   if (step.fork) {
-    // 航線分歧：先完成的顏色定案，該格收成單色，下一關填入另一色
+    // 分歧：先完成的顏色定本局的神並開島，該關收成單色
     const win = (hit.length > 1 && hit.includes(tieBreak)) ? tieBreak : hit[0];
     questRoute  = V2_FORK_COLORS.indexOf(win);
     step.colors = [win];
-    const other = V2_FORK_COLORS.find(c => c !== win);
-    if (questPlan[questProgress + 1]) questPlan[questProgress + 1].colors = [other];
+    jpIslandSeq = seq;                      // 開島：此後的進階合成才計入節點
+    fillRemainingSteps(win);
   }
   questProgress++;
-  if (questProgress === 4) questStage4Seq = seq;   // 第 5 關要比這個之後才做的進階合成
+  if (questProgress === 4) questStage4Seq = seq;   // v1 第 5 關要比這個之後才做的進階合成
   applyQuestReward();
   triggerShipToStep(questProgress - 1);
   tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
   return true;
+}
+
+// v2 分歧定案後，把第 2~4 關填上「剩餘三色」（落敗的那色＋藍＋綠）隨機不重複
+function fillRemainingSteps(winColor) {
+  const rest = [0, 1, 2, 3].filter(c => c !== winColor);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  rest.forEach((c, k) => { if (questPlan[k + 1]) questPlan[k + 1].colors = [c]; });
 }
 
 // 第 5 關的 JP 尊位；v2 分歧前回傳 -1（尚未決定）
@@ -1006,100 +1034,70 @@ function activeJpBoss() { return RULE_VERSION === 2 ? questRoute : jpBoss; }
 // 取尊位定義；未決定時給中性佔位（紫色＋金羊毛，等同改版前的第 5 格樣式）
 const JP_BOSS_UNKNOWN = { icon: '🐏', name: '未定', label: '未定', color: '#c4b5fd', glow: '#c4b5fd', value: 0 };
 function jpBossDef() { const i = activeJpBoss(); return (i === 0 || i === 1) ? JP_BOSSES[i] : JP_BOSS_UNKNOWN; }
-// v2 分歧關「哪一次揭露公布尊位」= 分歧關索引；v1 = 第 4 關（揭開第 5 格時）
-function jpRevealStepIdx() { return RULE_VERSION === 2 ? 2 : 3; }
+// 「哪一次揭露公布尊位」：v2 = 第 1 關分歧（index 0）；v1 = 第 4 關（揭開第 5 格時）
+function jpRevealStepIdx() { return RULE_VERSION === 2 ? 0 : 3; }
 
 // ── 地圖顯示：把 questPlan 攤成繪製用資訊 ──
-function stepIsFork(i)         { const s = questPlan[i]; return !!(s && s.fork); }
-function stepUnresolvedFork(i) { return stepIsFork(i) && questRoute < 0; }
 function stepColorIds(i)       { const s = questPlan[i]; return s ? s.colors : []; }
-// 該關船要停的 x：v2 分歧之後走勝出那一欄（＝船轉向），其餘走中線
-function stepShipX(i) {
-  if (RULE_VERSION !== 2 || i < 2 || questRoute < 0) return MAP_STEP_X;
-  return mapColX(sideOfRoute(questRoute));
-}
-function stepBandColor(i) {
-  if (i === 4) return jpBossDef().color;
-  const cs = stepColorIds(i);
-  return cs.length ? COLOR_HEX[cs[0]] : 'rgba(255,255,255,0.35)';
-}
-function stepPlaceName(i) {
-  if (i === 4) return '科爾基斯聖林 ' + jpBossDef().icon;
-  const cs = stepColorIds(i);
-  return cs.length ? PLACE_NAMES[cs[0]] : '？';
-}
-// 左側獎勵標籤：v2 第 3／4 關依航線給盤面倍數或結算彩金
+// v2 全程走中間主航道（分歧只決定開哪座側島，船不轉向）
+function stepShipX(i) { return MAP_STEP_X; }
+// 獎勵標籤：v2 四關都是盤面倍數，兩尊神共用
 function stepRewardLabel(i) {
-  if (i === 4) return 'JP';
-  if (RULE_VERSION !== 2) return ['×2', '×3', '×5', '×10'][i];
-  if (i < 2) return ['×2', '×3'][i];
-  if (questRoute === 1) return `💰${V2_HERA_CASH[i + 1]}×`;
-  return `×${V2_ZEUS_MULT[i + 1]}`;
-}
-// 分歧關兩半各自的獎勵標籤（紅→宙斯盤面倍數、金→赫拉結算彩金）
-function forkHalfLabel(colorId) {
-  return colorId === 0 ? `${JP_BOSSES[0].icon}×${V2_ZEUS_MULT[3]}`
-                       : `${JP_BOSSES[1].icon}${V2_HERA_CASH[3]}×`;
+  if (RULE_VERSION === 2) return `×${V2_MULT[i + 1]}`;
+  return i === 4 ? 'JP' : ['×2', '×3', '×5', '×10'][i];
 }
 
 // ============================================================
-// === 地圖節點座標與標籤（v1 單欄 5 站；v2 前兩站單欄，之後左右兩條分支）===
-//   左欄 = 紅先完成 = 宙斯航線（頂端宙斯神殿）
-//   右欄 = 金先完成 = 赫拉航線（頂端赫拉神殿）
-// side: -1=左欄 0=中欄 1=右欄
+// === 地圖節點座標與標籤 ===
+//   v1：單欄 5 站（4 色 ＋ 頂端科爾基斯聖林）
+//   v2：單欄 4 站全走中間主航道；第 1 關（分歧）左右各掛一座 JP 小島，
+//       小島不佔推進順序，只承載節點。左＝赫拉(金先)、右＝宙斯(紅先)
+// side 一律為 0（保留參數以相容 v1 既有呼叫）
 // ============================================================
 function mapColX(side) {
   if (!side) return MAP_PX + MAP_PW / 2;
-  return MAP_PX + MAP_PW * (side < 0 ? 0.28 : 0.72);
+  return MAP_PX + MAP_PW * (side < 0 ? 0.22 : 0.78);
 }
-function sideOfRoute(r) { return r === 1 ? 1 : -1; }
-function routeOfSide(side) { return side < 0 ? 0 : 1; }
-// 該關要畫在哪些欄
-function stepSides(i) {
-  if (RULE_VERSION !== 2 || i < 2) return [0];
-  return [-1, 1];
-}
+function sideOfRoute(r) { return r === 1 ? -1 : 1; }   // 赫拉(1)→左、宙斯(0)→右
+function routeOfSide(side) { return side < 0 ? 1 : 0; }
+// 該關要畫在哪些欄：兩個版本都是單欄
+function stepSides(i) { return [0]; }
 // 該關該欄的節點座標
 function nodePos(i, side) { return { x: mapColX(side), y: MAP_STEP_YS[i] }; }
-// 該關該欄要顯示哪個顏色（第 5 關是神殿，回 -1）
+// 該關要顯示哪個顏色（v1 第 5 關是神殿，回 -1）
 function nodeColorId(i, side) {
-  if (RULE_VERSION !== 2) return i === 4 ? -1 : (stepColorIds(i)[0] ?? -1);
-  if (i < 2) return stepColorIds(i)[0] ?? -1;
-  if (i === 4) return -1;
-  const first = routeOfSide(side) === 0 ? V2_FORK_COLORS[0] : V2_FORK_COLORS[1];
-  const other = V2_FORK_COLORS.find(c => c !== first);
-  return i === 2 ? first : other;
+  if (RULE_VERSION !== 2 && i === 4) return -1;
+  if (forkOpen(i)) return -1;                 // 分歧未定：兩色都還開著，不能只顯示其中一色
+  return stepColorIds(i)[0] ?? -1;
 }
+// v2 第 1 關且尚未分出勝負 → 金紅競速中
+function forkOpen(i) { return RULE_VERSION === 2 && i === 0 && questRoute < 0; }
 function nodeColor(i, side) {
-  if (i === 4) return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].color : jpBossDef().color;
+  if (RULE_VERSION !== 2 && i === 4) return jpBossDef().color;
+  if (forkOpen(i)) return COLOR_HEX[V2_FORK_COLORS[1]];   // 金（左半）
   const c = nodeColorId(i, side);
   return c >= 0 ? COLOR_HEX[c] : 'rgba(255,255,255,0.35)';
 }
+// 競速中的第 1 關畫成左金右紅的雙色塊
+function nodeColor2(i, side) {
+  return forkOpen(i) ? COLOR_HEX[V2_FORK_COLORS[0]] : null;
+}
 function nodeName(i, side) {
-  if (i === 4) {
-    return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].name + '神殿'
-                              : '科爾基斯聖林 ' + jpBossDef().icon;
-  }
+  if (RULE_VERSION !== 2 && i === 4) return '科爾基斯聖林 ' + jpBossDef().icon;
+  if (forkOpen(i)) return '金 vs 紅 競速';
   const c = nodeColorId(i, side);
   return c >= 0 ? PLACE_NAMES[c] : '？';
 }
-// 獎勵標籤：v2 第 3／4 關由「該欄自己的航線」決定，兩條分支各自標明給什麼
-function nodeRewardLabel(i, side) {
-  if (i === 4) return 'JP';
-  if (RULE_VERSION !== 2) return stepRewardLabel(i);
-  if (i < 2) return ['×2', '×3'][i];
-  return routeOfSide(side) === 1 ? `💰${V2_HERA_CASH[i + 1]}×` : `×${V2_ZEUS_MULT[i + 1]}`;
-}
+function nodeRewardLabel(i, side) { return stepRewardLabel(i); }
 function nodeIcon(i, side) {
-  if (i === 4) return RULE_VERSION === 2 ? JP_BOSSES[routeOfSide(side)].icon : '🐏';
+  if (RULE_VERSION !== 2 && i === 4) return '🐏';
+  if (forkOpen(i)) return PLACE_ICONS[V2_FORK_COLORS[1]] + PLACE_ICONS[V2_FORK_COLORS[0]];
   const c = nodeColorId(i, side);
   return c >= 0 ? PLACE_ICONS[c] : '❓';
 }
-// 該欄是否為落選分支（航線已定、且不是這一側）
-function sideLost(i, side) {
-  return RULE_VERSION === 2 && i >= 2 && questRoute >= 0 && side !== sideOfRoute(questRoute);
-}
-// 第 5 關的節點美術（v2 神殿目前用色塊佔位，待美術到位再換）
+// 單欄之後不再有落選分支
+function sideLost(i, side) { return false; }
+// 節點美術（v1 頂端聖林用 mapJP；v2 分歧未定時不套圖，露出雙色塊）
 function nodeArt(i, side) {
   if (i === 4) return RULE_VERSION === 2 ? null : mapJPImg;
   const c = nodeColorId(i, side);
@@ -1421,7 +1419,7 @@ function resetRoundState() {
   // 待補判是「單次合成事件」的暫存，每局都要清（SFG 地圖不重置也一樣）。
   // questAdvSeq 不清：它靠 seq 與 questStage4Seq 比先後，留著才不會在
   // 「第 4 關的解鎖演繹還沒播完就開下一局」時漏掉一次合法的 JP。
-  questPending = [];
+  questPending = []; jpAdvQueue = [];
   // 地圖面板：SFG 中不重置地圖進度（持續往上）；NG/FG 每局重置
   if (!inSFG) {
     mapFlags = [false, false, false, false, false];
@@ -1730,9 +1728,11 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
-      // 進階合成的兩色排入待補判（可能連續推進兩關，例如同時湊齊分歧兩色），
-      // 並記下「這次進階合成是第幾次事件」供第 5 關判先後。實際推進一關一關來。
+      // 進階合成的兩色排入待補判；同時記下流水號——v1 供第 5 關判先後，
+      // v2 則是 JP 小島的節點來源（開島之後的才算）。
+      // tieBreak 取較左的合成格顏色，即規則說的「依盤面左至右、上至下先觸發者」。
       questAdvSeq = requestQuestAdvance([leftM.colorId, rightM.colorId], leftM.colorId);
+      jpAdvQueue.push(questAdvSeq);
     }
   }
   mergedCells = mergedCells.filter(m => !m.upgraded);
@@ -2385,9 +2385,10 @@ function updateTMAnim() {
   tmAnim.timer--;
   if (tmAnim.timer <= 0) {
     tmAnim.active = false;
-    // 揭示下一個條件（stepIdx+1），最多到步驟4
+    if (tmAnim.kind === 'node') return;   // 小島點亮節點，不動主航道的揭露進度
+    // 揭示下一個條件（stepIdx+1），最多到最後一關
     const _prevReveal = questReveal;
-    questReveal = Math.min(4, tmAnim.stepIdx + 1);
+    questReveal = Math.min(questStepCount() - 1, tmAnim.stepIdx + 1);
     // 遮罩移動演繹：新揭示的地標，雲霧向上散去
     for (let i = _prevReveal + 1; i <= questReveal; i++) mapMaskAnim[i] = TF(TIMING.mapMask);
     // 第5步動畫結束後繼續連爆；JP抽牌在連爆全部結束（win===0）時才觸發
@@ -2708,7 +2709,8 @@ function drawMapTitleBanner(ctx, px, y, w, h, allLit, t) {
 }
 
 // ── 地標方塊：方正的色塊／美術圖（不模擬島嶼輪廓）──
-function drawMapBlock(ctx, cx, cy, rw, rh, art, color) {
+//    color2 有值時畫成左右雙色（v2 第 1 關金紅競速中）
+function drawMapBlock(ctx, cx, cy, rw, rh, art, color, color2) {
   const x = cx - rw, y = cy - rh, w = rw * 2, h = rh * 2;
   const path = new Path2D();
   path.roundRect(x, y, w, h, 3);
@@ -2719,7 +2721,17 @@ function drawMapBlock(ctx, cx, cy, rw, rh, art, color) {
   ctx.restore();
   ctx.save();
   ctx.clip(path);
-  if (!drawCover(ctx, art, x, y, w, h)) {
+  if (color2) {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0,    color  + 'dd');
+    g.addColorStop(0.47, color  + '99');
+    g.addColorStop(0.53, color2 + '99');
+    g.addColorStop(1,    color2 + 'dd');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(cx, y + h); ctx.stroke();
+  } else if (!drawCover(ctx, art, x, y, w, h)) {
     const g = ctx.createLinearGradient(x, y, x + w, y + h);
     g.addColorStop(0, color + 'dd'); g.addColorStop(1, color + '77');
     ctx.fillStyle = g;
@@ -2799,7 +2811,7 @@ function drawMapChain(ctx, x0, y0, x1, y1, done, dim) {
 function mapFogTop() { return MAP_PY + MAP_JP_H - 8; }
 // rev = 已揭示的最高步驟索引 → 霧的底緣 y
 function mapFogEdgeFor(rev) {
-  if (rev >= 4) return mapFogTop() - 6;               // 全開：退到標題下緣以上
+  if (rev >= questStepCount() - 1) return mapFogTop() - 6;   // 全開：退到標題下緣以上
   return (MAP_STEP_YS[rev] + MAP_STEP_YS[rev + 1]) / 2 + 9;
 }
 // 目前的霧底緣：解鎖演繹進行中時，整片霧從舊分界往上退
@@ -2867,6 +2879,60 @@ function drawMapFog(ctx, edgeY, t) {
   ctx.restore();
 }
 
+// ── v2 JP 小島：分歧上方左右各一座，島上的點＝所需的雙色進階合成次數 ──
+//    未開島時兩座都壓暗；開島後只有本局的神那一座亮起，另一座維持壓暗
+function drawJpIslands(ctx, t) {
+  const open = jpIslandOpen();
+  const litSide = open ? sideOfRoute(questRoute) : 0;
+  for (const side of [-1, 1]) {
+    const boss   = JP_BOSSES[routeOfSide(side)];
+    const active = open && side === litSide;
+    const cx = mapColX(side), cy = MAP_ISLAND_Y;
+    const hw = MAP_PW * 0.20, hh = 26;
+
+    ctx.save();
+    if (!active) ctx.globalAlpha = open ? 0.26 : 0.55;   // 落選那座壓更暗
+
+    // 島體
+    const path = new Path2D();
+    path.roundRect(cx - hw, cy - hh, hw * 2, hh * 2, 3);
+    ctx.save(); ctx.translate(0, 3); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fill(path); ctx.restore();
+    const g = ctx.createLinearGradient(cx - hw, cy - hh, cx + hw, cy + hh);
+    g.addColorStop(0, boss.color + (active ? 'dd' : '55'));
+    g.addColorStop(1, boss.color + (active ? '77' : '22'));
+    ctx.fillStyle = g; ctx.fill(path);
+    if (active) { ctx.shadowColor = boss.glow; ctx.shadowBlur = 10 + Math.sin(t / 320) * 6; }
+    ctx.strokeStyle = active ? boss.color : 'rgba(255,255,255,0.20)';
+    ctx.lineWidth = active ? 1.6 : 1;
+    ctx.stroke(path);
+    ctx.shadowBlur = 0;
+
+    // 尊位圖示
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '17px Arial';
+    ctx.fillText(boss.icon, cx, cy - 11);
+
+    // 節點：點亮數 = 已完成的雙色進階合成次數
+    const n = JP_NODES, gap = 15, x0 = cx - (n - 1) * gap / 2;
+    for (let k = 0; k < n; k++) {
+      const lit = active && k < jpNodesLit;
+      const nx = x0 + k * gap, ny = cy + 12;
+      if (lit) { ctx.shadowColor = boss.glow; ctx.shadowBlur = 9; }
+      ctx.fillStyle = lit ? boss.color : 'rgba(10,16,26,0.75)';
+      ctx.beginPath(); ctx.arc(nx, ny, 4.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = lit ? '#fff8d8' : 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 名牌
+    drawMapPlate(ctx, cx, cy + hh + 9, 'JP', boss.name + '小島',
+                 boss.color, active, MAP_PW * 0.42);
+  }
+}
+
 // ── 旗子（已抵達的地標）──
 function drawMapFlag(ctx, x, y, color, anim, t) {
   const fa = anim;                       // 1 → 0（淡入）
@@ -2890,7 +2956,7 @@ function drawMapFlag(ctx, x, y, color, anim, t) {
 
 function drawMapPanel(ctx) {
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
-  const allLit = questProgress >= 5;
+  const allLit = questProgress >= questStepCount();
   const t = Date.now();
 
   ctx.save();
@@ -2949,7 +3015,7 @@ function drawMapPanel(ctx) {
 
   // ── 航線棧道：出發港 → 第1站 → … → 頂端神殿（分歧後左右各一條）──
   //    只畫到已揭示的關卡；落選分支畫得很淡
-  for (let i = 0; i <= Math.min(4, questReveal); i++) {
+  for (let i = 0; i <= Math.min(questStepCount() - 1, questReveal); i++) {
     const toSides = stepSides(i);
     for (const ts of toSides) {
       const to = nodePos(i, ts);
@@ -2965,13 +3031,13 @@ function drawMapPanel(ctx) {
   // ── 地標節點（方塊＋名牌＋旗子）──
   //    未揭示的節點整個不畫，由上方那一整片霧覆蓋
   const NODE_RH = 20;   // 方塊半高：44→40，讓名牌與下一格之間留得出間隙
-  for (let i = 0; i <= Math.min(4, questReveal); i++) {
+  for (let i = 0; i <= Math.min(questStepCount() - 1, questReveal); i++) {
     const sides = stepSides(i);
     for (const side of sides) {
       const { x: ncx, y: ncy } = nodePos(i, side);
       const lost      = sideLost(i, side);
       const isDone    = i < questProgress && !lost;
-      const isCurrent = i === questProgress && questProgress < 5 && !lost;
+      const isCurrent = i === questProgress && questProgress < questStepCount() && !lost;
       const color     = nodeColor(i, side);
       const rw = sides.length > 1 ? 58 : 78;
 
@@ -2979,7 +3045,7 @@ function drawMapPanel(ctx) {
       if (lost) ctx.globalAlpha = 0.32;   // 落選分支：整組壓淡
 
       // 地標方塊
-      const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), color);
+      const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), color, nodeColor2(i, side));
       // 未插旗：壓黑
       if (!isDone) {
         ctx.save(); ctx.clip(isle);
@@ -2988,7 +3054,7 @@ function drawMapPanel(ctx) {
         ctx.restore();
       }
       // 神殿佔位：色塊上放尊位圖示（美術未到位）
-      if (i === 4 && !nodeArt(i, side)) {
+      if (forkOpen(i) || (RULE_VERSION !== 2 && i === 4 && !nodeArt(i, side))) {
         ctx.save(); ctx.clip(isle);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.font = '22px Arial';
@@ -3019,6 +3085,10 @@ function drawMapPanel(ctx) {
 
   // ── 未揭示區域：一整片霧（分界線以上全覆蓋）──
   drawMapFog(ctx, mapFogEdgeY(), t);
+
+  // ── v2：分歧兩側的 JP 小島。畫在霧之上——小島不是「待揭露的條件」，
+  //    開局就看得到兩尊神在等，分歧定案後才點亮其中一座 ──
+  if (RULE_VERSION === 2) drawJpIslands(ctx, t);
 
   // ── 濺起粒子 ──
   for (const s of mapSplash) {
@@ -3059,16 +3129,19 @@ function drawTMAnim(ctx) {
   const scaleT = prog < 0.15 ? 0.3 + (prog / 0.15) * 0.7 : 1;
   const scale  = scaleT + pulse;
 
-  // 第 5 步達成 → 🏆；完成第 4 步（本次動畫結束就揭開第 5 格）→ 公布本局 JP 尊位；其餘 → 🗺️
-  const isJPStep   = tmAnim.stepIdx === 4;
-  const isJPReveal = tmAnim.stepIdx === jpRevealStepIdx();
+  // 小島點亮節點 → 節點數；v1 第 5 步達成 → 🏆；公布本局尊位 → 該神圖示；其餘 → 🗺️
+  const isNode     = tmAnim.kind === 'node';
+  const isJPStep   = !isNode && RULE_VERSION !== 2 && tmAnim.stepIdx === 4;
+  const isJPReveal = !isNode && tmAnim.stepIdx === jpRevealStepIdx();
   const boss  = jpBossDef();
-  const emoji = isJPStep ? '🏆' : (isJPReveal ? boss.icon : '🗺️');
-  const text  = isJPStep ? '獲得JP！'
-              : isJPReveal ? (RULE_VERSION === 2 ? `${boss.label}航線！` : `本局 JP：${boss.label}`)
+  const full  = jpNodesLit >= JP_NODES;
+  const emoji = isNode ? (full ? '🏆' : boss.icon) : (isJPStep ? '🏆' : (isJPReveal ? boss.icon : '🗺️'));
+  const text  = isNode ? (full ? `${boss.label} JP！` : `點亮節點 ${jpNodesLit}/${JP_NODES}`)
+              : isJPStep ? '獲得JP！'
+              : isJPReveal ? (RULE_VERSION === 2 ? `本局的神：${boss.label}` : `本局 JP：${boss.label}`)
               : '獲得藏寶圖！';
-  const tone  = isJPReveal ? boss.color : '#ffd700';
-  const glowC = isJPReveal ? boss.glow  : '#ffd700';
+  const tone  = (isJPReveal || isNode) ? boss.color : '#ffd700';
+  const glowC = (isJPReveal || isNode) ? boss.glow  : '#ffd700';
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -3229,20 +3302,6 @@ function grantJpBoss() {
   totalScore += boss.value;
   enqueueWinAnim({ label: boss.label, value: boss.value, color: boss.color, glow: boss.glow,
                    size: 'jp', caption: 'J A C K P O T' });
-}
-
-// ── v2 赫拉航線：結算彩金（只給達成的最遠一關，不與盤面倍數相乘）──
-function grantHeraCash() {
-  // 只給最遠一關、不重複給：已發過較低關卡（SFG 地圖跨局）時補差額
-  const tierMult = V2_HERA_CASH[heraCashTier] || 0;
-  const owe = tierMult - (V2_HERA_CASH[heraCashPaidTier] || 0);
-  if (owe <= 0) return;
-  heraCashPaidTier = heraCashTier;
-  const boss = JP_BOSSES[1];
-  const amount = owe * betAmount;   // SFG 跨局補差額時，標籤寫達成的關卡倍數、金額只給差額
-  totalScore += amount;
-  enqueueWinAnim({ label: `${boss.label} ${tierMult}×`, value: amount, color: boss.color, glow: boss.glow,
-                   size: 'cash', caption: '結 算 彩 金' });
 }
 
 // ── 報獎動畫（JP／結算彩金共用；一次結算可能兩者都有，依序播）──
@@ -3594,12 +3653,11 @@ function update(dt) {
       } else {
         // 連爆到不能再連爆 → 本局結算，排入三階大獎判定（大獎播完才進 FG／SFG）
         pendingBigWinCheck = true;
-        // v2 赫拉航線的結算彩金：本局結算給一次（只給最遠一關，不與盤面倍數相乘）
-        if (RULE_VERSION === 2 && questRoute === 1 && heraCashTier > heraCashPaidTier) {
-          grantHeraCash();
-        }
-        // 第 5 步已達成 → 發放本局航線的 JP（尊位在分歧／揭開第 5 格時就公布過了）
-        if (questProgress >= 5 && !jpGranted) {
+        // JP：v2 看小島節點是否點滿，v1 看第 5 步是否達成（尊位早在分歧／揭格時公布）
+        const _jpDone = RULE_VERSION === 2
+          ? (jpIslandOpen() && jpNodesLit >= JP_NODES)
+          : (questProgress >= 5);
+        if (_jpDone && !jpGranted) {
           jpGranted = true;
           grantJpBoss();
         }
@@ -5272,7 +5330,7 @@ function saveTuning() {
     localStorage.setItem(TUNE_KEY, JSON.stringify({
       version: TUNE_VERSION,
       timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP,
-      ruleVersion: RULE_VERSION, popStyle: POP_STYLE,
+      ruleVersion: RULE_VERSION, popStyle: POP_STYLE, jpNodes: JP_NODES,
     }));
     return true;
   } catch (e) { return false; }
@@ -5309,6 +5367,7 @@ function loadTuning() {
       // 地圖規則版本（舊存檔沒這個欄位 → 沿用預設值）
       if (RULE_VERSIONS[d.ruleVersion]) RULE_VERSION = Number(d.ruleVersion);
       if (POP_STYLES[d.popStyle]) POP_STYLE = Number(d.popStyle);
+      if (Number.isFinite(d.jpNodes)) JP_NODES = Math.min(6, Math.max(1, Math.round(d.jpNodes)));
     }
   } catch (e) { /* 資料損毀：退回預設 */ }
   syncLayoutDerived();
@@ -5686,11 +5745,11 @@ const RULE_SUMMARY = {
     ['5', '任意色進階合成 1 次', 'JP（尊位開局隨機）'],
   ],
   2: [
-    ['1', '藍／綠 隨機一色，合成 1 次', '盤面 ×2'],
-    ['2', '藍／綠 另一色，合成 1 次', '盤面 ×3'],
-    ['3', '紅｜金 分歧，先合成者定航線', '⚡ 盤面 ×5 ／ 👑 彩金 50×'],
-    ['4', '第 3 關另一色，合成 1 次', '⚡ 盤面 ×20 ／ 👑 彩金 100×'],
-    ['5', '任意色進階合成 1 次', '對應航線之 JP'],
+    ['1', '紅｜金 同時開放競速，先合成者定神', '盤面 ×2，開啟對應 JP 小島'],
+    ['2', '剩餘三色隨機一色，合成 1 次', '盤面 ×3'],
+    ['3', '剩餘兩色隨機一色，合成 1 次', '盤面 ×5'],
+    ['4', '最後剩餘一色，合成 1 次', '盤面 ×10'],
+    ['JP', '開島後每次雙色進階合成點亮 1 節點', '節點點滿 → 該神 JP 彩金'],
   ],
 };
 function buildRulesTab() {
@@ -5719,6 +5778,7 @@ function buildRulesTab() {
     rb.addEventListener('change', () => {
       if (!rb.checked) return;
       RULE_VERSION = ver;
+      syncLayoutDerived();   // 關卡數不同 → 節點座標要重算
       // 立即重置地圖進度，避免舊版本的 questPlan 殘留
       questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
       mapFlags = [false, false, false, false, false];
@@ -5755,11 +5815,33 @@ function buildRulesTab() {
   tuneBody.appendChild(tbl);
 
   if (RULE_VERSION === 2) {
+    // JP 小島節點數（正式版由 SERVER 給，這裡給企劃試手感）
+    const h3 = document.createElement('div');
+    h3.className = 'tune-group'; h3.textContent = 'JP 小島';
+    tuneBody.appendChild(h3);
+    const row = document.createElement('div'); row.className = 'tune-row';
+    const lab = document.createElement('label'); lab.textContent = '節點數量';
+    const rng = document.createElement('input');
+    rng.type = 'range'; rng.min = 1; rng.max = 6; rng.step = 1; rng.value = JP_NODES;
+    const num = document.createElement('input');
+    num.type = 'number'; num.min = 1; num.max = 6; num.step = 1; num.value = JP_NODES;
+    const apply = src => {
+      const v = Math.min(6, Math.max(1, parseInt(src.value, 10) || 1));
+      JP_NODES = v; rng.value = v; num.value = v;
+      if (jpNodesLit > v) jpNodesLit = v;
+      saveTuning();
+    };
+    rng.addEventListener('input', () => apply(rng));
+    num.addEventListener('change', () => apply(num));
+    row.append(lab, rng, num);
+    tuneBody.appendChild(row);
+
     const note = document.createElement('div');
     note.className = 'tune-hint';
     note.style.marginTop = '8px';
-    note.textContent = '紅色→宙斯航線（給盤面倍數）、金色→赫拉航線（給結算彩金）。彩金只給達成的最遠一關，'
-                     + '彩金與 JP 都不與盤面倍數相乘。JP 尊位於第 3 關分歧、船轉向時公布。';
+    note.textContent = '紅色先合成→開右側宙斯小島、金色先合成→開左側赫拉小島；兩尊神的盤面倍數相同。'
+                     + '開島後每次雙色進階合成點亮一個節點，點滿給該神 JP，JP 不與盤面倍數相乘。'
+                     + '條件揭露前完成的合成、開島前完成的進階合成，都不計入。';
     tuneBody.appendChild(note);
   }
 }
@@ -5829,6 +5911,8 @@ document.getElementById('tuneReset').addEventListener('click', () => {
     syncLayoutDerived();
   } else if (tuneTab === 'rules') {
     RULE_VERSION = DEFAULT_RULE_VERSION;
+    JP_NODES = DEFAULT_JP_NODES;
+    syncLayoutDerived();
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
     mapFlags = [false, false, false, false, false];
     buildQuestPlan();
@@ -5841,7 +5925,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
 });
 document.getElementById('tuneExport').addEventListener('click', e => {
   // 一次匯出完整設定（節奏／甘特起點／佈局／取圖），貼回工程端即可寫成正式預設
-  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION, popStyle: POP_STYLE }, null, 2);
+  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION, popStyle: POP_STYLE, jpNodes: JP_NODES }, null, 2);
   const btn = e.target, orig = btn.textContent;
   const done = () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = orig; }, 1200); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
