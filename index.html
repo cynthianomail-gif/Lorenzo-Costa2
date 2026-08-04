@@ -536,6 +536,9 @@ document.addEventListener('webkitfullscreenchange', updateFsBtn);
 const COLS = 5;
 const ROWS = 4;
 const CELL_SIZE = 130;
+// 盤面每一格的圓角半徑。0 = 正方形（企劃指定）；要改回圓角改這一個值就好，
+// 圖示、合成格、得分框、標示框、壓暗層全部共用。
+const CELL_R = 0;
 const GRID_W = COLS * CELL_SIZE;   // 650
 const GRID_H = ROWS * CELL_SIZE;   // 520
 let GRID_X = Math.floor((1280 - GRID_W) / 2);  // 315，水平置中（可由調校面板調整）
@@ -1371,7 +1374,7 @@ function drawArtCell(ctx, img, x, y, w, h, radius) {
   if (!img) return false;
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, radius === undefined ? 10 : radius);
+  ctx.roundRect(x, y, w, h, radius === undefined ? CELL_R : radius);
   ctx.clip();
   drawCover(ctx, img, x, y, w, h);
   ctx.restore();
@@ -3601,7 +3604,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
     grad.addColorStop(1, '#4c1d9566');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+    ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
     ctx.fill();
 
     // 發光邊框（預報＋中獎強度疊加）
@@ -3611,7 +3614,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
     ctx.strokeStyle = `rgba(196,181,253,${0.7 + breathe * 0.3})`;
     ctx.lineWidth = 2 + winPulse * 2;
     ctx.beginPath();
-    ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+    ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
     ctx.stroke();
     ctx.restore();
 
@@ -3628,7 +3631,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
   const isChar = (id % 2 === 0);
 
   // ── 美術圖示（美術需求說明 編號 0-7）──
-  if (drawArtCell(ctx, iconImgs[id], x + 4, y + 4, size - 8, size - 8, 10)) {
+  if (drawArtCell(ctx, iconImgs[id], x + 4, y + 4, size - 8, size - 8, CELL_R)) {
     ctx.restore();
     return;
   }
@@ -3639,7 +3642,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
   grad.addColorStop(1, sym.color + '66');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
   ctx.fill();
 
   ctx.font = `${Math.floor(size * 0.42)}px Arial`;
@@ -3650,7 +3653,7 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
   ctx.strokeStyle = sym.color;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
   ctx.stroke();
 
   ctx.restore();
@@ -3708,7 +3711,7 @@ function drawSymbolSplit(ctx, id, x, y, size, alpha, count) {
     const ix = x + 4, iy = y + 4, iw = size - 8, ih = size - 8;
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(ix, iy, iw, ih, 10);
+    ctx.roundRect(ix, iy, iw, ih, CELL_R);
     ctx.clip();
     const seg = ih / count;
     // 取圖：依 CROP 決定橫切條帶取原圖的哪一部分（調校面板「✂️ 取圖」分頁）
@@ -3734,7 +3737,7 @@ function drawSymbolSplit(ctx, id, x, y, size, alpha, count) {
   grad.addColorStop(1, sym.color + '66');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
   ctx.fill();
 
   ctx.font = `${Math.floor(size * layout.fontSize)}px Arial`;
@@ -3747,7 +3750,7 @@ function drawSymbolSplit(ctx, id, x, y, size, alpha, count) {
   ctx.strokeStyle = sym.color;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, 10);
+  ctx.roundRect(x + 4, y + 4, size - 8, size - 8, CELL_R);
   ctx.stroke();
 
   ctx.restore();
@@ -3807,7 +3810,7 @@ function drawMarkFrame(ctx, x, y, w, h, p) {
   ctx.shadowColor = '#ffffff';
   ctx.shadowBlur = 10;
   ctx.beginPath();
-  ctx.roundRect(x + 2 - grow, y + 2 - grow, w - 4 + grow * 2, h - 4 + grow * 2, 10);
+  ctx.roundRect(x + 2 - grow, y + 2 - grow, w - 4 + grow * 2, h - 4 + grow * 2, CELL_R);
   ctx.stroke();
   ctx.restore();
 }
@@ -3825,13 +3828,13 @@ function drawWinFrame(ctx, x, y, w, h, tier) {
   // 木頭底框
   ctx.strokeStyle = '#6b4423';
   ctx.lineWidth = cfg.lw + 3;
-  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 10); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, CELL_R); ctx.stroke();
   // 主框（發光）
   ctx.shadowColor = cfg.c;
   ctx.shadowBlur = cfg.glow;
   ctx.strokeStyle = cfg.c;
   ctx.lineWidth = cfg.lw;
-  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 10); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, CELL_R); ctx.stroke();
   // 麻繩纏繞紋
   if (cfg.rope) {
     ctx.shadowBlur = 0;
@@ -3839,7 +3842,7 @@ function drawWinFrame(ctx, x, y, w, h, tier) {
     ctx.lineDashOffset = Date.now() / 40;
     ctx.strokeStyle = 'rgba(90,58,28,0.85)';
     ctx.lineWidth = cfg.lw * 0.55;
-    ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 10); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, CELL_R); ctx.stroke();
     ctx.setLineDash([]);
   }
   // 四角鉚釘
@@ -3921,7 +3924,7 @@ function drawBoard(ctx) {
         ctx.strokeStyle = 'rgba(255,255,255,0.12)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10);
+        ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, CELL_R);
         ctx.stroke();
 
         // 聽牌演繹：差一個 SC 即觸發 FG 時，聽牌框亮起
@@ -3933,7 +3936,7 @@ function drawBoard(ctx) {
           ctx.strokeStyle = `rgba(196,181,253,${0.55 + np * 0.45})`;
           ctx.lineWidth   = 3;
           ctx.beginPath();
-          ctx.roundRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6, 10);
+          ctx.roundRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6, CELL_R);
           ctx.stroke();
           ctx.restore();
         }
@@ -3983,7 +3986,7 @@ function drawBoard(ctx) {
         ctx.save();
         ctx.globalAlpha = dim;
         ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
         ctx.restore();
       }
 
@@ -3997,7 +4000,7 @@ function drawBoard(ctx) {
         ctx.shadowColor = '#ffd700';
         ctx.shadowBlur = 20;
         ctx.beginPath();
-        ctx.roundRect(x + 4, y + 4, CELL_SIZE - 8, CELL_SIZE - 8, 10);
+        ctx.roundRect(x + 4, y + 4, CELL_SIZE - 8, CELL_SIZE - 8, CELL_R);
         ctx.fill();
         ctx.restore();
       }
@@ -4012,7 +4015,7 @@ function drawBoard(ctx) {
         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10);
+        ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, CELL_R);
         ctx.stroke();
       }
       ctx.restore();
@@ -4054,11 +4057,11 @@ function drawBoard(ctx) {
       sGrad.addColorStop(0, '#7c3aedcc');
       sGrad.addColorStop(1, '#4c1d95cc');
       ctx.fillStyle = sGrad;
-      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
       ctx.save();
       ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 22;
       ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.stroke();
       ctx.restore();
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `${Math.floor(CELL_SIZE * 0.44)}px Arial`;
@@ -4068,7 +4071,7 @@ function drawBoard(ctx) {
       if (_dim > 0) {
         ctx.globalAlpha = _dim;
         ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
       }
       ctx.restore();
       return;
@@ -4082,7 +4085,7 @@ function drawBoard(ctx) {
 
     if (mergeArt) {
       // 合成圖示不做橫切分割，整張完整顯示；倍數只用右上角標籤表示
-      drawArtCell(ctx, mergeArt, x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
+      drawArtCell(ctx, mergeArt, x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
     } else if (m.size === 4 && m.colorId2 !== undefined) {
       // 1×4 備援：左→右漸層雙色
       const grad = ctx.createLinearGradient(x + 2, 0, x + w - 2, 0);
@@ -4092,12 +4095,12 @@ function drawBoard(ctx) {
       grad.addColorStop(1,    COLOR_HEX[m.colorId2] + 'cc');
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
+      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
       ctx.fill();
     } else {
       ctx.fillStyle = COLOR_HEX[m.colorId] + 'aa';
       ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
+      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
       ctx.fill();
     }
 
@@ -4106,7 +4109,7 @@ function drawBoard(ctx) {
       ctx.save();
       ctx.globalAlpha = _dim;
       ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
       ctx.restore();
     }
 
@@ -4118,7 +4121,7 @@ function drawBoard(ctx) {
       ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
+      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
       ctx.stroke();
     }
     // 框框標示演繹：標示為進階合成目標
@@ -4151,7 +4154,7 @@ function drawBoard(ctx) {
       ctx.globalAlpha = pulse * 0.55;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
+      ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
       ctx.fill();
       ctx.restore();
 
@@ -4162,13 +4165,13 @@ function drawBoard(ctx) {
       ctx.strokeStyle = `rgba(255, 255, 180, ${pulse * 0.9})`;
       ctx.lineWidth   = 7;
       ctx.beginPath();
-      ctx.roundRect(x - 5, y - 5, w + 10, CELL_SIZE + 10, 14);
+      ctx.roundRect(x - 5, y - 5, w + 10, CELL_SIZE + 10, CELL_R);
       ctx.stroke();
       ctx.shadowBlur  = 30;
       ctx.strokeStyle = `rgba(255, 200, 50, ${pulse})`;
       ctx.lineWidth   = 3;
       ctx.beginPath();
-      ctx.roundRect(x - 10, y - 10, w + 20, CELL_SIZE + 20, 18);
+      ctx.roundRect(x - 10, y - 10, w + 20, CELL_SIZE + 20, CELL_R);
       ctx.stroke();
       ctx.restore();
 
