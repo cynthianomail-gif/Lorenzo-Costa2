@@ -4110,19 +4110,16 @@ function drawBoard(ctx) {
       ctx.restore();
     }
 
-    // 外框：中獎時用得分框，其餘用金色發光框
+    // 外框：中獎時用得分框；平時與單格圖示一致的細白框（合成美術本身已有彩色外框，
+    // 再加金色發光框會疊成兩層邊）
     if (isMatched) {
       drawWinFrame(ctx, x, y, w, CELL_SIZE, winFxTier);
     } else {
-      ctx.save();
-      ctx.shadowColor = '#ffd700';
-      ctx.shadowBlur = 18;
-      ctx.strokeStyle = '#ffd700';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, 10);
       ctx.stroke();
-      ctx.restore();
     }
     // 框框標示演繹：標示為進階合成目標
     if (m._advMark > 0) drawMarkFrame(ctx, x, y, w, CELL_SIZE, m._advMark / TF(TIMING.synthMark));
