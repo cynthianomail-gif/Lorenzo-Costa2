@@ -1084,7 +1084,7 @@ function nodeColor2(i, side) {
 }
 function nodeName(i, side) {
   if (RULE_VERSION !== 2 && i === 4) return '科爾基斯聖林 ' + jpBossDef().icon;
-  if (forkOpen(i)) return '金 vs 紅 競速';
+  if (forkOpen(i)) return '金 vs 紅';
   const c = nodeColorId(i, side);
   return c >= 0 ? PLACE_NAMES[c] : '？';
 }
