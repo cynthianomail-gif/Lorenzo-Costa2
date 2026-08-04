@@ -562,6 +562,7 @@ const DEFAULT_TIMING = {
   popFxMid:          0.40,  // 消除演繹・中
   popFxHigh:         0.45,  // 消除演繹・高
   popDimAlpha:       0.40,  // 未得分圖示壓暗強度 0~1（視覺流程圖：壓暗至約60%，RD 可調）
+  winGroupStep:      0.35,  // 多組得分時，每一組依序框起的間隔（只有一組時不套用）
   scorePop:          0.20,  // 得分數字於中央放大彈出
   multFly:           0.50,  // 倍數數字從大到小打入得分數
   comboPause:        1.50,  // 連爆之間的停頓
@@ -615,6 +616,7 @@ const TIMING_META = [
     ['winFxLow','得分演繹・低'], ['winFxMid','得分演繹・中'], ['winFxHigh','得分演繹・高'],
     ['popFxLow','消除演繹・低'], ['popFxMid','消除演繹・中'], ['popFxHigh','消除演繹・高'],
     ['popDimAlpha','壓暗強度(0~1)', 0, 1, 0.05],
+    ['winGroupStep','多組依序框起間隔'],
     ['scorePop','得分數字彈出'], ['multFly','倍數打入'], ['comboPause','連爆間停頓'],
     ['refillStagger','補盤逐欄錯落'], ['unifiedHold','指示器齊停'], ['fireInterval','指示器飛出間隔']] },
   { group: '合成／分裂', items: [
@@ -654,6 +656,7 @@ const GANTT_START_PRESET = {
   reelFirstStop: 0.00, reelStopInterval: 0.80, landSquash: 0.80, autoSpinDelay: 0.00,
   winFxLow: 0.00, winFxMid: 0.00, winFxHigh: 0.00,
   popFxLow: 0.45, popFxMid: 0.45, popFxHigh: 0.45,
+  winGroupStep: 0.00,
   scorePop: 0.10, multFly: 0.30, comboPause: 0.90, refillStagger: 0.90,
   unifiedHold: 0.00, fireInterval: 0.80,
   synthMark: 0.00, synthFlash: 0.10, synthAdvFlash: 0.10, synthSplit: 0.90, synthGap: 1.05,
@@ -797,7 +800,8 @@ const PAYOUTS = [
 // 狀態機
 const STATE = {
   IDLE:0, SPINNING:1, SYNTHESIS:2, SHOWING_WIN:3,
-  POPPING:4, GRAVITY:5
+  POPPING:4, GRAVITY:5,
+  WIN_GROUPS:6   // 多組得分：一組一組框起，全部框完才進 SHOWING_WIN 顯示綜合得分
 };
 
 // ---- 遊戲狀態 ----
@@ -879,15 +883,20 @@ let heraCashTier = 0;        // v2 赫拉航線已達成的最遠彩金關卡（
 let heraCashPaidTier = 0;    // 已發放到哪一關（SFG 地圖跨局不重置，補差額用）
 // 待補判佇列：一次合成可能同時湊出多個顏色、甚至多組 1×4，
 // 但地圖必須「一關一關解鎖」——推進一關後要等揭露動畫與雲霧散去才處理下一筆。
-let questPending    = [];    // [{ colors:[...], tieBreak }]
-let questAdvPending = false; // 待補判的進階合成（第 5 關條件）
+let questPending    = [];    // [{ colors:[...], tieBreak, seq }]
+// 第 5 關要的是「前 4 關都完成之後，才又做了一次進階合成」。
+// 合成事件給流水號，比較「完成第 4 關的那次」與「最近一次進階合成」誰在後面，
+// 才不會出現早早做過進階合成、後面關卡一補齊就自動送 JP。
+let questEventSeq   = 0;     // 合成事件流水號（buildQuestPlan 重置；SFG 跨局延續）
+let questStage4Seq  = -1;    // 完成第 4 關的那次事件
+let questAdvSeq     = -1;    // 最近一次進階合成的那次事件
 
 function buildQuestPlan() {
   questRoute   = -1;
   heraCashTier = 0;
   heraCashPaidTier = 0;
   questPending = [];
-  questAdvPending = false;
+  questEventSeq = 0; questStage4Seq = -1; questAdvSeq = -1;
   if (RULE_VERSION === 2) {
     // 第 1／2 關：藍(2)／綠(3) 隨機決定先後
     const soft = Math.random() < 0.5 ? [2, 3] : [3, 2];
@@ -928,8 +937,10 @@ function applyQuestReward() {
 }
 
 // 排入待補判（不立即推進）。地圖一次只解鎖一關，實際推進交給 updateQuestPending()。
+// 回傳本次事件的流水號，供進階合成記錄先後。
 function requestQuestAdvance(colors, tieBreak) {
-  questPending.push({ colors: colors.slice(), tieBreak });
+  questPending.push({ colors: colors.slice(), tieBreak, seq: ++questEventSeq });
+  return questEventSeq;
 }
 
 // 每幀驅動待補判佇列：揭露動畫與雲霧都散完了，才推進下一關。
@@ -940,12 +951,13 @@ function updateQuestPending() {
   if (mapMaskAnim.some(v => v > 0)) return;   // 雲霧還在散 → 這一關還沒解鎖完
   while (questPending.length) {
     const q = questPending[0];
-    if (tryAdvanceQuest(q.colors, q.tieBreak)) return;
+    if (tryAdvanceQuest(q.colors, q.tieBreak, q.seq)) return;
     questPending.shift();
   }
-  // 第 5 關：前 4 關都完成後，本次事件的進階合成才算達成
-  if (questAdvPending && questProgress === 4) {
-    questAdvPending = false;
+  // 第 5 關：第 4 關完成「之後」才做的進階合成才算達成。
+  // 同一次事件既補完第 4 關又是進階合成（兩色 1×4 一次推兩關）也不算，seq 相等擋掉。
+  if (questProgress === 4 && questAdvSeq > questStage4Seq) {
+    questAdvSeq = -1;
     questProgress = 5;
     applyQuestReward();
     triggerShipToStep(4);
@@ -955,7 +967,7 @@ function updateQuestPending() {
 
 // 關卡推進：colorIds = 本次事件涉及的顏色。
 // tieBreak：一次事件同時湊齊分歧兩色時用哪一色定航線（1×4 取較左合成格的顏色）
-function tryAdvanceQuest(colorIds, tieBreak) {
+function tryAdvanceQuest(colorIds, tieBreak, seq) {
   if (questProgress >= 4) return false;
   const step = questPlan[questProgress];
   if (!step || step.kind !== 'synth') return false;
@@ -970,6 +982,7 @@ function tryAdvanceQuest(colorIds, tieBreak) {
     if (questPlan[questProgress + 1]) questPlan[questProgress + 1].colors = [other];
   }
   questProgress++;
+  if (questProgress === 4) questStage4Seq = seq;   // 第 5 關要比這個之後才做的進階合成
   applyQuestReward();
   triggerShipToStep(questProgress - 1);
   tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: questProgress - 1 };
@@ -1262,6 +1275,8 @@ function winFxFrames(tier) { return TF([TIMING.winFxLow, TIMING.winFxMid, TIMING
 function popFxFrames(tier) { return TF([TIMING.popFxLow, TIMING.popFxMid, TIMING.popFxHigh][tier] || TIMING.popFxLow); }
 let winFxTier  = 0;   // 0=低 1=中 2=高
 let winFxTimer = 0;   // 得分演繹（框起＋旋轉）剩餘幀數
+let winGroupIdx   = 0;   // 多組得分：目前已框到第幾組
+let winGroupTimer = 0;   // 距離下一組框起的剩餘幀數
 let winFxTotal = 1;
 // 依本次連爆得分相對押注額決定特效強度
 function calcWinFxTier(win) {
@@ -1384,9 +1399,10 @@ function resetRoundState() {
   if (!inFG && !inSFG) splitCount = [1, 1, 1, 1];
   synthesizedColors = new Set();
   mergedCells = [];
-  // 待補判是「單次合成事件」的暫存，每局都要清（SFG 地圖不重置也一樣）
+  // 待補判是「單次合成事件」的暫存，每局都要清（SFG 地圖不重置也一樣）。
+  // questAdvSeq 不清：它靠 seq 與 questStage4Seq 比先後，留著才不會在
+  // 「第 4 關的解鎖演繹還沒播完就開下一局」時漏掉一次合法的 JP。
   questPending = [];
-  questAdvPending = false;
   // 地圖面板：SFG 中不重置地圖進度（持續往上）；NG/FG 每局重置
   if (!inSFG) {
     mapFlags = [false, false, false, false, false];
@@ -1411,6 +1427,7 @@ function resetRoundState() {
   synthOps = []; synthOpIdx = -1; synthOpPhase = 'idle'; synthOpTimer = 0;
   _advPairsPending = [];
   winFxTimer = 0;
+  winGroupIdx = 0; winGroupTimer = 0;
 }
 
 // === 旋轉邏輯 ===
@@ -1696,9 +1713,8 @@ function applyAdvancedSynthesis() {
         };
       }
       // 進階合成的兩色排入待補判（可能連續推進兩關，例如同時湊齊分歧兩色），
-      // 並記下「本次事件有進階合成」供第 5 關判定。實際推進一關一關來。
-      requestQuestAdvance([leftM.colorId, rightM.colorId], leftM.colorId);
-      questAdvPending = true;
+      // 並記下「這次進階合成是第幾次事件」供第 5 關判先後。實際推進一關一關來。
+      questAdvSeq = requestQuestAdvance([leftM.colorId, rightM.colorId], leftM.colorId);
     }
   }
   mergedCells = mergedCells.filter(m => !m.upgraded);
@@ -1847,29 +1863,30 @@ function calcWin() {
       const rate = PAYOUTS[symId][matchCount - 3];
       const symWin = Math.floor(betAmount * rate * ways);
       totalWin += symWin;
-      // 標記中獎格（用於消除動畫）
+      // 收集該組的中獎格，先不標記——由 lightWinGroup() 一組一組點亮
+      const cells = [];
       for (let col = 0; col < matchCount; col++) {
         for (let row = 0; row < ROWS; row++) {
           const cell = board[col][row];
           if (!cell.isMerged && cell.id === symId) {
-            cell.isMatched = true;
+            cells.push([col, row]);
           } else if (cell.isMerged && !cell.isMergeSlave) {
             const cids = cell.colorId2 !== undefined
               ? [cell.colorId, cell.colorId2]
               : [cell.colorId];
             if (cids.includes(colorId)) {
-              cell.isMatched = true;
-              // 同步標記所有從格，確保縮小動畫和粒子特效覆蓋整個合成格
+              cells.push([col, row]);
+              // 同步收進所有從格，確保縮小動畫和粒子特效覆蓋整個合成格
               const sz = cell.mergeSize || 2;
               for (let dc = 1; dc < sz; dc++) {
                 const slave = board[col + dc]?.[row];
-                if (slave?.isMergeSlave) slave.isMatched = true;
+                if (slave?.isMergeSlave) cells.push([col + dc, row]);
               }
             }
           }
         }
       }
-      winLines.push({ symId, matchCount, ways, win: symWin });
+      winLines.push({ symId, matchCount, ways, win: symWin, cells });
     }
   }
 
@@ -1901,6 +1918,32 @@ function endRound() {
   } else if (isAutoSpinning) {
     autoSpinDelay = TF(TIMING.autoSpinDelay);
   }
+}
+
+// === 多組得分：一組一組框起 ===
+// 點亮第 i 組（標記 isMatched），得分框／壓暗／消除全都看這個旗標，所以會「亮到哪框到哪」。
+function lightWinGroup(i) {
+  const g = winLines[i];
+  if (!g) return;
+  g.cells.forEach(([c, r]) => { if (board[c]?.[r]) board[c][r].isMatched = true; });
+  winFxTimer = winFxTotal;   // 新加入的這組給一次旋轉入場的力道
+}
+
+// 全部框完 → 顯示綜合得分數字（沿用原本的 SHOWING_WIN）
+function enterShowingWin() {
+  popWaitTimer = TF(TIMING.comboPause);
+  winFxTimer   = winFxTotal;
+  currentState = STATE.SHOWING_WIN;
+}
+
+function updateWinGroups() {
+  if (tmAnim.active && tmAnim.stepIdx === 4) return;   // JP動畫中，完全暫停
+  if (winFxTimer > 0) winFxTimer--;
+  if (--winGroupTimer > 0) return;
+  winGroupIdx++;
+  if (winGroupIdx >= winLines.length) { enterShowingWin(); return; }
+  lightWinGroup(winGroupIdx);
+  winGroupTimer = TF(TIMING.winGroupStep);
 }
 
 // === Task 7：中獎高亮 + COMBO 顯示 ===
@@ -3402,12 +3445,19 @@ function update(dt) {
         roundScore = multipliedWin;
         comboCount++;
         if (comboCount === 1) stats.hits++;
-        popWaitTimer = TF(TIMING.comboPause);
         // 得分演繹強度（低／中／高）
         winFxTier  = calcWinFxTier(multipliedWin);
         winFxTotal = winFxFrames(winFxTier);
-        winFxTimer = winFxTotal;
-        currentState = STATE.SHOWING_WIN;
+        // 多組得分：先一組一組框起，全部框完才顯示綜合得分數字、再一起消除。
+        // 只有一組時沒有「依序」可言，直接照原本節奏走，不平白多等。
+        winGroupIdx = 0;
+        lightWinGroup(0);
+        if (winLines.length > 1) {
+          winGroupTimer = TF(TIMING.winGroupStep);
+          currentState  = STATE.WIN_GROUPS;
+        } else {
+          enterShowingWin();
+        }
       } else {
         // 連爆到不能再連爆 → 本局結算，排入三階大獎判定（大獎播完才進 FG／SFG）
         pendingBigWinCheck = true;
@@ -3448,6 +3498,7 @@ function update(dt) {
       }
       break;
     }
+    case STATE.WIN_GROUPS:  updateWinGroups(); break;
     case STATE.SHOWING_WIN: updateShowingWin(); break;
     case STATE.POPPING:     updatePopping(); break;
     case STATE.GRAVITY:     updateGravity(); break;
@@ -3872,7 +3923,7 @@ function drawBoard(ctx) {
 
       // ── 靜態格繪製 ──
       // 得分演繹：得分組亮起、其餘壓暗至約 60%（壓暗＝疊黑，不是變透明）
-      const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
+      const dimOthers = (currentState === STATE.WIN_GROUPS || currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
       const dim   = (!cell.isMatched && dimOthers) ? TIMING.popDimAlpha : 0;
       const alpha = 1.0;
       const sc    = cell.scale || 1;
@@ -3958,7 +4009,7 @@ function drawBoard(ctx) {
     const x = GRID_X + m.col * CELL_SIZE;
     const y = GRID_Y + m.row * CELL_SIZE;
     const isMatched = !!board[m.col]?.[m.row]?.isMatched;
-    const _dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
+    const _dimOthers = (currentState === STATE.WIN_GROUPS || currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING);
     const _dim = (!isMatched && _dimOthers) ? TIMING.popDimAlpha : 0;
     // 消除演繹：跟著主格的 scale 一起縮小，與單格圖示同時消失
     const _popSc = board[m.col]?.[m.row]?.scale ?? 1;
