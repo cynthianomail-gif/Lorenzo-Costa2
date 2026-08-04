@@ -67,9 +67,9 @@ winLines.push({ symId, matchCount, ways, win: symWin, cells });
 
 ## 節奏參數
 
-新增 `TIMING.winGroupStep`，預設 **0.40 秒**，掛在調校面板「消除／得分」分組，甘特起點 0.00。
+新增 `TIMING.winGroupStep`，預設 **0.45 秒**（企劃實調後匯出的值），掛在調校面板「消除／得分」分組，甘特起點 0.00。
 
-兩組就是比舊版多 0.8 秒才看到得分數字。
+兩組就是比舊版多 0.9 秒才看到得分數字。
 
 ## 不動的部分
 
