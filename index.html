@@ -865,6 +865,15 @@ const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 航線分歧', desc: '藍綠→紅金分歧定航線，宙斯給倍數／赫拉給彩金' },
 };
+// 消除演繹風格（調校面板「消除／得分」可切換）
+const POP_STYLES = [
+  ['金屬碎片', '圖示碎成翻滾的金屬片，受重力墜落'],
+  ['光焰爆散', '加亮的火星向上浮，外加一圈衝擊波'],
+  ['浪花捲走', '水滴向上濺再落下，帶拖尾與浪花圈'],
+];
+const DEFAULT_POP_STYLE = 0;
+let POP_STYLE = DEFAULT_POP_STYLE;
+
 const DEFAULT_RULE_VERSION = 2;
 let RULE_VERSION = DEFAULT_RULE_VERSION;
 
@@ -2220,8 +2229,16 @@ function updatePopping() {
 }
 
 const MAX_PARTICLES = 500;
+let popRings = [];   // 消除演繹的擴散環（風格 B／C 用）
 
+// 每格消除時的爆破。三種風格差在粒子的形狀、受力與繪法；
+// 三階強度（低／中／高）一律影響數量、速度、尺寸與存活幀數。
 function spawnPopParticles() {
+  const style = POP_STYLE;
+  const tier  = winFxTier;
+  const boost = [1, 1.35, 1.7][tier];
+  const life  = [26, 34, 42][tier];
+
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
       const cell = board[c][r];
@@ -2231,15 +2248,46 @@ function spawnPopParticles() {
       const color = cell.isMerged
         ? (cell.colorId >= 0 ? COLOR_HEX[cell.colorId] : '#7c3aed')
         : (SYMBOLS[cell.id] ? SYMBOLS[cell.id].color : '#facc15');
-      // 爆破量／速度隨特效強度（低／中／高）遞增
-      const n     = [8, 14, 20][winFxTier];
-      const boost = [1, 1.35, 1.7][winFxTier];
-      for (let i = 0; i < n; i++) {
-        const angle = (i / n) * Math.PI * 2 + Math.random() * 0.3;
-        const speed = (2 + Math.random() * 3) * boost;
-        particles.push({ x: px, y: py,
-          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-          life: 30, maxLife: 30, color, size: (4 + Math.random() * 4) * boost });
+
+      if (style === 1) {
+        // ── B 光焰爆散：加亮混色的火星向上飄，外加一圈衝擊波 ──
+        const n = [12, 18, 26][tier];
+        for (let i = 0; i < n; i++) {
+          const angle = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+          const speed = (1.6 + Math.random() * 2.8) * boost;
+          particles.push({ kind: 'ember', x: px, y: py,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 0.6,
+            life, maxLife: life, color, size: (5 + Math.random() * 5) * boost });
+        }
+        popRings.push({ x: px, y: py, life: 18 + tier * 5, maxLife: 18 + tier * 5,
+                        color, r0: CELL_SIZE * 0.18, r1: CELL_SIZE * (0.62 + tier * 0.14) });
+      } else if (style === 2) {
+        // ── C 浪花捲走：水滴向上濺再落下，尾巴沿速度方向拉長 ──
+        const n = [10, 16, 22][tier];
+        for (let i = 0; i < n; i++) {
+          const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.15;
+          const speed = (2.4 + Math.random() * 3.6) * boost;
+          particles.push({ kind: 'foam', x: px, y: py,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            life, maxLife: life,
+            color: Math.random() < 0.45 ? color : '#e8f6ff',
+            size: (2.5 + Math.random() * 3.5) * boost });
+        }
+        popRings.push({ x: px, y: py, life: 14 + tier * 4, maxLife: 14 + tier * 4,
+                        color: '#cfeaff', r0: CELL_SIZE * 0.22, r1: CELL_SIZE * (0.5 + tier * 0.1), flat: true });
+      } else {
+        // ── A 金屬碎片：四邊形碎片翻滾墜落，邊緣打亮 ──
+        const n = [10, 16, 22][tier];
+        for (let i = 0; i < n; i++) {
+          const angle = (i / n) * Math.PI * 2 + Math.random() * 0.4;
+          const speed = (2.2 + Math.random() * 3.4) * boost;
+          particles.push({ kind: 'shard', x: px, y: py,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.2,
+            life, maxLife: life, color,
+            size: (5 + Math.random() * 6) * boost,
+            rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.42,
+            ratio: 0.35 + Math.random() * 0.5 });
+        }
       }
     }
   }
@@ -2248,8 +2296,13 @@ function spawnPopParticles() {
 
 function updateParticles() {
   particles = particles.filter(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; return p.life > 0;
+    p.x += p.vx; p.y += p.vy;
+    if (p.kind === 'ember')      { p.vy += 0.02; p.vx *= 0.97; p.vy *= 0.97; }  // 幾乎無重力，緩緩浮起
+    else if (p.kind === 'foam')  { p.vy += 0.42; }                              // 明顯落下
+    else                         { p.vy += 0.30; p.rot += p.vr; }               // 碎片翻滾
+    p.life--; return p.life > 0;
   });
+  popRings = popRings.filter(g => { g.life--; return g.life > 0; });
 }
 
 function updateMapPanel() {
@@ -2342,13 +2395,71 @@ function updateTMAnim() {
 }
 
 function drawParticles(ctx) {
-  particles.forEach(p => {
+  // 擴散環（B 衝擊波／C 浪花圈）先畫，讓粒子疊在上面
+  popRings.forEach(g => {
+    const t = 1 - g.life / g.maxLife;          // 0→1
+    const rr = g.r0 + (g.r1 - g.r0) * (1 - Math.pow(1 - t, 2));
     ctx.save();
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
+    ctx.globalAlpha = (1 - t) * 0.75;
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = 3 * (1 - t) + 0.6;
+    ctx.shadowColor = g.color;
+    ctx.shadowBlur = 14;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
+    if (g.flat) ctx.ellipse(g.x, g.y, rr, rr * 0.42, 0, 0, Math.PI * 2);
+    else        ctx.arc(g.x, g.y, rr, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  particles.forEach(p => {
+    const a = p.life / p.maxLife;
+    ctx.save();
+
+    if (p.kind === 'ember') {
+      // 加亮混色的光暈：中心白熱、外圈染色
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = a * 0.95;
+      const rr = p.size * (0.45 + a * 0.55);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
+      g.addColorStop(0,    'rgba(255,255,235,0.95)');
+      g.addColorStop(0.35, p.color);
+      g.addColorStop(1,    p.color + '00');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.fill();
+
+    } else if (p.kind === 'foam') {
+      // 水滴：沿速度方向拉成短拖尾
+      const sp = Math.hypot(p.vx, p.vy);
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = p.color;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = p.size * (0.5 + a * 0.5);
+      const tl = Math.min(sp * 2.2, p.size * 4);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - (p.vx / (sp || 1)) * tl, p.y - (p.vy / (sp || 1)) * tl);
+      ctx.stroke();
+
+    } else {
+      // 金屬碎片：翻滾的四邊形，受光邊打亮
+      ctx.globalAlpha = a;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      const w = p.size, h = p.size * p.ratio;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2, 0); ctx.lineTo(0, -h / 2);
+      ctx.lineTo(w / 2, 0);  ctx.lineTo(0, h / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,240,190,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2, 0); ctx.lineTo(0, -h / 2); ctx.lineTo(w / 2, 0);
+      ctx.stroke();
+    }
+
     ctx.restore();
   });
 }
@@ -5161,7 +5272,7 @@ function saveTuning() {
     localStorage.setItem(TUNE_KEY, JSON.stringify({
       version: TUNE_VERSION,
       timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP,
-      ruleVersion: RULE_VERSION,
+      ruleVersion: RULE_VERSION, popStyle: POP_STYLE,
     }));
     return true;
   } catch (e) { return false; }
@@ -5197,6 +5308,7 @@ function loadTuning() {
       }
       // 地圖規則版本（舊存檔沒這個欄位 → 沿用預設值）
       if (RULE_VERSIONS[d.ruleVersion]) RULE_VERSION = Number(d.ruleVersion);
+      if (POP_STYLES[d.popStyle]) POP_STYLE = Number(d.popStyle);
     }
   } catch (e) { /* 資料損毀：退回預設 */ }
   syncLayoutDerived();
@@ -5340,6 +5452,8 @@ function buildTimingTab() {
     const h = document.createElement('div');
     h.className = 'tune-group'; h.textContent = g.group;
     tuneBody.appendChild(h);
+    // 消除演繹風格：三種擇一，按「試放」可直接在盤面上看
+    if (g.group === '消除／得分') tuneBody.appendChild(buildPopStyleRow());
     const gantt = document.createElement('div'); gantt.className = 'gantt-editor';
     let hasGantt = false;
     g.items.forEach(([key, label, mn, mx, st]) => {
@@ -5354,6 +5468,56 @@ function buildTimingTab() {
     });
     if (hasGantt) tuneBody.appendChild(gantt);
   });
+}
+
+// 消除演繹風格選擇＋三階試放（不用等剛好轉到大獎才看得到中／高階）
+function buildPopStyleRow() {
+  const wrap = document.createElement('div');
+  POP_STYLES.forEach(([name, desc], i) => {
+    const row = document.createElement('div'); row.className = 'tune-row';
+    const lab = document.createElement('label'); lab.style.flex = '0 0 auto';
+    const rb = document.createElement('input');
+    rb.type = 'radio'; rb.name = 'popStyle'; rb.checked = (POP_STYLE === i);
+    rb.style.marginRight = '6px';
+    lab.append(rb, document.createTextNode(name));
+    const d = document.createElement('span');
+    d.style.cssText = 'color:#94a3b8;font-size:11px;';
+    d.textContent = desc;
+    rb.addEventListener('change', () => {
+      if (!rb.checked) return;
+      POP_STYLE = i; saveTuning();
+      setTuneStatus(`消除演繹：${name}`);
+    });
+    row.append(lab, d);
+    wrap.appendChild(row);
+  });
+  const row = document.createElement('div'); row.className = 'tune-row';
+  const lab = document.createElement('label'); lab.textContent = '試放';
+  const btns = document.createElement('span');
+  ['低', '中', '高'].forEach((t, tier) => {
+    const b = document.createElement('button');
+    b.className = 'tune-obj-btn';
+    b.textContent = t;
+    b.addEventListener('click', () => {
+      previewPopFx(tier);
+      setTuneStatus(`試放 ${POP_STYLES[POP_STYLE][0]}・${t}階`);
+    });
+    btns.appendChild(b);
+  });
+  row.append(lab, btns);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+// 在盤面中央附近直接放一次爆破，只借用粒子系統，不動盤面與分數
+function previewPopFx(tier) {
+  const savedTier = winFxTier;
+  winFxTier = tier;
+  const cells = [[1, 1], [2, 1], [3, 1], [2, 2]];
+  cells.forEach(([c, r]) => { if (board[c]?.[r]) board[c][r].isMatched = true; });
+  spawnPopParticles();
+  cells.forEach(([c, r]) => { if (board[c]?.[r]) board[c][r].isMatched = false; });
+  winFxTier = savedTier;
 }
 
 function buildLayoutTab() {
@@ -5658,6 +5822,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
   if (tuneTab === 'timing') {
     Object.keys(DEFAULT_TIMING).forEach(k => { TIMING[k] = DEFAULT_TIMING[k]; });
     Object.keys(DEFAULT_TIMING_START).forEach(k => { TIMING_START[k] = DEFAULT_TIMING_START[k]; });
+    POP_STYLE = DEFAULT_POP_STYLE;
   } else if (tuneTab === 'layout') {
     const def = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
     Object.keys(def).forEach(k => { LAYOUT[k] = def[k]; });
@@ -5676,7 +5841,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
 });
 document.getElementById('tuneExport').addEventListener('click', e => {
   // 一次匯出完整設定（節奏／甘特起點／佈局／取圖），貼回工程端即可寫成正式預設
-  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION }, null, 2);
+  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION, popStyle: POP_STYLE }, null, 2);
   const btn = e.target, orig = btn.textContent;
   const done = () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = orig; }, 1200); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
