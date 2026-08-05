@@ -564,14 +564,14 @@ const DEFAULT_TIMING = {
   popFxLow:          0.20,  // 消除演繹・低（圖示爆破）
   popFxMid:          0.40,  // 消除演繹・中
   popFxHigh:         0.45,  // 消除演繹・高
-  popDimAlpha:       0.80,  // 未得分圖示壓暗強度 0~1（視覺流程圖原訂約 60%；企劃實調後加重到 80%）
+  popDimAlpha:       0.40,  // 未得分圖示壓暗強度 0~1（疊黑不透明度）
+                            // 視覺流程圖：得分組亮起、其餘「壓暗至約 60%」＝保留 6 成亮度＝疊黑 0.4
+                            // （面板可即時調整；先前曾試調到 0.80，現對齊企畫書 V3）
   winGroupStep:      0.45,  // 多組得分時，每一組依序框起的間隔（只有一組時不套用）
   scorePop:          0.20,  // 得分數字於中央放大彈出
   multFly:           0.50,  // 倍數數字從大到小打入得分數
   comboPause:        1.50,  // 連爆之間的停頓
   refillStagger:     0.10,  // 補盤逐欄錯落
-  unifiedHold:       0.80,  // 倍數／號角／WILD 指示器齊停
-  fireInterval:      0.13,  // 指示器依序飛出的間隔
   // 合成／分裂（編號 21）
   synthMark:         0.10,  // 框框標示演繹
   synthFlash:        0.80,  // 合成演繹（閃光後轉 1×2）
@@ -585,6 +585,10 @@ const DEFAULT_TIMING = {
   mapMask:           0.10,  // 遮罩移動演繹：雲霧向上散去
   mapFlag:           0.40,  // 插旗演繹：旗子淡入
   mapQuest:          1.50,  // 任務達成動畫
+  mapForkResolve:    0.50,  // 分歧定案演繹（強）：第 1 站雙色地標收為單色、落敗色壓黑（編號 21）
+  mapIslandOpen:     0.40,  // 小島開啟演繹（強）：分歧站左右雲霧散去，本局小島亮起（編號 21）
+  mapSub:            0.50,  // 潛水艇演繹：船側下潛出小潛水艇，沿支線駛向本局小島（編號 21）
+  mapBeacon:         0.50,  // 燈塔點亮演繹：潛水艇抵達後點亮 1 座燈塔，隨即下潛消失（編號 21）
   // SC 船頭／船尾（編號 18／19）
   scAppear:          0.30,  // 登場演繹：滾輪回彈時觸發
   scWinFG:           0.80,  // 中獎演繹（強度中）：進入 FG 轉場前
@@ -607,7 +611,6 @@ const DEFAULT_TIMING = {
   transEnterMid:     0.87,  // 進場轉場・畫面切換點
   transExit:         1.10,  // 結束轉場・總長
   transExitMid:      0.50,  // 結束轉場・畫面切換點
-  chestUnlock:       2.50,  // 寶箱解鎖
 };
 // 面板顯示：分組、中文名、[min, max, step]（未填 = 0~5 秒、步進 0.05）
 const TIMING_META = [
@@ -621,13 +624,15 @@ const TIMING_META = [
     ['popDimAlpha','壓暗強度(0~1)', 0, 1, 0.05],
     ['winGroupStep','多組依序框起間隔'],
     ['scorePop','得分數字彈出'], ['multFly','倍數打入'], ['comboPause','連爆間停頓'],
-    ['refillStagger','補盤逐欄錯落'], ['unifiedHold','指示器齊停'], ['fireInterval','指示器飛出間隔']] },
+    ['refillStagger','補盤逐欄錯落']] },
   { group: '合成／分裂', items: [
     ['synthMark','框框標示'], ['synthFlash','合成演繹'], ['synthAdvFlash','進階合成演繹'],
     ['synthSplit','分裂演繹'], ['synthGap','合成組間緩衝']] },
   { group: '藏寶圖', items: [
     ['mapShipFly','船彈起淡出'], ['mapShipLand','船落海＋水花'], ['mapShipPause','抵達停頓'],
-    ['mapMask','遮罩移動'], ['mapFlag','插旗淡入'], ['mapQuest','任務達成動畫']] },
+    ['mapMask','遮罩移動'], ['mapFlag','插旗淡入'], ['mapQuest','任務達成動畫'],
+    ['mapForkResolve','分歧定案(收色)'], ['mapIslandOpen','小島開啟(霧散)'],
+    ['mapSub','潛水艇航行'], ['mapBeacon','燈塔點亮']] },
   { group: 'SC 船頭／船尾', items: [
     ['scAppear','登場演繹'], ['scWinFG','中獎演繹(進FG)'], ['scWinSFG','中獎演繹(進SFG)'],
     ['shakeSmall','盤面震動・小'], ['shakeBig','盤面震動・大'],
@@ -638,8 +643,7 @@ const TIMING_META = [
     ['bigWinRunMega','MEGA 跑分'], ['bigWinHoldMega','MEGA 停留'],
     ['jpWin','JP 報獎', 0, 6, 0.05], ['cashWin','結算彩金報獎', 0, 6, 0.05],
     ['transEnter','進場轉場總長'], ['transEnterMid','進場切換點'],
-    ['transExit','結束轉場總長'], ['transExitMid','結束切換點'],
-    ['chestUnlock','寶箱解鎖']] },
+    ['transExit','結束轉場總長'], ['transExitMid','結束切換點']] },
 ];
 // 各參數範圍表（載入時鉗制用）：key → [min, max]
 const TIMING_RANGE = {};
@@ -661,15 +665,14 @@ const GANTT_START_PRESET = {
   popFxLow: 0.45, popFxMid: 0.45, popFxHigh: 0.45,
   winGroupStep: 0.00,
   scorePop: 0.10, multFly: 0.30, comboPause: 0.90, refillStagger: 0.90,
-  unifiedHold: 0.00, fireInterval: 0.80,
   synthMark: 0.00, synthFlash: 0.10, synthAdvFlash: 0.10, synthSplit: 0.90, synthGap: 1.05,
   mapShipFly: 0.00, mapShipLand: 0.30, mapShipPause: 0.70, mapMask: 0.90, mapFlag: 1.00, mapQuest: 0.00,
+  mapForkResolve: 0.00, mapIslandOpen: 0.00, mapSub: 0.00, mapBeacon: 0.50,
   scAppear: 0.00, scWinFG: 0.30, scWinSFG: 0.30, shakeSmall: 0.30, shakeBig: 0.30,
   bigWinRunBig: 0.00, bigWinHoldBig: 2.00,
   bigWinRunSuper: 0.00, bigWinHoldSuper: 3.00,
   bigWinRunMega: 0.00, bigWinHoldMega: 4.00,
   jpWin: 0.00, cashWin: 0.00, transEnter: 0.00, transEnterMid: 0.00, transExit: 0.00, transExitMid: 0.00,
-  chestUnlock: 0.00,
 };
 const DEFAULT_TIMING_START = {};
 TIMING_META.forEach(g => g.items.forEach(([key]) => {
@@ -849,6 +852,20 @@ let mapShip = {
 };
 let mapFlags  = [false, false, false, false, false]; // 5步驟插旗狀態
 let mapSplash = [];  // [{x, y, vx, vy, frame, maxFrame, color}]
+// ── 潛水艇（美術需求說明 編號 21）──
+// 分歧定案開島的那一刻，船側就下潛出一艘小潛水艇（約船的 1/2），駛到本局 JP 島附近待命；
+// 之後每完成 1 次雙色進階合成就再靠近一段並點亮 1 座燈塔，
+// 節點全部點滿時停在島旁邊。全程主航道的船完全不動；潛水艇待命時隨浪微浮。
+// active=已出現（到本局地圖重置為止）／moving=正在移動／dock=目前停靠點 0..JP_NODES
+let mapSub = {
+  active: false, moving: false, dock: 0, litOnArrive: -1,
+  frame: 0, totalFrames: 1,
+  x: 0, y: 0, sx: 0, sy: 0, tx: 0, ty: 0,
+  alpha: 0, side: 1,
+};
+let beaconAnim = [0, 0, 0, 0];   // 各燈塔的點亮演繹剩餘幀數（index = 節點序）
+let islandFogAnim = 0;           // 小島開啟演繹：兩座小島的雲霧散去剩餘幀數
+let forkResolveAnim = 0;         // 分歧定案演繹：第 1 站落敗色壓黑的過渡剩餘幀數
 let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）※v1 用
 let questProgress = 0;            // 已完成步驟數 0-5
 let questReveal   = 0;            // 目前地圖上已揭示的最高步驟索引（0=只顯示步驟1）
@@ -918,6 +935,11 @@ function buildQuestPlan() {
   questPending = []; jpAdvQueue = [];
   questEventSeq = 0; questStage4Seq = -1; questAdvSeq = -1;
   jpIslandSeq = -1; jpNodesLit = 0;
+  // 小島演繹狀態一併歸零：雲霧蓋回、燈塔熄滅、潛水艇收回
+  islandFogAnim = 0; forkResolveAnim = 0;
+  beaconAnim = [0, 0, 0, 0];
+  mapSub.active = false; mapSub.moving = false;
+  mapSub.dock = 0; mapSub.litOnArrive = -1; mapSub.alpha = 0;
   if (RULE_VERSION === 2) {
     // 第 1 關就是分歧：紅金同時開放競速；其餘三關等分歧定案後才填色
     questPlan = [
@@ -973,12 +995,13 @@ function updateQuestPending() {
 
   if (RULE_VERSION === 2) {
     // JP 小島：開島之後的雙色進階合成，一次點亮一個節點
+    if (mapSub.moving) return;   // 潛水艇還在移動 → 等這一段跑完再處理下一筆
     while (jpAdvQueue.length) {
       const seq = jpAdvQueue.shift();
       if (!jpIslandOpen() || seq <= jpIslandSeq) continue;   // 開島前（含開島當次）不計入
       if (jpNodesLit >= JP_NODES) continue;
-      jpNodesLit++;
-      tmAnim = { active: true, timer: TF(TIMING.mapQuest), stepIdx: -1, kind: 'node' };
+      // 潛水艇再靠近一段；抵達後才 jpNodesLit++ 並播燈塔點亮演繹
+      advanceMapSub();
       return;
     }
     return;
@@ -1009,6 +1032,14 @@ function tryAdvanceQuest(colorIds, tieBreak, seq) {
     questRoute  = V2_FORK_COLORS.indexOf(win);
     step.colors = [win];
     jpIslandSeq = seq;                      // 開島：此後的進階合成才計入節點
+    islandFogAnim   = TF(TIMING.mapIslandOpen);    // 小島開啟演繹：兩座小島的雲霧散去
+    forkResolveAnim = TF(TIMING.mapForkResolve);   // 分歧定案演繹：落敗色壓黑
+    openMapSub();                                  // 潛水艇出艙，駛往本局 JP 島附近待命
+    // 強開「獲得 JP」：開島後直接補齊小島節點的份，演繹（潛水艇＋燈塔）照常一座一座播
+    if (forceJpPending) {
+      forceJpPending = false;
+      for (let k = 0; k < JP_NODES; k++) jpAdvQueue.push(++questEventSeq);
+    }
     fillRemainingSteps(win);
   }
   questProgress++;
@@ -1064,6 +1095,13 @@ function routeOfSide(side) { return side < 0 ? 1 : 0; }
 function stepSides(i) { return [0]; }
 // 該關該欄的節點座標
 function nodePos(i, side) { return { x: mapColX(side), y: MAP_STEP_YS[i] }; }
+// JP 小島上第 k 座燈塔的座標（繪製與潛水艇目的地共用同一份計算）
+const BEACON_GAP = 15;
+function beaconPos(k, side) {
+  const cx = mapColX(side);
+  const x0 = cx - (JP_NODES - 1) * BEACON_GAP / 2;
+  return { x: x0 + k * BEACON_GAP, y: MAP_ISLAND_Y + 12 };
+}
 // 該關要顯示哪個顏色（v1 第 5 關是神殿，回 -1）
 function nodeColorId(i, side) {
   if (RULE_VERSION !== 2 && i === 4) return -1;
@@ -1123,19 +1161,7 @@ let betAmount = 100;
 let multiplier = 1;      // 倍數欄位當前值（本局）
 let comboCount = 0;      // 本局連爆次數
 
-// === 怪獸系統 ===
-let flyingAttacks = [];   // 飛行動畫（號角 → 收集欄）
 let flyingScores = [];    // 飛行動畫（分數 → 得分累積欄位）
-let multToScoreAnim = {
-  active: false,
-  phase: 'idle',    // 'flying'|'formula'|'combine'|'settle'
-  flyX: 132, flyY: 268,
-  timer: 0,
-  value: 1,         // multiplier
-  baseScore: 0,
-  finalScore: 0,
-  scoreShift: 0,    // 得分數字水平位移（0 → -80）
-};
 let jpWinAnim = { active: false, timer: 0, monsterName: '', value: 0 };
 let jpWinParticles = [];
 let jpWinQueue = []; // 待播放的JP獎項佇列
@@ -1151,20 +1177,11 @@ let jpBoss = Math.random() < 0.5 ? 0 : 1;   // 本局 JP 歸屬：0=宙斯 1=赫
 let jpGranted = false; // 本輪地圖的 JP 是否已發放（SFG 地圖跨局不重置，避免重複發）
 function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false; }
 
-// === 號角收集 & 寶箱系統 ===
-let keyCount = 0; // 本局累積號角數
-let crownCount = 0;   // 宙斯：累積皇冠數（每局重置，到3觸發JP）
-let necklaceCount = 0; // 赫拉：累積項鍊數（每局重置，到3觸發JP）
-let pendingMultToScoreApply = null; // JP動畫播放中時暫存倍數結算資料
-let triggeredChests = new Set(); // 本局已觸發的機制 idx（每次 SPIN 重置）
-let chestUnlockAnim = { active: false, timer: 0, idx: -1 }; // 解鎖動畫
-let pendingChestReward = -1; // 動畫結束後要觸發的獎勵 idx
-let showFGPanel = false;     // 厄倪俄：進入 FG 的面板
+// === FREE GAME / SUPER FREE GAME 狀態 ===
 let inFG = false;            // 是否在 Free Game 中
 let fgSpinsLeft = 0;         // FG 剩餘局數
 let fgSpinsTotal = 0;        // FG 總局數（用於顯示）
 let showFGEndPanel = false;  // FG 結束面板
-let fgMultCollectedThisRound = false; // 本局FG是否收集到倍數
 const FG_TOTAL_SPINS = 10;
 // === 船頭／船尾（SC）演繹（美術需求說明 編號 18／19）===
 let scWinAnim  = { active: false, timer: 0, total: 1, tag: null };
@@ -1184,14 +1201,10 @@ let sfgSpinsTotal    = 0;
 let showSFGEndPanel  = false;  // SFG 結束面板
 const SFG_TOTAL_SPINS = 10;
 
-// 厄里斯效果：本次 Spin 剩餘連爆只出現 3 種高賠率符號
-let heraSymbolRestrict = false;
-const HERA_SYMBOLS = [0, 2, 4]; // 戰神意志、嗜血追擊、戰場凶兆
-
-// 取得隨機符號 ID（尊重厄里斯限制）
-// 高分角色 8%, 低分武器 13%, FG船頭/船尾各 8%（FG中不出現船）
+// 取得隨機符號 ID。權重：高分角色 9%、低分武器 15%（四色完全相同），NG 另有船頭／船尾各 2%。
+// 四色等權重是刻意的——企畫「體感規劃」要求金／紅的同色合成觸發率相等，
+// 確保第 1 關分歧維持 50／50，不得依自然圖示出現率決定。
 function randomSymId() {
-  if (heraSymbolRestrict) return HERA_SYMBOLS[Math.floor(Math.random() * HERA_SYMBOLS.length)];
   const weights = (inFG || inSFG)
     ? [9, 15, 9, 15, 9, 15, 9, 15]            // FG/SFG 中無船符號
     : [9, 15, 9, 15, 9, 15, 9, 15, 2, 2];     // NG 共 100
@@ -1233,35 +1246,7 @@ function colHasShipSymbol(c) {
   return (board[c] || []).some(cell => cell && (cell.id === 8 || cell.id === 9 || isShipCell(cell)));
 }
 
-const CHESTS = [
-  { label: '禿鷹&獵犬', keys: 2, color: '#7c2d12', glowColor: '#ea580c', textColor: '#fdba74', icon: '🦅' },
-  { label: '厄里斯',    keys: 3, color: '#1e3a5f', glowColor: '#94a3b8', textColor: '#e2e8f0', icon: '🍎' },
-  { label: '厄倪俄',    keys: 4, color: '#713f12', glowColor: '#eab308', textColor: '#fef08a', icon: '⚔️' },
-];
-
 let particles = [];
-let flyingMultipliers = [];
-let multAppearedInPop = false;   // 本次消除是否有圖示帶倍數被消除
-let pendingMultFlights = [];      // checkPaylines 蒐集的帶倍數格 [{value,c,r}]
-let multFlightSeq = [];           // 飛行佇列 [{value,c,r,fx,fy}]（含格子座標以便管理格子）
-let multFlightIdx = 0;
-let multFlightTimer = 0;
-let erisMultiplierAnim = {
-  active: false,
-  phase: 'idle',          // idle | intro | rolling | settle | fly | land
-  timer: 0,
-  picked: 1,
-  displayFactor: 1,
-  startMultiplier: 1,
-  targetMultiplier: 1,
-  flyX: 640, flyY: 332,
-  tx: 132, ty: 268
-};
-
-// 統一觸發序列（倍數 + KEY + WILD 合併，按盤面位置排序）
-let unifiedRevealSeq = [];   // [{type:'mult'|'key'|'wild', c, r, fx, fy, value?}]
-let unifiedRevealIdx = 0;    // 目前飛出的索引（hold 階段固定為 0）
-let unifiedRevealTimer = 0;  // 全局計時器
 let scoreTexts = [];
 let comboTexts = [];
 
@@ -1308,16 +1293,18 @@ let revealSeq = [];       // 待依序演繹的欄位（sorted left→right）
 let revealSeqIdx = 0;     // 目前正在演繹的索引
 let revealColTimer = 0;   // 目前欄位的計時器
 
-let forceSpinType = null;     // null | 'mult' | 'wild' | 'key_0'..'key_3'
+// 強開（對應企畫「NG出牌規則／SERVER 強開選項」）：
+// null | 'synth' | 'adv_synth' | 'cond_1'..'cond_4' | 'force_jp' | 'force_fg' | 'force_sfg'
+let forceSpinType = null;
 let forceUsed = false;
-let forceKeyTarget = 0;       // 強開號角：目標號角數量
-let forceKeySpawned = 0;      // 已生成的號角數
 let showForceMenu = false;
 let forceLineRows = null;     // 強開時決定的中獎 payline（每列對應的 row），null = 不強制
-let forceLineRows2 = null;    // key_3 強開時額外強制的第二列
+let forceLineRows2 = null;    // 額外強制的第二列
 let forceLineSymbol = -1;     // 強開時決定的中獎符號 id
 let forcedMult = 0;           // 強開倍數模式預抽的倍數值
-let fgAssistMode = false;     // 強開厄倪俄進FG時：FG局數盡量有連線，且有機率帶倍數（測試用）
+// 強開「獲得 JP」：本局分歧一定案就把小島節點的份補齊，
+// 讓潛水艇往返與燈塔點亮照常演出後發 JP（測試捷徑，正式版由 SERVER 給牌）
+let forceJpPending = false;
 
 let winLines = [];
 let winLog = []; // 連線消除紀錄 [{ count, symbolId, amount }]
@@ -1408,7 +1395,6 @@ function resetRoundState() {
   winLines = [];
   _affectedCols = [];
   forceUsed = false;
-  forceKeySpawned = 0;
   forceLineRows = null;
   forceLineRows2 = null;
   forceLineSymbol = -1;
@@ -1468,8 +1454,7 @@ function startSpin() {
   stats.spins++;
 
   forcedMult = 0;
-  forceKeyTarget = 0;
-  forceKeySpawned = 0;
+  forceJpPending = false;
   forceUsed = false;
   forceLineRows = null;
   forceLineRows2 = null;
@@ -1518,21 +1503,19 @@ function startSpin() {
     }
   }
   // 強開覆寫：直接設定最終符號
-  if (forceSpinType === 'all_synth') {
-    // 4色合成：每色各配一對角色+武器
-    [[0,0,0],[0,1,4],[1,0,1],[1,1,5],[2,0,2],[2,1,6],[3,0,3],[3,1,7]]
-      .forEach(([c,r,id]) => { board[c][r].id = id; });
-  } else if (forceSpinType === 'synth') {
+  if (forceSpinType === 'synth') {
     // 合成：紅色角色+武器並排
     board[0][0].id = 0; board[1][0].id = 1;
   } else if (forceSpinType === 'adv_synth') {
     // 進階合成：紅色一對 + 藍色一對，合成後觸發 1×4
     board[0][0].id = 0; board[1][0].id = 1;
     board[2][0].id = 4; board[3][0].id = 5;
-  } else if (forceSpinType && forceSpinType.startsWith('cond_')) {
+  } else if (forceSpinType && (forceSpinType.startsWith('cond_') || forceSpinType === 'force_jp')) {
     // 條件強開：先全盤填紅色角色（同型不配對），放指定對子後掃描修復意外配對
+    // force_jp 只需要第 1 關分歧達成（開島），節點的份在開島時補齊
     for (let _fc = 0; _fc < COLS; _fc++) for (let _fr = 0; _fr < ROWS; _fr++) board[_fc][_fr].id = 0;
-    const _cp = forceSpinType === 'cond_1' ? [[0,0,0]] :
+    if (forceSpinType === 'force_jp') forceJpPending = true;
+    const _cp = (forceSpinType === 'cond_1' || forceSpinType === 'force_jp') ? [[0,0,0]] :
                 forceSpinType === 'cond_2' ? [[0,0,0],[0,1,1]] :
                 forceSpinType === 'cond_3' ? [[0,0,0],[0,1,1],[0,2,2]] :
                 forceSpinType === 'cond_4' ? [[0,0,0],[0,1,1],[0,2,2],[3,0,3]] :
@@ -1728,11 +1711,12 @@ function applyAdvancedSynthesis() {
           isMergeSlave: (c !== leftM.col), isMatched: false, yOffset: 0, scale: 1
         };
       }
-      // 進階合成的兩色排入待補判；同時記下流水號——v1 供第 5 關判先後，
-      // v2 則是 JP 小島的節點來源（開島之後的才算）。
-      // tieBreak 取較左的合成格顏色，即規則說的「依盤面左至右、上至下先觸發者」。
-      questAdvSeq = requestQuestAdvance([leftM.colorId, rightM.colorId], leftM.colorId);
-      jpAdvQueue.push(questAdvSeq);
+      // 進階合成只發流水號，**不排入主航道待補判**。
+      // 企畫書「視覺流程圖」編號 06 明訂：此階段地圖不變動，雙色進階合成只計入
+      // JP 小島節點，不推進主航道關卡。（兩色的關卡達成在各自 1×2 合成時就已判過）
+      // 流水號的用途：v1 供第 5 關判先後，v2 是 JP 小島的節點來源（開島之後的才算）。
+      questAdvSeq = ++questEventSeq;
+      if (RULE_VERSION === 2) jpAdvQueue.push(questAdvSeq);   // v1 沒有小島節點，不入列
     }
   }
   mergedCells = mergedCells.filter(m => !m.upgraded);
@@ -2311,6 +2295,11 @@ function updateMapPanel() {
     if (mapMaskAnim[i] > 0) mapMaskAnim[i]--;
     if (mapFlagAnim[i] > 0) mapFlagAnim[i]--;
   }
+  // 燈塔點亮演繹倒數＋小島雲霧散去＋潛水艇往返
+  for (let i = 0; i < beaconAnim.length; i++) if (beaconAnim[i] > 0) beaconAnim[i]--;
+  if (islandFogAnim > 0) islandFogAnim--;
+  if (forkResolveAnim > 0) forkResolveAnim--;
+  updateMapSub();
   // 更新濺起粒子
   mapSplash = mapSplash.filter(s => {
     s.frame++; s.x += s.vx; s.y += s.vy;
@@ -2376,6 +2365,89 @@ function updateMapPanel() {
       mapShip.returnPending = false;
       mapShip.targetColorId = -1;
     }
+  }
+}
+
+// ── 潛水艇演繹（美術需求說明 編號 21）──
+// 停靠點：dock 0 = 開島後在 JP 島「附近」待命；每點亮一座燈塔再靠近一段；
+// dock = JP_NODES 時停在島旁邊。全程只有潛水艇在動，主航道的船不隨之移動。
+// 版面很窄（島外側貼著面板邊、島正下方是「JP ○○小島」名牌、再下面是第 1 站地標），
+// 所以支線走「名牌的內側外緣」斜上進島：
+//   dock 0        = 名牌內側外緣的水域（島附近待命）
+//   dock 1..n-1   = 沿支線逐段靠近
+//   dock n（末段）= 島體內下緣、燈塔的內側 → 視覺上就是「停在島旁邊」
+function subDockPos(k) {
+  const side = sideOfRoute(questRoute) || 1;
+  const cx   = mapColX(side);
+  const n    = Math.max(1, JP_NODES);
+  const r    = Math.min(k, n) / n;                 // 0 → 1
+  const x0 = cx - side * 67, y0 = MAP_ISLAND_Y + 42;   // 名牌外緣、第 1 站地標上方
+  const x1 = cx - side * 43, y1 = MAP_ISLAND_Y + 14;   // 島內下緣、燈塔內側
+  return { x: x0 + (x1 - x0) * r, y: y0 + (y1 - y0) * r };
+}
+
+// 移動到第 k 個停靠點；litOnArrive >= 0 時，抵達後點亮該座燈塔
+function moveMapSubTo(k, litOnArrive) {
+  const p = subDockPos(k);
+  mapSub.dock = k;
+  mapSub.moving = true;
+  mapSub.frame = 0;
+  mapSub.totalFrames = TF(TIMING.mapSub);
+  mapSub.sx = mapSub.x; mapSub.sy = mapSub.y;
+  mapSub.tx = p.x; mapSub.ty = p.y;
+  mapSub.litOnArrive = litOnArrive;
+}
+
+// 分歧定案開島 → 潛水艇從船的側舷下潛出，駛到 JP 島附近待命
+function openMapSub() {
+  const side = sideOfRoute(questRoute) || 1;
+  mapSub.active = true;
+  mapSub.side   = side;
+  mapSub.alpha  = 0;
+  mapSub.x = mapShip.x + side * 6;   // 從船的側舷下潛出
+  mapSub.y = mapShip.y + 4;
+  moveMapSubTo(0, -1);
+}
+
+// 完成一次雙色進階合成 → 再靠近一段，抵達時點亮下一座燈塔
+function advanceMapSub() {
+  if (!mapSub.active) openMapSub();
+  moveMapSubTo(mapSub.dock + 1, jpNodesLit);
+}
+
+function updateMapSub() {
+  if (!mapSub.active) return;
+
+  if (mapSub.moving) {
+    mapSub.frame++;
+    const t = Math.min(mapSub.frame / Math.max(1, mapSub.totalFrames), 1);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const arcH = Math.abs(mapSub.tx - mapSub.sx) * 0.28 + 10;
+    mapSub.x = mapSub.sx + (mapSub.tx - mapSub.sx) * ease;
+    mapSub.y = mapSub.sy + (mapSub.ty - mapSub.sy) * ease - arcH * 4 * t * (1 - t);
+    mapSub.alpha = Math.min(1, mapSub.alpha + 0.09);   // 出艙淡入
+    if (t >= 1) {
+      mapSub.moving = false;
+      mapSub.x = mapSub.tx; mapSub.y = mapSub.ty;
+      if (mapSub.litOnArrive >= 0) {
+        // 抵達 → 點亮 1 座燈塔
+        beaconAnim[mapSub.litOnArrive] = TF(TIMING.mapBeacon);
+        jpNodesLit = Math.max(jpNodesLit, mapSub.litOnArrive + 1);
+        mapSub.litOnArrive = -1;
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2;
+          mapSplash.push({
+            x: mapSub.x, y: mapSub.y,
+            vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2,
+            frame: 0, maxFrame: 9, color: jpBossDef().glow,
+          });
+        }
+      }
+    }
+  } else {
+    // 停靠待命：隨浪微微上下浮動
+    mapSub.alpha = Math.min(1, mapSub.alpha + 0.09);
+    mapSub.y = mapSub.ty + Math.sin(Date.now() / 520) * 1.4;
   }
 }
 
@@ -2649,6 +2721,70 @@ function drawMapShip(ctx) {
   ctx.font = '18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('⛵', mapShip.x, mapShip.y);
   ctx.restore();
+  drawMapSub(ctx);
+}
+
+// ── 小潛水艇（美術需求說明 編號 21：尺寸約為船的 1/2）──
+// 船是 18px 的 ⛵，潛水艇艇身長 18px、高 9px，約當一半。
+function drawMapSub(ctx) {
+  if (!mapSub.active || mapSub.alpha <= 0) return;
+  const boss = jpBossDef();
+  const cx = mapSub.x, cy = mapSub.y;
+  const hl = 9, hh = 4.5;            // 半長、半高
+  const dir = mapSub.side >= 0 ? 1 : -1;   // 朝向本局小島那一側
+
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, mapSub.alpha));
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.filter = 'none';
+
+  // 尾流泡泡（移動中才有）
+  if (mapSub.moving) {
+    ctx.fillStyle = 'rgba(226,240,255,0.55)';
+    for (let i = 1; i <= 3; i++) {
+      const bx = cx - dir * (hl + i * 4.5);
+      const br = 1.8 - i * 0.4;
+      if (br <= 0) continue;
+      ctx.beginPath(); ctx.arc(bx, cy + Math.sin((mapSub.frame + i * 7) / 5) * 1.2, br, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // 艇身（橢圓）
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+  const g = ctx.createLinearGradient(cx, cy - hh, cx, cy + hh);
+  g.addColorStop(0, '#f3d69a');
+  g.addColorStop(0.5, '#c79a4e');
+  g.addColorStop(1, '#6b4a1e');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(cx, cy, hl, hh, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 潛望鏡（朝行進方向）
+  ctx.strokeStyle = '#e8cf9a'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx + dir * 1.5, cy - hh + 0.5);
+  ctx.lineTo(cx + dir * 1.5, cy - hh - 4);
+  ctx.lineTo(cx + dir * 4,   cy - hh - 4);
+  ctx.stroke();
+
+  // 尾舵
+  ctx.fillStyle = '#8a6528';
+  ctx.beginPath();
+  ctx.moveTo(cx - dir * (hl - 1), cy - 1);
+  ctx.lineTo(cx - dir * (hl + 4), cy - 4);
+  ctx.lineTo(cx - dir * (hl + 4), cy + 3);
+  ctx.closePath(); ctx.fill();
+
+  // 舷窗：亮本局神的主題色
+  ctx.fillStyle = boss.glow;
+  ctx.shadowColor = boss.glow; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(cx + dir * 3.2, cy - 0.5, 1.9, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,248,216,0.9)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.arc(cx + dir * 3.2, cy - 0.5, 1.9, 0, Math.PI * 2); ctx.stroke();
+
+  ctx.restore();
 }
 
 // ── 地圖裝飾：羅盤玫瑰 ──
@@ -2846,11 +2982,11 @@ function drawMapFog(ctx, edgeY, t) {
   ctx.clip(p);
   // 深處濃、邊緣淡：未探索區壓暗，最後 22px 淡出，讓分界是「散開」不是一道稜線
   const span0 = Math.max(24, edgeY - top);
-  const fade  = 1 - 22 / span0;
+  const fade  = 1 - 14 / span0;   // 只留底部 14px 羽化，其餘維持不透明
   const g = ctx.createLinearGradient(0, top, 0, edgeY);
-  g.addColorStop(0,             'rgba(44,60,84,0.95)');
-  g.addColorStop(0.55 * fade,   'rgba(74,94,124,0.90)');
-  g.addColorStop(fade,          'rgba(116,138,170,0.84)');
+  g.addColorStop(0,             'rgba(44,60,84,1)');
+  g.addColorStop(0.55 * fade,   'rgba(70,90,120,0.99)');
+  g.addColorStop(fade,          'rgba(96,118,152,0.97)');
   g.addColorStop(1,             'rgba(150,170,198,0)');
   ctx.fillStyle = g;
   ctx.fillRect(px, top, pw, edgeY + amp * 2 - top);
@@ -2879,18 +3015,92 @@ function drawMapFog(ctx, edgeY, t) {
   ctx.restore();
 }
 
-// ── v2 JP 小島：分歧上方左右各一座，島上的點＝所需的雙色進階合成次數 ──
+// ── 燈塔（JP 小島的收集節點；美術需求說明 編號 21）──
+// 兩個狀態：「未點亮」＝塔身壓暗、燈室不發光；「點亮」＝塔頂燈室發光。
+// anim > 0 時播放點亮瞬間的光暈脈衝（潛水艇抵達那一刻）。
+function drawBeacon(ctx, x, yb, lit, anim, boss, t) {
+  const H = 15, BW = 7;          // 塔高、塔基寬
+  const topY = yb - H;
+  const burst = anim > 0 ? anim / TF(TIMING.mapBeacon) : 0;   // 1 → 0
+  ctx.save();
+
+  // 塔身（下寬上窄的梯形）＋兩道橫紋
+  ctx.beginPath();
+  ctx.moveTo(x - BW / 2, yb);
+  ctx.lineTo(x - BW / 2 + 1.1, topY + 3);
+  ctx.lineTo(x + BW / 2 - 1.1, topY + 3);
+  ctx.lineTo(x + BW / 2, yb);
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(x - BW / 2, 0, x + BW / 2, 0);
+  bg.addColorStop(0,   lit ? '#f2ead6' : '#4a5568');
+  bg.addColorStop(0.5, lit ? '#ffffff' : '#6b7280');
+  bg.addColorStop(1,   lit ? '#c9bda1' : '#374151');
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.strokeStyle = lit ? 'rgba(120,90,40,0.75)' : 'rgba(15,20,30,0.6)';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(x - BW / 2 + 0.6, yb - 4.5); ctx.lineTo(x + BW / 2 - 0.6, yb - 4.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - BW / 2 + 1.0, yb - 8.5); ctx.lineTo(x + BW / 2 - 1.0, yb - 8.5); ctx.stroke();
+
+  // 燈室（塔頂）
+  const lampY = topY + 1.5;
+  if (lit) {
+    const pulse = 0.65 + Math.sin(t / 260) * 0.35;          // 點亮後呼吸
+    ctx.shadowColor = boss.glow;
+    ctx.shadowBlur  = 8 + pulse * 7 + burst * 26;
+    ctx.fillStyle   = boss.glow;
+    ctx.beginPath(); ctx.arc(x, lampY, 2.6 + burst * 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // 左右光束
+    ctx.globalAlpha = 0.16 + pulse * 0.14 + burst * 0.35;
+    ctx.fillStyle = boss.glow;
+    for (const d of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(x, lampY);
+      ctx.lineTo(x + d * 13, lampY - 4.5);
+      ctx.lineTo(x + d * 13, lampY + 4.5);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // 點亮瞬間的擴散環
+    if (burst > 0) {
+      ctx.globalAlpha = burst * 0.85;
+      ctx.strokeStyle = '#fff8d8'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x, lampY, 4 + (1 - burst) * 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  } else {
+    ctx.fillStyle = 'rgba(12,18,28,0.85)';
+    ctx.beginPath(); ctx.arc(x, lampY, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(x, lampY, 2.6, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 塔頂尖
+  ctx.fillStyle = lit ? '#ffe9a8' : 'rgba(255,255,255,0.32)';
+  ctx.beginPath();
+  ctx.moveTo(x - 2.2, lampY - 2.4);
+  ctx.lineTo(x, lampY - 5.2);
+  ctx.lineTo(x + 2.2, lampY - 2.4);
+  ctx.closePath(); ctx.fill();
+
+  ctx.restore();
+}
+
+// ── v2 JP 小島：分歧上方左右各一座，島上的燈塔＝所需的雙色進階合成次數 ──
 //    未開島時兩座都壓暗；開島後只有本局的神那一座亮起，另一座維持壓暗
 function drawJpIslands(ctx, t) {
-  const litSide = sideOfRoute(questRoute);   // 呼叫端已確保分歧定案
+  // 三個狀態（美術需求說明 編號 21）：
+  //   未開啟＝分歧定案前，兩座都壓暗並以雲霧覆蓋
+  //   本局開啟＝亮起；非本局＝壓暗約 26%
+  const opened  = jpIslandOpen();
+  const litSide = opened ? sideOfRoute(questRoute) : 0;
   for (const side of [-1, 1]) {
     const boss   = JP_BOSSES[routeOfSide(side)];
-    const active = side === litSide;
+    const active = opened && side === litSide;
     const cx = mapColX(side), cy = MAP_ISLAND_Y;
     const hw = MAP_PW * 0.20, hh = 26;
 
     ctx.save();
-    if (!active) ctx.globalAlpha = 0.26;   // 落選那座壓暗
+    if (!active) ctx.globalAlpha = 0.26;   // 落選那座（與未開島時的兩座）壓暗
 
     // 島體
     const path = new Path2D();
@@ -2911,18 +3121,11 @@ function drawJpIslands(ctx, t) {
     ctx.font = '17px Arial';
     ctx.fillText(boss.icon, cx, cy - 11);
 
-    // 節點：點亮數 = 已完成的雙色進階合成次數
-    const n = JP_NODES, gap = 15, x0 = cx - (n - 1) * gap / 2;
-    for (let k = 0; k < n; k++) {
+    // 收集節點＝燈塔：點亮數 = 開島後已完成的雙色進階合成次數
+    for (let k = 0; k < JP_NODES; k++) {
       const lit = active && k < jpNodesLit;
-      const nx = x0 + k * gap, ny = cy + 12;
-      if (lit) { ctx.shadowColor = boss.glow; ctx.shadowBlur = 9; }
-      ctx.fillStyle = lit ? boss.color : 'rgba(10,16,26,0.75)';
-      ctx.beginPath(); ctx.arc(nx, ny, 4.6, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = lit ? '#fff8d8' : 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      const p   = beaconPos(k, side);
+      drawBeacon(ctx, p.x, p.y + 6, lit, active ? beaconAnim[k] : 0, boss, t);
     }
     ctx.restore();
 
@@ -2930,6 +3133,65 @@ function drawJpIslands(ctx, t) {
     drawMapPlate(ctx, cx, cy + hh + 9, 'JP', boss.name + '小島',
                  boss.color, active, MAP_PW * 0.42);
   }
+
+  // 小島開啟演繹：定案前一整片雲霧確實蓋住兩座小島；定案瞬間整片向上散去（0.4s）
+  const fogK = !opened ? 1
+             : (islandFogAnim > 0 ? islandFogAnim / TF(TIMING.mapIslandOpen) : 0);
+  if (fogK > 0) drawIslandFogBand(ctx, fogK, t);
+}
+
+// ── 小島雲霧（美術需求說明 編號 21：兩座小島於分歧定案前亦以雲霧覆蓋）──
+// 一整片橫跨面板的帶狀濃霧，與主航道的霧同一套視覺，確實遮住島體、燈塔與名牌。
+// k：1=完全覆蓋 → 0=散盡；散去時整片向上飄移並淡出。
+function drawIslandFogBand(ctx, k, t) {
+  const px = MAP_PX, pw = MAP_PW;
+  const top = MAP_ISLAND_Y - 46;          // 蓋住島體上緣
+  const bot = MAP_ISLAND_Y + 60;          // 一路蓋過名牌下緣（名牌約在 +28~+42）
+  const amp = 5;
+
+  ctx.save();
+  // 只在面板內側，不蓋到描金外框
+  ctx.beginPath(); ctx.roundRect(MAP_PX + 5, MAP_PY + 5, pw - 10, MAP_PH - 10, 7); ctx.clip();
+  ctx.globalAlpha = Math.min(1, k * 1.15);
+  ctx.translate(0, -(1 - k) * 26);        // 向上散去
+
+  // 帶狀霧：上下緣都走波浪，中段實心
+  const wave = (x, ph) => Math.sin(x / 21 + t / 1500 + ph) * amp
+                        + Math.sin(x / 8  - t / 2300 + ph) * amp * 0.35;
+  const band = new Path2D();
+  band.moveTo(px, top + wave(px, 0));
+  for (let x = px; x <= px + pw; x += 6) band.lineTo(x, top + wave(x, 0));
+  for (let x = px + pw; x >= px; x -= 6) band.lineTo(x, bot + wave(x, 1.9));
+  band.closePath();
+
+  ctx.save();
+  ctx.clip(band);
+  // 中段幾乎不透明，只有上下各 14px 羽化，避免變成一條硬邊
+  const span = Math.max(1, bot - top);
+  const f = 10 / span;
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0,         'rgba(126,146,178,0)');
+  g.addColorStop(f,         'rgba(96,118,152,0.97)');
+  g.addColorStop(0.5,       'rgba(74,94,124,0.99)');
+  g.addColorStop(1 - f,     'rgba(96,118,152,0.97)');
+  g.addColorStop(1,         'rgba(126,146,178,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(px, top - amp * 2, pw, span + amp * 4);
+
+  // 霧流紋理：扁長的橫向流動，維持「一整片」的感覺
+  for (let i = 0; i < 4; i++) {
+    const wy = top + span * (0.22 + i * 0.2) + Math.sin(t / 2000 + i * 1.6) * 5;
+    const wx = px + pw * (0.5 + Math.sin(t / 3100 + i * 2.2) * 0.26);
+    const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.5);
+    rg.addColorStop(0, 'rgba(226,236,248,0.16)');
+    rg.addColorStop(1, 'rgba(226,236,248,0)');
+    ctx.fillStyle = rg;
+    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.3); ctx.translate(-wx, -wy);
+    ctx.beginPath(); ctx.arc(wx, wy, pw * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  ctx.restore();
 }
 
 // ── 旗子（已抵達的地標）──
@@ -3044,7 +3306,25 @@ function drawMapPanel(ctx) {
       if (lost) ctx.globalAlpha = 0.32;   // 落選分支：整組壓淡
 
       // 地標方塊
-      const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), color, nodeColor2(i, side));
+      // 第 1 站（分歧站）：不論是否定案，版面都維持「金（左）／紅（右）」雙色並置，
+      // 定案後改由下方的「落敗色壓黑」表現收為單色，避免地標寬度／配色跳動。
+      const _isForkNode = RULE_VERSION === 2 && i === 0;
+      const _blkC1 = _isForkNode ? COLOR_HEX[V2_FORK_COLORS[1]] : color;
+      const _blkC2 = _isForkNode ? COLOR_HEX[V2_FORK_COLORS[0]] : nodeColor2(i, side);
+      const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), _blkC1, _blkC2);
+      // 分歧定案演繹：落敗色那一半壓黑（企畫「雙色地標收為單色，落敗色壓黑」）
+      if (_isForkNode && questRoute >= 0) {
+        const _winColorId = V2_FORK_COLORS[questRoute];
+        const _lostIsLeft = _winColorId !== V2_FORK_COLORS[1];   // 左半固定是金
+        const _k = forkResolveAnim > 0
+          ? 1 - forkResolveAnim / TF(TIMING.mapForkResolve)      // 0 → 1 漸暗
+          : 1;
+        ctx.save();
+        ctx.clip(isle);
+        ctx.fillStyle = `rgba(3,7,16,${0.82 * _k})`;
+        ctx.fillRect(_lostIsLeft ? ncx - rw - 2 : ncx, ncy - NODE_RH - 2, rw + 2, NODE_RH * 2 + 4);
+        ctx.restore();
+      }
       // 未插旗：壓黑
       if (!isDone) {
         ctx.save(); ctx.clip(isle);
@@ -3085,9 +3365,9 @@ function drawMapPanel(ctx) {
   // ── 未揭示區域：一整片霧（分界線以上全覆蓋）──
   drawMapFog(ctx, mapFogEdgeY(), t);
 
-  // ── v2：分歧兩側的 JP 小島。船還在起點（分歧未定）時整組不畫，
-  //    定案開島後才出現，畫在霧之上 ──
-  if (RULE_VERSION === 2 && jpIslandOpen()) drawJpIslands(ctx, t);
+  // ── v2：分歧兩側的 JP 小島，畫在霧之上。
+  //    定案前兩座都被雲霧覆蓋（drawJpIslands 內處理），定案時雲霧散去、本局那座亮起 ──
+  if (RULE_VERSION === 2) drawJpIslands(ctx, t);
 
   // ── 濺起粒子 ──
   for (const s of mapSplash) {
@@ -3623,6 +3903,11 @@ function update(dt) {
 
       // JP 報獎動畫進行中 → 凍結（此路徑只作保護，正常由 win===0 else 分支處理）
       if (jpWinAnim.active) break;
+
+      // v2：潛水艇還在移動、或 JP 小島節點佇列還沒清完 → 等它跑完再結算。
+      // 保證「JP 彩金於該局連爆完全結束後才給付」，也不會漏掉最後一座燈塔。
+      // （只擋 moving：潛水艇開島後常駐待命，active 會一直是 true）
+      if (RULE_VERSION === 2 && (mapSub.moving || jpAdvQueue.length)) break;
 
       // 緩衝結束 → 結算（進階合成已在進入 settle 前套用）
       synthOpIdx   = -1;
@@ -4252,7 +4537,8 @@ function drawBoard(ctx) {
     const mergeCnt = Math.max(m.displayCount || 1, 1);
 
     if (mergeArt) {
-      // 合成圖示不做橫切分割，整張完整顯示；倍數只用右上角標籤表示
+      // 合成圖示整張完整顯示，視覺上不做橫切分裂；
+      // 分裂層數只用右上角的 ×N 徽章表示（drawSplitBadge）。
       drawArtCell(ctx, mergeArt, x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R);
     } else if (m.size === 4 && m.colorId2 !== undefined) {
       // 1×4 備援：左→右漸層雙色
@@ -4301,13 +4587,10 @@ function drawBoard(ctx) {
     {
       const cnt = mergeCnt;
       if (!mergeArt) {
-        const lay = getSplitLayout(cnt);
-        const fs  = Math.floor(CELL_SIZE * lay.fontSize);
-        ctx.font = `${fs}px Arial`;
-        for (const [, ry] of lay.pos) {
-          ctx.fillText('🧑', x + w * 0.35, y + ry * CELL_SIZE);
-          ctx.fillText('⚔️', x + w * 0.65, y + ry * CELL_SIZE);
-        }
+        // 備援同樣不分層，單組置中即可
+        ctx.font = `${Math.floor(CELL_SIZE * 0.34)}px Arial`;
+        ctx.fillText('🧑', x + w * 0.35, y + CELL_SIZE * 0.5);
+        ctx.fillText('⚔️', x + w * 0.65, y + CELL_SIZE * 0.5);
       }
       drawSplitBadge(ctx, x, y, w, cnt);
     }
@@ -4481,17 +4764,21 @@ function drawForceMenu(ctx) {
   if (!showForceMenu) return;
 
   const menuX = 148, menuW = 110;
+  // 強開選項＝一般遊戲頁「NG出牌規則／SERVER 強開選項」那張表
   const opts = [
     { label: '關閉',    value: null },
     { label: '合成',    value: 'synth' },
     { label: '進階合成', value: 'adv_synth' },
-    { label: '4色合成', value: 'all_synth' },
-    { label: '強開SFG', value: 'force_sfg' },
-    { label: '強開FG',  value: 'force_fg' },
-    { label: '條件5',   value: 'cond_5' },
+    { label: '條件1',   value: 'cond_1' },
+    { label: '條件2',   value: 'cond_2' },
+    { label: '條件3',   value: 'cond_3' },
+    { label: '條件4',   value: 'cond_4' },
+    { label: '獲得JP',  value: 'force_jp' },
+    { label: '進FG',    value: 'force_fg' },
+    { label: '進SFG',   value: 'force_sfg' },
   ];
   const options = opts.map(o => ({ label: o.label, type: o.value }));
-  const menuH = 10 + options.length * 40 - 8 + 10; // 252px for 6 items
+  const menuH = 10 + options.length * 40 - 8 + 10;
   const menuY = 658 - menuH - 6;  // 上浮到 強開 按鈕上方
   ctx.fillStyle = 'rgba(10,18,35,0.97)';
   ctx.beginPath();
@@ -4525,8 +4812,7 @@ function drawForceMenu(ctx) {
 
 function drawSpinButton(ctx) {
   const spinX = LAYOUT.spinBtn.x, spinY = LAYOUT.spinBtn.y, spinW = LAYOUT.spinBtn.w, spinH = LAYOUT.spinBtn.h;
-  const inputLocked = erisMultiplierAnim.active;
-  let spinColor = (currentState !== STATE.IDLE || inputLocked) ? '#475569' : (isMouseHoverSpin ? '#38bdf8' : '#0ea5e9');
+  let spinColor = (currentState !== STATE.IDLE) ? '#475569' : (isMouseHoverSpin ? '#38bdf8' : '#0ea5e9');
   ctx.fillStyle = spinColor;
   ctx.beginPath();
   ctx.roundRect(spinX, spinY, spinW, spinH, 27);
@@ -4538,7 +4824,7 @@ function drawSpinButton(ctx) {
   ctx.fillText('SPIN', spinX + spinW / 2, spinY + spinH / 2);
 
   const autoX = LAYOUT.autoBtn.x, autoY = LAYOUT.autoBtn.y, autoW = LAYOUT.autoBtn.w, autoH = LAYOUT.autoBtn.h;
-  let autoColor = inputLocked ? '#475569' : (isAutoSpinning ? '#059669' : (isMouseHoverAuto ? '#6d28d9' : '#4f46e5'));
+  let autoColor = isAutoSpinning ? '#059669' : (isMouseHoverAuto ? '#6d28d9' : '#4f46e5');
   ctx.fillStyle = autoColor;
   ctx.beginPath();
   ctx.roundRect(autoX, autoY, autoW, autoH, 27);
@@ -5157,8 +5443,6 @@ canvas.addEventListener('click', e => {
   const mx = (e.clientX - rect.left) * (1280 / rect.width);
   const my = (e.clientY - rect.top) * (720 / rect.height);
 
-  if (erisMultiplierAnim.active) return;
-
   // 轉場／大獎／載入頁播放中，忽略點擊
   if (transition.active) return;
   if (bigWin.active) { bigWin.active = false; return; }   // 點擊可略過大獎跑分
@@ -5238,14 +5522,18 @@ canvas.addEventListener('click', e => {
   // 強開選單選項（優先判斷，避免被按鈕覆蓋）
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
+    // ※ 與 drawForceMenu() 的 opts 必須一致（順序即點擊命中的索引）
     const forceOpts = [
       { label: '關閉',    value: null },
       { label: '合成',    value: 'synth' },
       { label: '進階合成', value: 'adv_synth' },
-      { label: '4色合成', value: 'all_synth' },
-      { label: '強開SFG', value: 'force_sfg' },
-      { label: '強開FG',  value: 'force_fg' },
-      { label: '條件5',   value: 'cond_5' },
+      { label: '條件1',   value: 'cond_1' },
+      { label: '條件2',   value: 'cond_2' },
+      { label: '條件3',   value: 'cond_3' },
+      { label: '條件4',   value: 'cond_4' },
+      { label: '獲得JP',  value: 'force_jp' },
+      { label: '進FG',    value: 'force_fg' },
+      { label: '進SFG',   value: 'force_sfg' },
     ];
     const menuH = 10 + forceOpts.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
