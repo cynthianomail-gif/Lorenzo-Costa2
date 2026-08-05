@@ -416,7 +416,8 @@
             <p>• 地圖共 5 個里程碑；達成條件後依序解鎖</p>
             <p>• 每完成一步，盤面暫停並跳出動畫，揭示下一個條件</p>
             <p>• 第 5 步（科爾基斯聖林）：達成進階合成（1×4 格）即完成並獲得 JP</p>
-            <p>• 每局 Spin 開始時地圖重置（SFG 中不重置，持續累積）</p>
+            <p>• NG 每局 Spin 開始時地圖重置</p>
+            <p>• FG／SFG <b>進場時先歸零</b>，進場後整段不重置、進度持續累積</p>
             <p>• 規則有<b>兩個版本</b>，可在 🔧 調校面板的「🗺️ 規則」分頁切換：</p>
             <p>&nbsp;&nbsp;<b>v1 四色隨機</b>：4 色隨機排序，各完成合成 1 次，盤面倍數依序 ×2 / ×3 / ×5 / ×10</p>
             <p>&nbsp;&nbsp;<b>v2 航線分歧</b>：藍／綠 二選一 → 另一色 → <b>紅｜金 分歧</b> → 另一色 → 進階合成</p>
@@ -451,13 +452,14 @@
             <p>• 點擊「出發！」進入 <b>10 局免費遊戲</b>，全程自動 Spin</p>
             <p>• FG 中不會再出現船頭 / 船尾符號</p>
             <p>• 分裂倍數<b>跨局累積</b>（最高 ×4），FG 結束後才重置</p>
-            <p>• FG 結束後返回一般模式，分割狀態回到初始值</p>
+            <p>• <b>右側航海地圖進場先歸零</b>（NG 的進度不帶進來），之後跨局不重置</p>
+            <p>• FG 結束後返回一般模式，分割狀態與地圖回到初始值</p>
 
             <h3>▌ ⚓ Super Free Game（SFG）</h3>
             <p>• NG 中<b>船頭與船尾相鄰並合成</b>即觸發 SFG（比 FG 更強）</p>
             <p>• 進入 <b>15 局免費遊戲</b>，全程自動 Spin</p>
             <p>• 分裂倍數<b>跨局累積</b>（最高 ×4）</p>
-            <p>• <b>右側航海地圖不重置</b>，進度持續往上累積</p>
+            <p>• <b>右側航海地圖進場先歸零</b>（NG 的進度不帶進來），之後不重置、持續往上累積</p>
             <p>• SFG 結束後返回一般模式，分割與地圖重置</p>
 
             <h3>▌ 宙斯 / 赫拉 JP</h3>
@@ -564,9 +566,9 @@ const DEFAULT_TIMING = {
   popFxLow:          0.20,  // 消除演繹・低（圖示爆破）
   popFxMid:          0.40,  // 消除演繹・中
   popFxHigh:         0.45,  // 消除演繹・高
-  popDimAlpha:       0.40,  // 未得分圖示壓暗強度 0~1（疊黑不透明度）
-                            // 視覺流程圖：得分組亮起、其餘「壓暗至約 60%」＝保留 6 成亮度＝疊黑 0.4
-                            // （面板可即時調整；先前曾試調到 0.80，現對齊企畫書 V3）
+  popDimAlpha:       0.80,  // 未得分圖示壓暗強度 0~1（疊黑不透明度）
+                            // 視覺流程圖寫「壓暗至約 60%」＝疊黑 0.4，但實機看得分組不夠跳，
+                            // 2026-08-05 企劃實調後匯出的值＝0.80（面板可即時調整）
   winGroupStep:      0.45,  // 多組得分時，每一組依序框起的間隔（只有一組時不套用）
   scorePop:          0.20,  // 得分數字於中央放大彈出
   multFly:           0.50,  // 倍數數字從大到小打入得分數
@@ -892,7 +894,7 @@ const POP_STYLES = [
   ['光焰爆散', '加亮的火星向上浮，外加一圈衝擊波'],
   ['浪花捲走', '水滴向上濺再落下，帶拖尾與浪花圈'],
 ];
-const DEFAULT_POP_STYLE = 0;
+const DEFAULT_POP_STYLE = 1;  // 2026-08-05 企劃實調後匯出的值＝「光焰爆散」
 let POP_STYLE = DEFAULT_POP_STYLE;
 
 const DEFAULT_RULE_VERSION = 2;
@@ -1179,7 +1181,8 @@ function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false;
 
 // ============================================================
 // === FG／SFG 特色強化（企畫書 V3・v2 規則）===
-//   FG ：地圖條件與 JP 小島收集點進度不重置，直到 FG 結束
+//   FG ：進場先把地圖條件與 JP 小島收集點進度歸零（NG 的進度不帶進來），
+//        進場後就不再重置，一路累積到 FG 結束
 //        ※ FG 中最多獲得 1 次 JP；獲得後小島停止累積
 //        （分裂不累積，與 NG 相同每局歸零、上限 2×1）
 //   SFG：在 FG 的基礎上再加分裂數量持續累積，上限 4×1；其餘機制與 FG 相同
@@ -2966,23 +2969,43 @@ function drawMapChain(ctx, x0, y0, x1, y1, done, dim) {
   ctx.restore();
 }
 
-// ── 未揭示區域遮罩（美術需求說明 編號 20）──
-//    整片覆蓋：分界線以上全是霧，不是每個地標各罩一團
+// ── 未揭示區域遮罩（美術需求說明 編號 20／21）──
+//    全圖只有「一種」雲霧、也只有一整片：分界線以上全是霧，不是每個地標各罩一團。
+//    v2：分歧定案前，同一片霧一路往下蓋住上方那兩座 JP 小島（不再另畫一條帶狀霧）。
 function mapFogTop() { return MAP_PY + MAP_JP_H - 8; }
 // rev = 已揭示的最高步驟索引 → 霧的底緣 y
 function mapFogEdgeFor(rev) {
   if (rev >= questStepCount() - 1) return mapFogTop() - 6;   // 全開：退到標題下緣以上
   return (MAP_STEP_YS[rev] + MAP_STEP_YS[rev + 1]) / 2 + 9;
 }
+// 連 JP 小島一起蓋住時的底緣：島體下緣再往下一點，
+// 讓羽化帶整段落在小島與第 1 站之間的空海面，不會糊到分歧地標
+function mapFogIslandEdge() { return MAP_ISLAND_Y + 42; }
+// 小島開啟後霧最低只能到這裡：島體上緣之上，霧不會切在島身上
+function mapFogIslandClear() { return MAP_ISLAND_Y - 34; }
 // 目前的霧底緣：解鎖演繹進行中時，整片霧從舊分界往上退
 function mapFogEdgeY() {
+  let edge = mapFogEdgeFor(questReveal);
   for (let i = 4; i >= 1; i--) {
     if (mapMaskAnim[i] > 0) {
       const k = mapMaskAnim[i] / TF(TIMING.mapMask);  // 1 → 0
-      return mapFogEdgeFor(i) + (mapFogEdgeFor(i - 1) - mapFogEdgeFor(i)) * k;
+      edge = mapFogEdgeFor(i) + (mapFogEdgeFor(i - 1) - mapFogEdgeFor(i)) * k;
+      break;
     }
   }
-  return mapFogEdgeFor(questReveal);
+  // v2 JP 小島：定案前霧一路壓到島下緣；定案瞬間（mapIslandOpen）整片往上退到島上方
+  if (RULE_VERSION === 2) {
+    if (!jpIslandOpen()) {
+      edge = Math.max(edge, mapFogIslandEdge());
+    } else {
+      edge = Math.min(edge, mapFogIslandClear());   // 定案後霧不切在島身上
+      if (islandFogAnim > 0) {
+        const k = islandFogAnim / TF(TIMING.mapIslandOpen);   // 1 → 0
+        edge = edge + (mapFogIslandEdge() - edge) * k;        // 從島下緣往上退
+      }
+    }
+  }
+  return edge;
 }
 function drawMapFog(ctx, edgeY, t) {
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW;
@@ -3004,14 +3027,15 @@ function drawMapFog(ctx, edgeY, t) {
 
   ctx.save();
   ctx.clip(p);
-  // 深處濃、邊緣淡：未探索區壓暗，最後 22px 淡出，讓分界是「散開」不是一道稜線
+  // 中段維持同一個濃度（原小島帶狀霧的那種），只有底部 14px 羽化，
+  // 讓分界是「散開」不是一道稜線
   const span0 = Math.max(24, edgeY - top);
-  const fade  = 1 - 14 / span0;   // 只留底部 14px 羽化，其餘維持不透明
+  const fade  = 1 - 14 / span0;
   const g = ctx.createLinearGradient(0, top, 0, edgeY);
-  g.addColorStop(0,             'rgba(44,60,84,1)');
-  g.addColorStop(0.55 * fade,   'rgba(70,90,120,0.99)');
+  g.addColorStop(0,             'rgba(74,94,124,0.99)');
+  g.addColorStop(0.55 * fade,   'rgba(74,94,124,0.99)');
   g.addColorStop(fade,          'rgba(96,118,152,0.97)');
-  g.addColorStop(1,             'rgba(150,170,198,0)');
+  g.addColorStop(1,             'rgba(126,146,178,0)');
   ctx.fillStyle = g;
   ctx.fillRect(px, top, pw, edgeY + amp * 2 - top);
   // 霧流：扁長的橫向流動，維持「一整片」的感覺
@@ -3020,22 +3044,14 @@ function drawMapFog(ctx, edgeY, t) {
     const wy = top + ((k * span / 4) + (t / 70) % span) % span;
     const wx = px + pw * (0.5 + Math.sin(t / 3400 + k * 2.1) * 0.22);
     const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.55);
-    rg.addColorStop(0, 'rgba(226,236,248,0.13)');
+    rg.addColorStop(0, 'rgba(226,236,248,0.16)');
     rg.addColorStop(1, 'rgba(226,236,248,0)');
     ctx.fillStyle = rg;
-    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.24); ctx.translate(-wx, -wy);
+    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.3); ctx.translate(-wx, -wy);
     ctx.beginPath(); ctx.arc(wx, wy, pw * 0.55, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
   ctx.restore();
-
-  // 底緣稍微提亮，暗示霧在這裡翻捲散開（不畫實線，避免變成稜線）
-  const eg = ctx.createLinearGradient(0, edgeY - 26, 0, edgeY + 4);
-  eg.addColorStop(0,   'rgba(214,228,244,0)');
-  eg.addColorStop(0.6, 'rgba(214,228,244,0.16)');
-  eg.addColorStop(1,   'rgba(214,228,244,0)');
-  ctx.fillStyle = eg;
-  ctx.save(); ctx.clip(p); ctx.fillRect(px, edgeY - 26, pw, 30); ctx.restore();
   ctx.restore();
 }
 
@@ -3153,70 +3169,16 @@ function drawJpIslands(ctx, t) {
     }
     ctx.restore();
 
-    // 名牌
-    drawMapPlate(ctx, cx, cy + hh + 9, 'JP', boss.name + '小島',
-                 boss.color, active, MAP_PW * 0.42);
+    // 名牌（定案前整區被主航道那片霧壓住，就不畫，
+    //       霧的羽化帶才能整段落在小島與第 1 站之間的空海面）
+    if (opened) {
+      drawMapPlate(ctx, cx, cy + hh + 9, 'JP', boss.name + '小島',
+                   boss.color, active, MAP_PW * 0.42);
+    }
   }
-
-  // 小島開啟演繹：定案前一整片雲霧確實蓋住兩座小島；定案瞬間整片向上散去（0.4s）
-  const fogK = !opened ? 1
-             : (islandFogAnim > 0 ? islandFogAnim / TF(TIMING.mapIslandOpen) : 0);
-  if (fogK > 0) drawIslandFogBand(ctx, fogK, t);
 }
 
-// ── 小島雲霧（美術需求說明 編號 21：兩座小島於分歧定案前亦以雲霧覆蓋）──
-// 一整片橫跨面板的帶狀濃霧，與主航道的霧同一套視覺，確實遮住島體、燈塔與名牌。
-// k：1=完全覆蓋 → 0=散盡；散去時整片向上飄移並淡出。
-function drawIslandFogBand(ctx, k, t) {
-  const px = MAP_PX, pw = MAP_PW;
-  const top = MAP_ISLAND_Y - 46;          // 蓋住島體上緣
-  const bot = MAP_ISLAND_Y + 60;          // 一路蓋過名牌下緣（名牌約在 +28~+42）
-  const amp = 5;
-
-  ctx.save();
-  // 只在面板內側，不蓋到描金外框
-  ctx.beginPath(); ctx.roundRect(MAP_PX + 5, MAP_PY + 5, pw - 10, MAP_PH - 10, 7); ctx.clip();
-  ctx.globalAlpha = Math.min(1, k * 1.15);
-  ctx.translate(0, -(1 - k) * 26);        // 向上散去
-
-  // 帶狀霧：上下緣都走波浪，中段實心
-  const wave = (x, ph) => Math.sin(x / 21 + t / 1500 + ph) * amp
-                        + Math.sin(x / 8  - t / 2300 + ph) * amp * 0.35;
-  const band = new Path2D();
-  band.moveTo(px, top + wave(px, 0));
-  for (let x = px; x <= px + pw; x += 6) band.lineTo(x, top + wave(x, 0));
-  for (let x = px + pw; x >= px; x -= 6) band.lineTo(x, bot + wave(x, 1.9));
-  band.closePath();
-
-  ctx.save();
-  ctx.clip(band);
-  // 中段幾乎不透明，只有上下各 14px 羽化，避免變成一條硬邊
-  const span = Math.max(1, bot - top);
-  const f = 10 / span;
-  const g = ctx.createLinearGradient(0, top, 0, bot);
-  g.addColorStop(0,         'rgba(126,146,178,0)');
-  g.addColorStop(f,         'rgba(96,118,152,0.97)');
-  g.addColorStop(0.5,       'rgba(74,94,124,0.99)');
-  g.addColorStop(1 - f,     'rgba(96,118,152,0.97)');
-  g.addColorStop(1,         'rgba(126,146,178,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(px, top - amp * 2, pw, span + amp * 4);
-
-  // 霧流紋理：扁長的橫向流動，維持「一整片」的感覺
-  for (let i = 0; i < 4; i++) {
-    const wy = top + span * (0.22 + i * 0.2) + Math.sin(t / 2000 + i * 1.6) * 5;
-    const wx = px + pw * (0.5 + Math.sin(t / 3100 + i * 2.2) * 0.26);
-    const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.5);
-    rg.addColorStop(0, 'rgba(226,236,248,0.16)');
-    rg.addColorStop(1, 'rgba(226,236,248,0)');
-    ctx.fillStyle = rg;
-    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.3); ctx.translate(-wx, -wy);
-    ctx.beginPath(); ctx.arc(wx, wy, pw * 0.5, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  ctx.restore();
-  ctx.restore();
-}
+// 小島的雲霧不再單獨畫一條帶狀霧：改由主航道那一整片霧一路蓋下來（見 mapFogIslandEdge）
 
 // ── 旗子（已抵達的地標）──
 function drawMapFlag(ctx, x, y, color, anim, t) {
@@ -3386,12 +3348,11 @@ function drawMapPanel(ctx) {
     }
   }
 
-  // ── 未揭示區域：一整片霧（分界線以上全覆蓋）──
-  drawMapFog(ctx, mapFogEdgeY(), t);
-
-  // ── v2：分歧兩側的 JP 小島，畫在霧之上。
-  //    定案前兩座都被雲霧覆蓋（drawJpIslands 內處理），定案時雲霧散去、本局那座亮起 ──
+  // ── v2：分歧兩側的 JP 小島（畫在霧之下，定案前由霧一起覆蓋）──
   if (RULE_VERSION === 2) drawJpIslands(ctx, t);
+
+  // ── 未揭示區域：一整片霧，分界線以上全覆蓋（未開放的主航線 ＋ 未定案的 JP 小島）──
+  drawMapFog(ctx, mapFogEdgeY(), t);
 
   // ── 濺起粒子 ──
   for (const s of mapSplash) {
@@ -5467,13 +5428,12 @@ canvas.addEventListener('click', e => {
   if (bigWin.active) { bigWin.active = false; return; }   // 點擊可略過大獎跑分
 
   // 進入免費遊戲：分裂歸零重新起算。
-  // v2：地圖條件與 JP 小島收集點進度「不重置」——FG／SFG 直接接續 NG 的地圖狀態，
-  //     一路保留到 FG 結束（結束時才由 resetAfterFreeGame() 歸零）。
-  // v1：維持舊行為，進場就把地圖與船整個重置。
+  // 地圖條件與 JP 小島收集點進度也一律「先回到原點」——NG 累積到的進度不帶進 FG／SFG，
+  // 船一併回出發港。進場之後才在 FG／SFG 內跨局保留（見 mapPersists()），
+  // 一路保留到 FG／SFG 結束（結束時由 resetAfterFreeGame() 再歸零）。
   function _resetForFreeGame() {
     splitCount = [1, 1, 1, 1];
     forceSpinType = null;
-    if (RULE_VERSION === 2) return;   // 地圖、小島進度、船的位置全部原封不動帶進 FG
 
     mapFlags = [false, false, false, false, false];
     mapMaskAnim = [0, 0, 0, 0, 0];
@@ -5626,7 +5586,7 @@ function gameLoop(ts) {
 // === 調校面板：節奏甘特圖 + 佈局拖曳 + 取圖 + localStorage ===
 // ============================================================
 const TUNE_KEY = 'argo_tuning';
-const TUNE_VERSION = 2;  // v2: 套用企劃 2026-08-03 匯出的取圖焦點；移除載入頁。舊存檔自動作廃。
+const TUNE_VERSION = 3;  // v3: 套用企劃 2026-08-05 匯出的設定（壓暗 0.80、消除演繹「光焰爆散」）。舊存檔自動作廃。
 let tunePanelOpen = false;
 let tuneTab = 'timing';        // 'timing' | 'layout' | 'crop' | 'rules'
 let layoutEditMode = false;    // 佈局分頁開啟中 = 編輯模式（攔截畫布輸入）
