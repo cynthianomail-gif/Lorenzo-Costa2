@@ -1174,8 +1174,22 @@ const JP_BOSSES = [
   { icon: '👑', name: '赫拉', label: '👑 赫拉', color: '#ec4899', glow: '#f472b6', value: 888888 },
 ];
 let jpBoss = Math.random() < 0.5 ? 0 : 1;   // 本局 JP 歸屬：0=宙斯 1=赫拉
-let jpGranted = false; // 本輪地圖的 JP 是否已發放（SFG 地圖跨局不重置，避免重複發）
+let jpGranted = false; // 本輪地圖的 JP 是否已發放（地圖跨局不重置時，靠它擋掉重複發）
 function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false; }
+
+// ============================================================
+// === FG／SFG 特色強化（企畫書 V3・v2 規則）===
+//   FG ：地圖條件與 JP 小島收集點進度不重置，直到 FG 結束
+//        ※ FG 中最多獲得 1 次 JP；獲得後小島停止累積
+//        （分裂不累積，與 NG 相同每局歸零、上限 2×1）
+//   SFG：在 FG 的基礎上再加分裂數量持續累積，上限 4×1；其餘機制與 FG 相同
+//   v1 為舊版規則，維持原行為：FG/SFG 都累積分裂，只有 SFG 地圖不重置。
+// ============================================================
+// 分裂是否跨局累積（同時決定分裂上限 4×1／2×1）
+function splitAccumulates() { return RULE_VERSION === 2 ? inSFG : (inFG || inSFG); }
+function maxSplitCap()      { return splitAccumulates() ? 4 : 2; }
+// 地圖條件與 JP 小島進度是否跨局保留
+function mapPersists()      { return RULE_VERSION === 2 ? (inFG || inSFG) : inSFG; }
 
 // === FREE GAME / SUPER FREE GAME 狀態 ===
 let inFG = false;            // 是否在 Free Game 中
@@ -1398,16 +1412,18 @@ function resetRoundState() {
   forceLineRows = null;
   forceLineRows2 = null;
   forceLineSymbol = -1;
-  // 合成狀態重置（FG/SFG 中 splitCount 累積不重置，NG 每局重置）
-  if (!inFG && !inSFG) splitCount = [1, 1, 1, 1];
+  // 合成狀態重置：分裂累積模式下不歸零（v2 = 只有 SFG；v1 = FG+SFG）
+  if (!splitAccumulates()) splitCount = [1, 1, 1, 1];
   synthesizedColors = new Set();
   mergedCells = [];
-  // 待補判是「單次合成事件」的暫存，每局都要清（SFG 地圖不重置也一樣）。
+  // 待補判是「單次合成事件」的暫存，每局都要清（地圖不重置時也一樣）。
   // questAdvSeq 不清：它靠 seq 與 questStage4Seq 比先後，留著才不會在
   // 「第 4 關的解鎖演繹還沒播完就開下一局」時漏掉一次合法的 JP。
   questPending = []; jpAdvQueue = [];
-  // 地圖面板：SFG 中不重置地圖進度（持續往上）；NG/FG 每局重置
-  if (!inSFG) {
+  // 地圖面板：地圖保留模式下不重置（v2 = FG+SFG 都保留；v1 = 只有 SFG），
+  // JP 小島的收集點進度（jpNodesLit）與 jpGranted 都在 buildQuestPlan 裡一併歸零，
+  // 所以「地圖不重置」＝「小島進度也不重置」＝「本輪最多再拿 1 次 JP」。
+  if (!mapPersists()) {
     mapFlags = [false, false, false, false, false];
     questProgress = 0;
     questScoreMultiplier = 1;
@@ -1645,10 +1661,10 @@ function applySingleSynthesis(col, row) {
   if (!a || !b || a.isMerged || b.isMerged) return false;
   const colorId = Math.floor(a.id / 2);
   const displayCount = splitCount[colorId] || 1; // 合成前的值 = 此格的顯示數
-  const MAX_SPLIT = (inFG || inSFG) ? 4 : 2;
+  const MAX_SPLIT = maxSplitCap();
   const _isNewColor = !synthesizedColors.has(colorId);
-  if (inFG || inSFG) {
-    // FG/SFG 中：直接累積（不重設為2）
+  if (splitAccumulates()) {
+    // 分裂跨局累積的模式（v2 = SFG／v1 = FG+SFG）：直接累積，不重設為 2
     if (splitCount[colorId] < MAX_SPLIT) splitCount[colorId]++;
     synthesizedColors.add(colorId);
   } else if (synthesizedColors.has(colorId)) {
@@ -1696,7 +1712,7 @@ function applyAdvancedSynthesis() {
       const rightM = mA.col < mB.col ? mB : mA;
       if (leftM.col + 2 !== rightM.col) continue;
       const displayCount4 = Math.max(leftM.displayCount || 1, rightM.displayCount || 1); // 合成前的值
-      const _maxSplit = (inFG || inSFG) ? 4 : 2;
+      const _maxSplit = maxSplitCap();
       if (splitCount[leftM.colorId]  < _maxSplit) splitCount[leftM.colorId]++;
       if (splitCount[rightM.colorId] < _maxSplit) splitCount[rightM.colorId]++;
       const newMerge = { col: leftM.col, row: leftM.row, colorId: leftM.colorId, colorId2: rightM.colorId, size: 4, displayCount: displayCount4 };
@@ -1895,6 +1911,16 @@ function calcWin() {
   return totalWin;
 }
 
+// FG／SFG 全部局數打完：分裂、地圖條件與 JP 小島收集點進度一併歸零
+// （企畫「不會重置，直到 FG 結束」＝ 結束的這一刻才重置）
+function resetAfterFreeGame() {
+  splitCount = [1, 1, 1, 1];
+  mapFlags = [false, false, false, false, false];
+  questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
+  buildQuestPlan();   // 內含 jpNodesLit / jpGranted / 潛水艇 / 燈塔 的歸零
+  tmAnim = { active: false, timer: 0, stepIdx: -1 };
+}
+
 function endRound() {
   // 沖銷仍在飛行的分數，確保 winScore 完整
   flyingScores.forEach(fs => { winScore += fs.value; });
@@ -1905,13 +1931,11 @@ function endRound() {
   currentState = STATE.IDLE;
 
   if (inSFG && sfgSpinsLeft <= 0) {
-    inSFG = false; showSFGEndPanel = true; splitCount = [1,1,1,1];
-    mapFlags = [false,false,false,false,false];
-    questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
-    buildQuestPlan();
-    tmAnim = { active: false, timer: 0, stepIdx: -1 };
+    inSFG = false; showSFGEndPanel = true;
+    resetAfterFreeGame();
   } else if (inFG && fgSpinsLeft <= 0) {
-    inFG = false; showFGEndPanel = true; splitCount = [1, 1, 1, 1];
+    inFG = false; showFGEndPanel = true;
+    resetAfterFreeGame();
   } else if (shipSFGPending) {
     // 交給 IDLE 流程，先播 SC 中獎演繹再開面板
     shipSFGPending = false; shipSFGReady = true;
@@ -3954,20 +3978,15 @@ function update(dt) {
           shipFGPending = false;
           shipFGReady   = true;
         } else if (inSFG && sfgSpinsLeft <= 0) {
-          // SFG 全部局數打完，結束SFG
+          // SFG 全部局數打完 → 分裂／地圖／小島進度一併重置
           inSFG = false;
           showSFGEndPanel = true;
-          splitCount = [1, 1, 1, 1];
-          // SFG 結束 → 重置地圖
-          mapFlags = [false, false, false, false, false];
-          questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
-          buildQuestPlan();
-          tmAnim = { active: false, timer: 0, stepIdx: -1 };
+          resetAfterFreeGame();
         } else if (inFG && fgSpinsLeft <= 0) {
-          // FG 全部局數打完，結束FG
+          // FG 全部局數打完 → 同上
           inFG = false;
           showFGEndPanel = true;
-          splitCount = [1, 1, 1, 1];
+          resetAfterFreeGame();
         }
         currentState = STATE.IDLE;
       }
@@ -5447,9 +5466,15 @@ canvas.addEventListener('click', e => {
   if (transition.active) return;
   if (bigWin.active) { bigWin.active = false; return; }   // 點擊可略過大獎跑分
 
-  // 進入免費遊戲：重置分裂與地圖任務，並把船送回出發港
+  // 進入免費遊戲：分裂歸零重新起算。
+  // v2：地圖條件與 JP 小島收集點進度「不重置」——FG／SFG 直接接續 NG 的地圖狀態，
+  //     一路保留到 FG 結束（結束時才由 resetAfterFreeGame() 歸零）。
+  // v1：維持舊行為，進場就把地圖與船整個重置。
   function _resetForFreeGame() {
     splitCount = [1, 1, 1, 1];
+    forceSpinType = null;
+    if (RULE_VERSION === 2) return;   // 地圖、小島進度、船的位置全部原封不動帶進 FG
+
     mapFlags = [false, false, false, false, false];
     mapMaskAnim = [0, 0, 0, 0, 0];
     mapFlagAnim = [0, 0, 0, 0, 0];
@@ -5463,7 +5488,6 @@ canvas.addEventListener('click', e => {
       mapShip.frame = 0; mapShip.totalFrames = mapFlyFrames(); mapShip.flying = true;
     }
     mapShip.pauseTimer = 0; mapShip.returnPending = false; mapShip.targetColorId = -1;
-    forceSpinType = null;
   }
 
   // SFG 進入介面：點擊美術圖上的 START
