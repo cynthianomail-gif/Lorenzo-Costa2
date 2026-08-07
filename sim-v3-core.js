@@ -389,7 +389,10 @@
         matchCount++; ways *= colCounts[col];
       }
       if (matchCount >= 3) {
-        const rate = PAYOUTS[symId][matchCount - 3];
+        // 賠率係數：整張 PAYOUTS 等比縮放（相對關係不變），1 = demo 原值。
+        // 注意 floor() 在此之後 —— 係數愈小、無條件捨去的相對損失愈大，
+        // 所以 RTP 對係數並非嚴格線性，校準必須實掃而不能用比例外推。
+        const rate = PAYOUTS[symId][matchCount - 3] * (S.payoutCoef || 1);
         const symWin = Math.floor(bet * rate * ways);
         totalWin += symWin;
         const cells = [];
@@ -771,7 +774,12 @@
   function runMonteCarlo(n, bet, opts) {
     opts = opts || {};
     const t0 = Date.now();
-    const S = initGameState({ seed: opts.seed === undefined ? 20260807 : opts.seed, jpNodes: opts.jpNodes });
+    // payoutCoef 必須一併傳入，否則賠率係數掃描會被靜默忽略、永遠跑原始賠率（2026-08-07 修正）
+    const S = initGameState({
+      seed: opts.seed === undefined ? 20260807 : opts.seed,
+      jpNodes: opts.jpNodes,
+      payoutCoef: opts.payoutCoef,
+    });
     const ng = makeAcc(), fg = makeAcc(), sfg = makeAcc();
     const wagerWins = [];
     const distNG = DIST_BUCKETS.map(() => 0);

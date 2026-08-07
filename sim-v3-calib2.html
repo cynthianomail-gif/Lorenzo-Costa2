@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>亞格號 V3 賠率係數校準 - 加密掃描</title>
+<body>
+<pre id="calib">RUNNING</pre>
+<script src="sim-v3-core.js"></script>
+<script>
+/* =========================================================================
+   第二輪：在 0.0243~0.0260 之間加密掃描（第一輪發現 98.5% 落在此縫隙）
+   同時用 3 個獨立 seed 交叉驗證，確認跳階是真實機制而非單一亂數序列的巧合。
+   跳階成因（推測，需由結果佐證）：win>0 同時決定連爆是否延續，
+   係數微幅提高會讓一批「邊際得分」從 floor 後的 0 變成 ≥1，連爆因此延續，
+   效果會逐層放大 —— 所以 RTP 對係數不是平滑曲線。
+   ========================================================================= */
+const BET = 100, CAP = 0.985;
+const out = { scan: [], crossSeed: [], best: null, error: null, meta: {} };
+const t0 = Date.now();
+
+function runPoint(coef, n, seed) {
+  const r = SimV3.runMonteCarlo(n, BET, { seed, payoutCoef: coef });
+  const se = r.wager.sd / Math.sqrt(n) / BET;
+  return { coef, n, seed, rtp: r.rtp.rtp, ci95: 1.96 * se,
+           ngOnly: r.rtp.ngOnly, fgPart: r.rtp.fgPart, sfgPart: r.rtp.sfgPart };
+}
+
+try {
+  // ---- 加密掃描：0.0243 ~ 0.0260，14 點，N=800k ----
+  const LO = 0.0243, HI = 0.0260, STEPS = 13;
+  for (let i = 0; i <= STEPS; i++) {
+    out.scan.push(runPoint(LO + (HI - LO) * i / STEPS, 800000, 20260807));
+  }
+
+  // ---- 選點：RTP 上界(rtp+ci95) 仍 ≤ 98.5% 的最大係數 ----
+  const ok = out.scan.filter(p => p.rtp + p.ci95 <= CAP).sort((a, b) => a.coef - b.coef);
+  const pick = ok.length ? ok[ok.length - 1]
+                         : out.scan.slice().sort((a, b) => a.rtp - b.rtp)[0];
+
+  // ---- 交叉驗證：建議係數用 3 個獨立 seed 各跑 1M，確認 RTP 穩定 ----
+  for (const sd of [11, 22, 33]) {
+    out.crossSeed.push(runPoint(pick.coef, 1000000, sd));
+  }
+
+  // ---- 建議係數的完整統計（供報表）----
+  const full = SimV3.runMonteCarlo(1500000, BET, { seed: 20260807, payoutCoef: pick.coef });
+  out.best = {
+    coef: pick.coef,
+    rtp: full.rtp.rtp,
+    ci95: 1.96 * (full.wager.sd / Math.sqrt(1500000) / BET),
+    n: 1500000,
+    full,
+  };
+  out.meta.totalElapsedSec = (Date.now() - t0) / 1000;
+  out.meta.cap = CAP;
+} catch (e) { out.error = String(e && e.stack || e); }
+document.getElementById('calib').textContent = 'JSONSTART' + JSON.stringify(out) + 'JSONEND';
+</script>
+</body>

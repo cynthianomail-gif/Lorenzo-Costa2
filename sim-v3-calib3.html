@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>亞格號 V3 賠率係數校準 - 高精度（去除 floor 捨去假象）</title>
+<body>
+<pre id="calib">RUNNING</pre>
+<script src="sim-v3-core.js"></script>
+<script>
+/* =========================================================================
+   第三輪：用高押注額消除 Math.floor() 的整數捨去假象，取得「真實」RTP 曲線。
+   背景：第二輪發現 RTP 在 coef=0.025 有 17 個百分點的斷崖，98.5% 正好落在縫裡。
+        斷點成因＝最低賠率 0.10 × bet 100 = 10，當 10×coef×ways ≥ 1（ways≥4）時，
+        邊際得分從 floor 後的 0 變成 1；又因 win>0 決定連爆是否延續 → 效果被放大。
+        這是 demo 押注額造成的量化假象，不是遊戲數學本身。
+   做法：bet 拉高到 1,000,000，floor 的相對損失趨近 0 → 曲線平滑，可精準內插 98.5%。
+        RTP 是比值，與 bet 大小無關（不含捨去時），故此曲線才是設計用的真值。
+   驗證：同時用 bet=100 / 10,000 / 1,000,000 跑同一係數，觀察 RTP 是否收斂。
+   ========================================================================= */
+const CAP = 0.985;
+const out = { betConvergence: [], scan: [], best: null, verifyAtBet100: null, error: null, meta: {} };
+const t0 = Date.now();
+
+function runPoint(coef, n, seed, bet) {
+  const r = SimV3.runMonteCarlo(n, bet, { seed, payoutCoef: coef });
+  const se = r.wager.sd / Math.sqrt(n) / bet;
+  return { coef, n, seed, bet, rtp: r.rtp.rtp, ci95: 1.96 * se,
+           ngOnly: r.rtp.ngOnly, fgPart: r.rtp.fgPart, sfgPart: r.rtp.sfgPart, _r: r };
+}
+const strip = p => { const q = Object.assign({}, p); delete q._r; return q; };
+
+try {
+  // ---- 1. 收斂性驗證：同係數、不同押注額，RTP 應隨 bet 增大而收斂到真值 ----
+  for (const bet of [100, 1000, 10000, 100000, 1000000]) {
+    out.betConvergence.push(strip(runPoint(0.024954, 300000, 20260807, bet)));
+  }
+
+  // ---- 2. 高精度掃描：bet=1e6，係數 0.012~0.020，找 98.5% 落點 ----
+  const LO = 0.012, HI = 0.020, STEPS = 15;
+  for (let i = 0; i <= STEPS; i++) {
+    out.scan.push(strip(runPoint(LO + (HI - LO) * i / STEPS, 500000, 20260807, 1000000)));
+  }
+
+  // ---- 3. 線性內插求 98.5% 對應係數，再實跑驗證 ----
+  const s = out.scan.slice().sort((a, b) => a.coef - b.coef);
+  let target = null;
+  for (let i = 0; i < s.length - 1; i++) {
+    if (s[i].rtp <= CAP && s[i + 1].rtp > CAP) {
+      const t = (CAP - s[i].rtp) / (s[i + 1].rtp - s[i].rtp);
+      target = s[i].coef + (s[i + 1].coef - s[i].coef) * t;
+      break;
+    }
+  }
+  out.meta.interpolatedCoef = target;
+
+  if (target) {
+    // 建議係數的高精度完整統計
+    const full = SimV3.runMonteCarlo(1500000, 1000000, { seed: 20260807, payoutCoef: target });
+    out.best = {
+      coef: target, bet: 1000000, n: 1500000,
+      rtp: full.rtp.rtp,
+      ci95: 1.96 * (full.wager.sd / Math.sqrt(1500000) / 1000000),
+      full,
+    };
+    // 同係數在 demo 實際押注額(100)下會變成多少 —— 給企劃知道實機落差
+    out.verifyAtBet100 = strip(runPoint(target, 1000000, 20260807, 100));
+  }
+  out.meta.totalElapsedSec = (Date.now() - t0) / 1000;
+  out.meta.cap = CAP;
+} catch (e) { out.error = String(e && e.stack || e); }
+document.getElementById('calib').textContent = 'JSONSTART' + JSON.stringify(out) + 'JSONEND';
+</script>
+</body>
