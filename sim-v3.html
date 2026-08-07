@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>亞格號 V3 規則 — 純函式模擬 / 驗證</title>
+<style>
+  body { font-family: "Consolas", "Microsoft JhengHei", monospace; background:#111; color:#ddd; padding:16px; }
+  pre  { white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+  h2   { color:#f5c542; }
+</style>
+</head>
+<body>
+<h2>亞格號 V3 — 純函式模擬結果（JSON）</h2>
+<pre id="result">RUNNING…</pre>
+<script src="sim-v3-core.js"></script>
+<script>
+(function () {
+  const K = window.SimV3;
+  const OUT = { verify: {}, queue: {}, mc: null, error: null };
+
+  // ---------------------------------------------------------------- 工具
+  function blankState(seed) {
+    const S = K.initGameState({ seed: seed === undefined ? 1 : seed });
+    return S;
+  }
+  // rows: 4 個長度 5 的陣列（rows[r][c] = symId），直接寫進 board
+  function setBoard(S, rows) {
+    for (let c = 0; c < 5; c++) { S.board[c] = []; for (let r = 0; r < 4; r++) S.board[c][r] = { id: rows[r][c], isMatched: false }; }
+  }
+  function putMerge(S, col, row, size, colorId, colorId2) {
+    const mergeId = S.mergedCells.length;
+    for (let d = 0; d < size; d++) {
+      S.board[col + d][row] = {
+        id: -1, isMerged: true, mergeId, colorId,
+        colorId2: (colorId2 === undefined ? undefined : colorId2),
+        mergeSize: size, mergeCol: col, mergeRow: row,
+        isMergeSlave: d !== 0, isMatched: false,
+      };
+    }
+    S.mergedCells.push({ col, row, colorId, colorId2, size, displayCount: 1 });
+  }
+
+  // ================================================================
+  // A. calcWin 手算交叉比對
+  // ================================================================
+  try {
+    // ---- 案例 A：純一般符號，無合成、無分裂 ----
+    // col0 [2,2,0,0] / col1 [2,0,0,0] / col2 [2,2,2,0] / col3 [0,0,0,0] / col4 [0,0,0,0]
+    // 手算 symId2（伊阿宋 金char，split=1）：colCounts=[2,1,3,0,0] → matchCount=3
+    //         ways=2*1*3=6，rate=PAYOUTS[2][0]=0.20 → floor(100*0.20*6)=120
+    // 手算 symId0（海克力斯 紅char，split=1）：colCounts=[2,3,1,4,4] → matchCount=5
+    //         ways=2*3*1*4*4=96，rate=PAYOUTS[0][2]=0.30 → floor(100*0.30*96)=2880
+    // 其餘 symId 於 col0 計數為 0 → matchCount=0，不中獎
+    // 期望總得分 = 120 + 2880 = 3000
+    {
+      const S = blankState();
+      S.splitCount = [1, 1, 1, 1];
+      setBoard(S, [
+        [2, 2, 2, 0, 0],   // row0
+        [2, 0, 2, 0, 0],   // row1
+        [0, 0, 2, 0, 0],   // row2
+        [0, 0, 0, 0, 0],   // row3
+      ]);
+      const win = K.calcWin(S, 100);
+      OUT.verify.caseA = {
+        desc: 'A 純一般符號：symId2 三連(ways 6, 0.20) + symId0 五連(ways 96, 0.30)',
+        handCalc: { sym2: 'floor(100*0.20*6)=120', sym0: 'floor(100*0.30*96)=2880', total: 3000 },
+        lines: S.winLines.map(l => ({ symId: l.symId, matchCount: l.matchCount, ways: l.ways, win: l.win })),
+        actual: win, expected: 3000, pass: win === 3000,
+      };
+    }
+
+    // ---- 案例 B：1×2 合成格 + 分裂 ×2 ----
+    // 紅色 1×2 合成格佔 (col0,row0)-(col1,row0)；紅角色(id0) 佔 col0/col1 的 row1-3 與 col2 全欄；
+    // col3/col4 全放綠角色(id6)。splitCount = [2,1,1,1]
+    // 手算 symId0（colorId0, split=2）：
+    //   col0 = reg3*2 + merge1 = 7；col1 = reg3*2 + merge1 = 7；col2 = reg4*2 + 0 = 8；col3 = 0 → 斷
+    //   matchCount=3, ways=7*7*8=392, rate=PAYOUTS[0][0]=0.10 → floor(100*0.10*392)=3920
+    // 手算 symId1（紅武器）：col0=0*2+1=1, col1=1, col2=0 → matchCount=2 <3 → 不中
+    // 手算 symId6/7（綠）：col0=0 → matchCount=0 → 不中
+    // 期望總得分 = 3920
+    {
+      const S = blankState();
+      S.splitCount = [2, 1, 1, 1];
+      setBoard(S, [
+        [0, 0, 0, 6, 6],
+        [0, 0, 0, 6, 6],
+        [0, 0, 0, 6, 6],
+        [0, 0, 0, 6, 6],
+      ]);
+      putMerge(S, 0, 0, 2, 0);          // 紅 1×2 於 row0 的 col0-col1
+      const win = K.calcWin(S, 100);
+      OUT.verify.caseB = {
+        desc: 'B 1×2 合成格 + 紅色分裂×2：合成格固定 ×1，一般格 ×split',
+        handCalc: { colCounts: '[7,7,8,0,0]', ways: 392, rate: 0.10, total: 3920 },
+        lines: S.winLines.map(l => ({ symId: l.symId, matchCount: l.matchCount, ways: l.ways, win: l.win })),
+        actual: win, expected: 3920, pass: win === 3920,
+      };
+    }
+
+    // ---- 案例 C：1×4 雙色進階合成格 ----
+    // 1×4（紅0 + 藍2）佔 row0 的 col0-col3；其餘格全放藍角色 id4；split 全 1
+    // 手算 symId4（藍char, colorId2）：col0..col3 = reg3 + merge1 = 4；col4 = reg4 = 4
+    //   matchCount=5, ways=4^5=1024, rate=PAYOUTS[4][2]=0.30 → floor(100*0.30*1024)=30720
+    // 手算 symId5（藍weapon）：col0..3 = 0+1 = 1；col4 = 0 → matchCount=4, ways=1
+    //   rate=PAYOUTS[5][1]=0.15 → floor(100*0.15*1)=15
+    // 手算 symId0（紅char）：同上 matchCount=4, ways=1, rate=PAYOUTS[0][1]=0.15 → 15
+    // 手算 symId1（紅weapon）：matchCount=4, ways=1, rate=PAYOUTS[1][1]=0.15 → 15
+    // 期望總得分 = 30720 + 15 + 15 + 15 = 30765
+    {
+      const S = blankState();
+      S.splitCount = [1, 1, 1, 1];
+      setBoard(S, [
+        [4, 4, 4, 4, 4],
+        [4, 4, 4, 4, 4],
+        [4, 4, 4, 4, 4],
+        [4, 4, 4, 4, 4],
+      ]);
+      putMerge(S, 0, 0, 4, 0, 2);       // 1×4 雙色（紅+藍）於 row0 的 col0-col3
+      const win = K.calcWin(S, 100);
+      OUT.verify.caseC = {
+        desc: 'C 1×4 雙色合成格：同時計入紅(0/1)與藍(4/5)四個 symId',
+        handCalc: { sym4: 'ways 1024 * 0.30 → 30720', sym5: 15, sym0: 15, sym1: 15, total: 30765 },
+        lines: S.winLines.map(l => ({ symId: l.symId, matchCount: l.matchCount, ways: l.ways, win: l.win })),
+        actual: win, expected: 30765, pass: win === 30765,
+      };
+    }
+
+    // ================================================================
+    // B. 任務佇列同步化收斂測試
+    // ================================================================
+    // 以 rand()=0 固定 fillRemainingSteps 的洗牌結果：
+    //   rest=[1,2,3] → i=2,j=0 交換 → [3,2,1] → i=1,j=0 交換 → [2,3,1]
+    //   ⇒ 紅(0)贏分歧後：step1=藍(2), step2=綠(3), step3=金(1)
+    function fixedPlanState() {
+      const S = blankState();
+      S.rand = function () { return 0; };
+      K.buildQuestPlan(S);
+      return S;
+    }
+    // 跑一個「合成波」：逐 op 合成、每個 op 後抽乾佇列（＝逐幀版的等價順序）
+    function runWaveSequential(S) {
+      const ops = K.findBaseSynthCandidates(S);
+      for (const op of ops) {
+        const a = S.board[op.col][op.row], b = S.board[op.col + 1][op.row];
+        if (!a || !b || a.isMerged || b.isMerged) continue;
+        K.applySingleSynthesis(S, op.col, op.row);
+        K.pumpQuest(S);
+      }
+      if (K.findAdvSynthPairs(S).length > 0) K.applyAdvancedSynthesis(S);
+      K.pumpQuest(S);
+    }
+    // 反例：整波合成完才抽一次佇列（若這樣寫會與逐幀版不一致）
+    function runWaveBatched(S) {
+      const ops = K.findBaseSynthCandidates(S);
+      for (const op of ops) {
+        const a = S.board[op.col][op.row], b = S.board[op.col + 1][op.row];
+        if (!a || !b || a.isMerged || b.isMerged) continue;
+        K.applySingleSynthesis(S, op.col, op.row);
+      }
+      if (K.findAdvSynthPairs(S).length > 0) K.applyAdvancedSynthesis(S);
+      K.pumpQuest(S);
+    }
+
+    // Q1：一波內 4 次不同色合成，逐幀版會一關一關推完 4 關
+    {
+      const build = () => {
+        const S = fixedPlanState();
+        setBoard(S, [
+          [0, 1, 0, 0, 0],   // row0 紅 char+weapon
+          [4, 5, 0, 0, 0],   // row1 藍
+          [6, 7, 0, 0, 0],   // row2 綠
+          [2, 3, 0, 0, 0],   // row3 金
+        ]);
+        return S;
+      };
+      const seq = build(); runWaveSequential(seq);
+      const bat = build(); runWaveBatched(bat);
+      OUT.queue.Q1 = {
+        desc: 'Q1 一波 4 次不同色合成（紅→藍→綠→金），rand=0 固定關卡順序 step1=藍 step2=綠 step3=金',
+        sequential: { questProgress: seq.questProgress, questRoute: seq.questRoute, splitCount: seq.splitCount.slice(), plan: seq.questPlan.map(s => s.colors) },
+        batched:    { questProgress: bat.questProgress, questRoute: bat.questRoute, splitCount: bat.splitCount.slice() },
+        expectSequential: { questProgress: 4, splitCount: [2, 2, 2, 2] },
+        pass: seq.questProgress === 4 && JSON.stringify(seq.splitCount) === JSON.stringify([2, 2, 2, 2]),
+        note: 'batched（整波才抽一次）只會推進 1 關、只有紅分裂 → 證明抽取點必須逐 op，才與逐幀版一致',
+      };
+    }
+
+    // Q2：一波內「同色連續合成兩次」——一關只能被推進一次
+    {
+      const S = fixedPlanState();
+      setBoard(S, [
+        [0, 1, 6, 6, 6],   // row0 紅
+        [0, 1, 6, 6, 6],   // row1 紅（同色第二次）
+        [6, 6, 6, 6, 6],
+        [6, 6, 6, 6, 6],
+      ]);
+      runWaveSequential(S);
+      OUT.queue.Q2 = {
+        desc: 'Q2 同一波內同色（紅）合成兩次：第 2 次的待補判 atProgress 對不上，應作廢',
+        questProgress: S.questProgress, questRoute: S.questRoute, splitCount: S.splitCount.slice(),
+        expect: { questProgress: 1, splitCount: [2, 1, 1, 1] },
+        pass: S.questProgress === 1 && JSON.stringify(S.splitCount) === JSON.stringify([2, 1, 1, 1]),
+        note: '逐幀版：第 2 次合成時 questPending 內留有第 1 筆(atProgress=0)，v3ClearsNow 回 false；同步版：第 1 筆已抽乾但 step1=藍不含紅 → 一樣不推進、不分裂。兩者收斂到同一結果。',
+      };
+    }
+
+    // Q3：一波內 2 次雙色進階合成 → JP 兩個節點點滿
+    {
+      const S = fixedPlanState();
+      setBoard(S, [
+        [0, 1, 4, 5, 6],   // row0 紅對 + 藍對（col0-1 / col2-3）→ 可進階合成
+        [0, 1, 4, 5, 6],   // row1 同上
+        [6, 6, 6, 6, 6],
+        [6, 6, 6, 6, 6],
+      ]);
+      runWaveSequential(S);
+      OUT.queue.Q3 = {
+        desc: 'Q3 一波內 2 次雙色進階合成（JP_NODES=2）→ 羅盤點滿',
+        questProgress: S.questProgress, questRoute: S.questRoute,
+        jpNodesLit: S.jpNodesLit, jpIslandSeq: S.jpIslandSeq, jpAdvQueueLeft: S.jpAdvQueue.length,
+        splitCount: S.splitCount.slice(),
+        expect: { jpNodesLit: 2, jpAdvQueueLeft: 0 },
+        pass: S.jpNodesLit === 2 && S.jpAdvQueue.length === 0,
+        note: '進階合成的 seq 必須大於 jpIslandSeq（分歧定案當次不計）；佇列在 calcWin 之前必須抽乾。',
+      };
+    }
+
+    // Q4：分歧定案「當次」的進階合成不得計入 JP
+    {
+      const S = fixedPlanState();
+      setBoard(S, [
+        [0, 1, 4, 5, 6],   // 只有一列可做進階合成
+        [6, 6, 6, 6, 6],
+        [6, 6, 6, 6, 6],
+        [6, 6, 6, 6, 6],
+      ]);
+      runWaveSequential(S);
+      OUT.queue.Q4 = {
+        desc: 'Q4 一波內僅 1 次進階合成 → 只點亮 1 個羅盤，JP 不成立',
+        jpNodesLit: S.jpNodesLit, questProgress: S.questProgress,
+        expect: { jpNodesLit: 1 }, pass: S.jpNodesLit === 1,
+      };
+    }
+
+    // ================================================================
+    // C. 小樣本蒙地卡羅
+    // ================================================================
+    const N   = (new URLSearchParams(location.search)).get('n');
+    const BET = (new URLSearchParams(location.search)).get('bet');
+    const nn = N ? parseInt(N, 10) : 1000, bb = BET ? parseInt(BET, 10) : 100;
+    OUT.mc = K.runMonteCarlo(nn, bb, { seed: 20260807 });
+    // 同規模換 seed 的離散度參考（小樣本的雜訊有多大）
+    OUT.mcSeeds = [11, 22, 33, 44, 55].map(s => {
+      const r = K.runMonteCarlo(nn, bb, { seed: s });
+      return { seed: s, rtp: r.rtp.rtp, ngHitRate: r.ng.hitRate, fgRate: r.trigger.fgRate,
+               sfgRate: r.trigger.sfgRate, jpCount: r.jp.count, elapsedMs: r.meta.elapsedMs };
+    });
+  } catch (e) {
+    OUT.error = String(e && e.stack ? e.stack : e);
+  }
+
+  document.getElementById('result').textContent = 'JSONSTART' + JSON.stringify(OUT) + 'JSONEND';
+})();
+</script>
+</body>
+</html>

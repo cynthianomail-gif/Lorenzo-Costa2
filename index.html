@@ -687,8 +687,8 @@ const TF = s => Math.max(1, Math.round(s * 60));   // 秒 → 幀（60fps）
 
 // === 佈局：預設值 = 原程式寫死座標 ===
 const DEFAULT_LAYOUT = {
-  grid:      { x: 256,  y: 121 },                    // 盤面左上角（2026-08-06 使用者用調校面板拖定後匯出）
-  mapPanel:  { x: 917,  y: 118, w: 245, h: 462 },    // 航海地圖面板（緊靠盤面右緣）
+  grid:      { x: 258,  y: 122 },                    // 盤面左上角（2026-08-07 使用者用調校面板拖定後匯出）
+  mapPanel:  { x: 921,  y: 117, w: 245, h: 462 },    // 航海地圖面板（緊靠盤面右緣）
   // v3 盤面上方：左＝宙斯石像＋彩金牌、右＝赫拉石像＋彩金牌（石像在外側、牌子在內側）
   statueL:   { x: 249,  y: -1,  w: 311, h: 116 },
   statueR:   { x: 642,  y: -2,  w: 311, h: 116 },
@@ -701,7 +701,7 @@ const DEFAULT_LAYOUT = {
   autoBtn:   { x: 730,  y: 658, w: 160, h: 54 },     // AUTO SPIN 鈕
   forceBtn:  { x: 155,  y: 658, w: 68,  h: 54 },     // 強開鈕
   infoBtn:   { x: 233,  y: 658, w: 60,  h: 54 },     // INFO 鈕
-  fgCounter: { x: 117,  y: 350, w: 100, h: 100 },    // FG/SFG 局數欄（移到盤面左側，改正方形徽章避免過長）
+  fgCounter: { x: 190,  y: 362, w: 100, h: 100 },    // FG/SFG 局數欄（移到盤面左側，改正方形徽章避免過長）
 };
 // JP 橫幅與 WAYS 欄位錨定於盤面，故存相對偏移；以下兩式為其實際繪製位置。
 function jpBarPos()  { return { cx: GRID_X + GRID_W / 2 + LAYOUT.jpBar.x, by: GRID_Y - 58 + LAYOUT.jpBar.y }; }
@@ -1277,13 +1277,25 @@ function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false;
 //   FG ：進場先把地圖條件與 JP 小島收集點進度歸零（NG 的進度不帶進來），
 //        進場後就不再重置，一路累積到 FG 結束
 //        ※ FG 中最多獲得 1 次 JP；獲得後小島停止累積
-//        （分裂不累積，與 NG 相同每局歸零、上限 2×1）
-//   SFG：在 FG 的基礎上再加分裂數量持續累積，上限 4×1；其餘機制與 FG 相同
+//        （2026-08-07 修正：分裂跟著地圖一起保留、不再每局歸零，但上限仍為 2×1）
+//   SFG：在 FG 的基礎上把分裂上限放寬到 4×1；其餘機制與 FG 相同
 //   v1 為舊版規則，維持原行為：FG/SFG 都累積分裂，只有 SFG 地圖不重置。
 // ============================================================
-// 分裂是否跨局保留（同時決定分裂上限：SFG 4×1＝切 3 刀，其餘 2×1＝切 1 刀）
-function splitAccumulates() { return isForkRule() ? inSFG : (inFG || inSFG); }
-function maxSplitCap()      { return splitAccumulates() ? 4 : 2; }
+// 分裂是否跨局保留。
+// v3（2026-08-07 修正）：分裂的唯一來源是地圖通關，而地圖在 FG 內不重置，
+//   分裂自然也不該每局歸零 —— 否則會出現「地圖顯示已通關、盤面卻不分裂」的矛盾。
+//   故 v3 的保留條件與 mapPersists() 同步（FG／SFG 都保留），FG 結束才一併歸零。
+// v1／v2 維持原行為不動（v2 只有 SFG 保留、v1 為 FG+SFG）。
+function splitAccumulates() {
+  if (isV3()) return inFG || inSFG;                 // 與 mapPersists() 同步
+  return isForkRule() ? inSFG : (inFG || inSFG);
+}
+// 分裂上限與「是否跨局保留」是兩件事：v3 的 FG 雖然保留分裂，上限仍是 2×1，
+// 只有 SFG 才放寬到 4×1（切 3 刀），這點不隨上面的保留條件改變。
+function maxSplitCap() {
+  if (isV3()) return inSFG ? 4 : 2;
+  return splitAccumulates() ? 4 : 2;
+}
 // 地圖條件與 JP 收集點進度是否跨局保留
 function mapPersists()      { return isForkRule() ? (inFG || inSFG) : inSFG; }
 
