@@ -687,21 +687,21 @@ const TF = s => Math.max(1, Math.round(s * 60));   // 秒 → 幀（60fps）
 
 // === 佈局：預設值 = 原程式寫死座標 ===
 const DEFAULT_LAYOUT = {
-  grid:      { x: 183,  y: 120 },                    // 盤面左上角（與右側任務面板整體置中於 1280 畫布）
-  mapPanel:  { x: 853,  y: 120, w: 245, h: 462 },    // 航海地圖面板（緊靠盤面右緣，gap 20px）
-  // v3 盤面上方：左＝宙斯石像＋彩金牌、右＝赫拉石像＋彩金牌（石像在外側、牌子在內側；寬度收窄以卡在盤面寬度內、不超出）
-  statueL:   { x: 191,  y: 4,   w: 311, h: 116 },
-  statueR:   { x: 514,  y: 4,   w: 311, h: 116 },
+  grid:      { x: 256,  y: 121 },                    // 盤面左上角（2026-08-06 使用者用調校面板拖定後匯出）
+  mapPanel:  { x: 917,  y: 118, w: 245, h: 462 },    // 航海地圖面板（緊靠盤面右緣）
+  // v3 盤面上方：左＝宙斯石像＋彩金牌、右＝赫拉石像＋彩金牌（石像在外側、牌子在內側）
+  statueL:   { x: 249,  y: -1,  w: 311, h: 116 },
+  statueR:   { x: 642,  y: -2,  w: 311, h: 116 },
   // v3 指南針：盤面正上方的半圓，圓心落在框下緣（＝盤面上緣），下半圓不顯示
-  compass:   { x: 450,  y: 50,  w: 140, h: 70 },
-  jpBar:     { x: 0,    y: 0 },                      // JP 橫幅（相對盤面的偏移）
+  compass:   { x: 532,  y: 42,  w: 140, h: 70 },
+  jpBar:     { x: 15,   y: 5 },                      // JP 橫幅（相對盤面的偏移）
   ways:      { x: 0,    y: 0 },                      // WAYS 欄位（相對盤面的偏移）
   bottomUI:  { x: 0,    y: 650 },                    // 下方 UI 列頂端
   spinBtn:   { x: 560,  y: 658, w: 160, h: 54 },     // SPIN 鈕（繪製＋判定共用）
   autoBtn:   { x: 730,  y: 658, w: 160, h: 54 },     // AUTO SPIN 鈕
   forceBtn:  { x: 155,  y: 658, w: 68,  h: 54 },     // 強開鈕
   infoBtn:   { x: 233,  y: 658, w: 60,  h: 54 },     // INFO 鈕
-  fgCounter: { x: 640,  y: 4 },                      // FG 局數欄（水平中心／頂端）
+  fgCounter: { x: 117,  y: 350, w: 100, h: 100 },    // FG/SFG 局數欄（移到盤面左側，改正方形徽章避免過長）
 };
 // JP 橫幅與 WAYS 欄位錨定於盤面，故存相對偏移；以下兩式為其實際繪製位置。
 function jpBarPos()  { return { cx: GRID_X + GRID_W / 2 + LAYOUT.jpBar.x, by: GRID_Y - 58 + LAYOUT.jpBar.y }; }
@@ -716,7 +716,7 @@ const LAYOUT_META = [
   ['jpBar',     'JP橫幅',     () => { const p = jpBarPos(); return { x: p.cx - 320, y: p.by, w: 640, h: 44 }; }, false],
   ['ways',      'WAYS欄位',   () => { const p = waysPos();  return { x: p.cx - 55, y: p.cy - 30, w: 110, h: 60 }; }, false],
   ['bottomUI',  '下方UI列',   o => ({ x: o.x, y: o.y, w: 1280, h: 70 }), false],
-  ['fgCounter', 'FG局數欄',   o => ({ x: o.x - 130, y: o.y, w: 260, h: 30 }), false],
+  ['fgCounter', 'FG局數欄',   o => ({ x: o.x - o.w / 2, y: o.y, w: o.w, h: o.h }), true],
   ['spinBtn',   'SPIN鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
   ['autoBtn',   'AUTO鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
   ['forceBtn',  '強開鈕',     o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
@@ -5504,28 +5504,31 @@ function drawFGEndPanel(ctx) {
   drawFGResultPanel(ctx, false);
 }
 
-// === FG / SFG HUD（畫面上方局數提示）===
+// === FG / SFG HUD（盤面左側局數徽章，2026-08-06 改正方形避免橫向過長）===
 function drawFGHUD(ctx) {
   if (!inFG && !inSFG) return;
-  const hudW = 320, hudH = 42;
+  const hudW = LAYOUT.fgCounter.w, hudH = LAYOUT.fgCounter.h;
   const hudX = LAYOUT.fgCounter.x - hudW / 2, hudY = LAYOUT.fgCounter.y;
+  const cx = hudX + hudW / 2, cy = hudY + hudH / 2;
   ctx.save();
   if (inSFG) {
     ctx.fillStyle = 'rgba(120,53,15,0.92)';
-    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.fill();
-    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.stroke();
-    ctx.fillStyle = '#fef3c7';
-    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`⚓ SUPER FREE GAME  剩餘 ${sfgSpinsLeft} 局`, hudX + hudW / 2, hudY + hudH / 2);
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 12); ctx.fill();
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 12); ctx.stroke();
+    ctx.fillStyle = '#fef3c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px Arial'; ctx.fillText('⚓ SUPER', cx, hudY + hudH * 0.24);
+    ctx.font = 'bold 34px Arial'; ctx.fillText(`${sfgSpinsLeft}`, cx, cy + 4);
+    ctx.font = 'bold 12px Arial'; ctx.fillText('剩餘局數', cx, hudY + hudH * 0.86);
   } else {
     ctx.fillStyle = 'rgba(76,29,149,0.88)';
-    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.fill();
-    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 10); ctx.stroke();
-    ctx.fillStyle = '#e9d5ff';
-    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`🚢 FREE GAME  剩餘 ${fgSpinsLeft} 局`, hudX + hudW / 2, hudY + hudH / 2);
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 12); ctx.fill();
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 12); ctx.stroke();
+    ctx.fillStyle = '#e9d5ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 13px Arial'; ctx.fillText('🚢 FREE', cx, hudY + hudH * 0.24);
+    ctx.font = 'bold 34px Arial'; ctx.fillText(`${fgSpinsLeft}`, cx, cy + 4);
+    ctx.font = 'bold 12px Arial'; ctx.fillText('剩餘局數', cx, hudY + hudH * 0.86);
   }
   ctx.restore();
 }
