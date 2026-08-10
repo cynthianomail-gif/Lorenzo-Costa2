@@ -60,14 +60,31 @@
   ];
 
   const V3_MULT        = [1, 1, 1, 1, 1];   // v3 無盤面倍數
-  const V2_FORK_COLORS = [0, 1];            // 紅(0)=宙斯 / 金(1)=赫拉
+  const V2_FORK_COLORS = [0, 1];            // 紅(0)=宙斯 / 金(1)=赫拉（v3 已無分歧關，僅保留給對照）
   const FG_TOTAL_SPINS  = 10;
   const SFG_TOTAL_SPINS = 10;
-  const DEFAULT_JP_NODES = 2;
+  const DEFAULT_JP_NODES = 2;               // v3 已不適用（條件固定為每神 2 組），僅保留欄位相容
   const JP_BOSSES = [
     { idx: 0, name: '宙斯', value: 999999 },
     { idx: 1, name: '赫拉', value: 888888 },
   ];
+  // v3 JP（2026-08-10 改版）：雙神並行，各有兩組「進階合成顏色對」條件，兩組都達成才給該神 JP。
+  // 顏色：0=紅 1=金 2=藍 3=綠。兩神各自獨立，同一局可同時達成 → 兩個 JP 都給。
+  const JP_COMBOS = [
+    [[0, 3], [0, 2]],   // 0 宙斯：紅+綠、紅+藍
+    [[1, 3], [1, 2]],   // 1 赫拉：金+綠、金+藍
+  ];
+  function jpComboIndex(a, b) {
+    for (let g = 0; g < JP_COMBOS.length; g++) {
+      for (let k = 0; k < JP_COMBOS[g].length; k++) {
+        const x = JP_COMBOS[g][k][0], y = JP_COMBOS[g][k][1];
+        if ((a === x && b === y) || (a === y && b === x)) return { god: g, idx: k };
+      }
+    }
+    return null;
+  }
+  const jpGodLit  = (S, g) => S.jpComboLit[g].filter(Boolean).length;
+  const jpGodDone = (S, g) => S.jpComboLit[g].every(Boolean);
 
   // ---------------------------------------------------------------- RNG
   // mulberry32：可重現的偽隨機（正式跑大量樣本時換 seed 即可）
@@ -98,8 +115,10 @@
       questPlan: [], questProgress: 0, questRoute: -1,
       questPending: [], questEventSeq: 0, questAdvSeq: -1, questStage4Seq: -1,
       questScoreMultiplier: 1,
-      // JP
+      // JP（v3：jpComboLit＝雙神各兩組條件；jpGrantedBoss＝各神是否已發放。
+      //     jpNodesLit 改為「已達成的組合總數」，只給統計用，不再是發放判準）
       jpIslandSeq: -1, jpNodesLit: 0, jpAdvQueue: [], jpGranted: false,
+      jpComboLit: [[false, false], [false, false]], jpGrantedBoss: [false, false],
       // FG / SFG
       inFG: false, inSFG: false, fgSpinsLeft: 0, sfgSpinsLeft: 0,
       shipFGPending: false, shipSFGPending: false,
@@ -122,7 +141,8 @@
   // 上限與「是否跨局保留」是兩件事：FG 保留但上限仍 2×1，只有 SFG 放寬到 4×1。
   const maxSplitCap      = S => (S.inSFG ? 4 : 2);
   const mapPersists      = S => (S.inFG || S.inSFG);
-  const jpTrackOpen      = S => S.questRoute >= 0;
+  // v3（2026-08-10 改版）：JP 收集一開局就計入，沒有任何前置條件
+  const jpTrackOpen      = S => true;
 
   // ---------------------------------------------------------------- 任務
   function buildQuestPlan(S) {
@@ -130,13 +150,17 @@
     S.questPending = []; S.jpAdvQueue = [];
     S.questEventSeq = 0; S.questStage4Seq = -1; S.questAdvSeq = -1;
     S.jpIslandSeq = -1; S.jpNodesLit = 0;
-    S.questPlan = [
-      { colors: V2_FORK_COLORS.slice(), kind: 'synth', fork: true },
-      { colors: [], kind: 'synth', fork: false },
-      { colors: [], kind: 'synth', fork: false },
-      { colors: [], kind: 'synth', fork: false },
-    ];
+    // v3（2026-08-10 改版）：不再有分歧關，四關＝紅金藍綠各一次的隨機排列
+    const order = [0, 1, 2, 3];
+    for (let i = order.length - 1; i > 0; i--) {     // Fisher-Yates，確保是真排列
+      const j = Math.floor(S.rand() * (i + 1));
+      const t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    S.questOrder = order.slice();
+    S.questPlan  = order.map(c => ({ colors: [c], kind: 'synth', fork: false }));
     S.jpGranted = false;
+    S.jpComboLit    = [[false, false], [false, false]];
+    S.jpGrantedBoss = [false, false];
   }
 
   function applyQuestReward(S) {
@@ -149,28 +173,14 @@
     return S.questEventSeq;
   }
 
-  function fillRemainingSteps(S, winColor) {
-    const rest = [0, 1, 2, 3].filter(c => c !== winColor);
-    for (let i = rest.length - 1; i > 0; i--) {
-      const j = Math.floor(S.rand() * (i + 1));
-      const t = rest[i]; rest[i] = rest[j]; rest[j] = t;
-    }
-    rest.forEach((c, k) => { if (S.questPlan[k + 1]) S.questPlan[k + 1].colors = [c]; });
-  }
-
+  // v3 已無分歧關（每關恆為單色），原本的 fork 分支與 fillRemainingSteps 一併移除。
+  // S.questRoute 保留但恆為 -1，只為了讓既有統計欄位的形狀不變。
   function tryAdvanceQuest(S, colorIds, tieBreak, seq) {
     if (S.questProgress >= questStepCount()) return false;
     const step = S.questPlan[S.questProgress];
     if (!step || step.kind !== 'synth') return false;
     const hit = step.colors.filter(c => colorIds.includes(c));
     if (!hit.length) return false;
-    if (step.fork) {
-      const win = (hit.length > 1 && hit.includes(tieBreak)) ? tieBreak : hit[0];
-      S.questRoute = V2_FORK_COLORS.indexOf(win);
-      step.colors = [win];
-      S.jpIslandSeq = seq;
-      fillRemainingSteps(S, win);
-    }
     S.questProgress++;
     if (S.questProgress === 4) S.questStage4Seq = seq;
     applyQuestReward(S);
@@ -188,12 +198,16 @@
       }
       if (!advanced) break;
     }
-    // JP 收集點（v3：石像旁的羅盤，一次點一個）
+    // JP 收集點（v3：石像旁的羅盤，一次點一個）。
+    // 佇列帶著顏色對：顏色對決定屬於哪一尊神的哪一組條件；
+    // 不是 JP 條件的顏色對（例：藍+綠）跳過，同一組合重複達成也只算一次。
     while (S.jpAdvQueue.length) {
-      const seq = S.jpAdvQueue.shift();
-      if (!jpTrackOpen(S) || seq <= S.jpIslandSeq) continue;  // 定案前（含定案當次）不計入
-      if (S.jpNodesLit >= S.JP_NODES) continue;
-      S.jpNodesLit++;
+      const ev = S.jpAdvQueue.shift();
+      if (!jpTrackOpen(S)) continue;
+      const hit = jpComboIndex(ev.a, ev.b);
+      if (!hit || S.jpComboLit[hit.god][hit.idx]) continue;
+      S.jpComboLit[hit.god][hit.idx] = true;
+      S.jpNodesLit++;                       // 已達成的組合總數（統計用）
       if (S._obs) S._obs.beacons++;
     }
   }
@@ -355,8 +369,10 @@
             isMergeSlave: (c !== leftM.col), isMatched: false,
           };
         }
+        // 入列時必須帶著這一對的兩個顏色：v3 的 JP 條件是特定顏色組合，
+        // 只傳流水號的話下游分不出「紅+綠」與「紅+藍」是兩個不同條件。
         S.questAdvSeq = ++S.questEventSeq;
-        S.jpAdvQueue.push(S.questAdvSeq);
+        S.jpAdvQueue.push({ seq: S.questAdvSeq, a: leftM.colorId, b: rightM.colorId });
         if (S._obs) S._obs.advSynth++;
       }
     }
@@ -510,7 +526,8 @@
 
     const obs = {
       mode, win: 0, cascades: 0, baseSynth: 0, advSynth: 0, splitEvents: 0,
-      beacons: 0, jpValue: 0, jpBoss: -1, jpHit: false,
+      // jpBossHits[g] = 本局發放給第 g 尊神的 JP 次數（0/1）；兩尊可同時為 1
+      beacons: 0, jpValue: 0, jpBoss: -1, jpHit: false, jpBossHits: [0, 0],
       stageReached: 0, maxWays: 0, maxSplit: 1,
       triggerFG: false, triggerSFG: false,
     };
@@ -590,12 +607,15 @@
       // 連爆結束（先記錄，resetAfterFreeGame 會把進度歸零）
       obs.stageReached = S.questProgress;
       obs.nodesLit = S.jpNodesLit;
-      obs.route = S.questRoute;   // -1 未定 / 0 紅(宙斯) / 1 金(赫拉)
-      const jpDone = jpTrackOpen(S) && S.jpNodesLit >= S.JP_NODES;
-      if (jpDone && !S.jpGranted) {
-        S.jpGranted = true;
-        const boss = JP_BOSSES[S.questRoute];
-        if (boss) { obs.jpHit = true; obs.jpBoss = boss.idx; obs.jpValue = boss.value; }
+      obs.route = S.questRoute;   // v3 已無分歧關 → 恆為 -1（欄位保留給既有統計形狀）
+      // v3：兩尊神各自判定，同一局可能兩尊都成立 → 兩個 JP 都給（依序各發一次）
+      for (let g = 0; g < JP_BOSSES.length; g++) {
+        if (!jpGodDone(S, g) || S.jpGrantedBoss[g]) continue;
+        S.jpGrantedBoss[g] = true;
+        obs.jpHit = true;
+        obs.jpBossHits[g]++;
+        obs.jpValue += JP_BOSSES[g].value;
+        if (obs.jpBoss < 0) obs.jpBoss = g;   // 相容欄位：第一個達成的神
       }
       if (S.shipSFGPending) { S.shipSFGPending = false; obs.triggerSFG = true; }
       else if (S.shipFGPending) { S.shipFGPending = false; obs.triggerFG = true; }
@@ -645,7 +665,12 @@
       out.baseSynth += o.baseSynth;
       out.advSynth += o.advSynth;
       out.splitEvents += o.splitEvents;
-      if (o.jpHit) { out.jpCount++; out.jpValue += o.jpValue; out.jpBossCounts[o.jpBoss]++; }
+      // 一局可能同時發兩尊神的 JP → 次數以 jpBossHits 累加，不是「有中就 +1」
+      if (o.jpHit) {
+        out.jpCount += o.jpBossHits[0] + o.jpBossHits[1];
+        out.jpValue += o.jpValue;
+        out.jpBossCounts[0] += o.jpBossHits[0]; out.jpBossCounts[1] += o.jpBossHits[1];
+      }
       if (o.stageReached > out.stageReached) out.stageReached = o.stageReached;
       if (o.maxWays > out.maxWays) out.maxWays = o.maxWays;
       if (o.maxSplit > out.maxSplit) out.maxSplit = o.maxSplit;
@@ -661,11 +686,11 @@
       bet,
       ngWin: ng.win, fgWin: 0, sfgWin: 0,
       totalWin: ng.win,
-      jpCount: ng.jpHit ? 1 : 0,
+      jpCount: ng.jpBossHits[0] + ng.jpBossHits[1],   // 一局最多兩個 JP（宙斯＋赫拉）
       jpBossCounts: [0, 0],
       ng, fg: null, sfg: null,
     };
-    if (ng.jpHit) rec.jpBossCounts[ng.jpBoss]++;
+    rec.jpBossCounts[0] += ng.jpBossHits[0]; rec.jpBossCounts[1] += ng.jpBossHits[1];
     if (ng.triggerSFG) {
       const chain = simulateFreeGameChain(S, bet, 'SFG');
       rec.sfg = chain; rec.sfgWin = chain.totalWin; rec.totalWin += chain.totalWin;
@@ -710,7 +735,7 @@
     acc.stageHist[Math.min(4, o.stageReached)]++;
     acc.nodesSum += (o.nodesLit || 0);
     acc.nodeHist[Math.min(4, o.nodesLit || 0)]++;
-    if (o.jpHit) acc.jpHits++;
+    if (o.jpHit) acc.jpHits += (o.jpBossHits ? o.jpBossHits[0] + o.jpBossHits[1] : 1);
     if (o.route === 0 || o.route === 1) { acc.route[o.route]++; acc.routeDecided++; }
     if (o.maxWays > acc.maxWays) acc.maxWays = o.maxWays;
     if (bet !== undefined) {
@@ -862,6 +887,7 @@
   // ---------------------------------------------------------------- 匯出
   root.SimV3 = {
     COLS, ROWS, PAYOUTS, V3_MULT, V2_FORK_COLORS, FG_TOTAL_SPINS, SFG_TOTAL_SPINS, JP_BOSSES,
+    JP_COMBOS, jpComboIndex, jpGodLit, jpGodDone,
     makeRng, initGameState, buildQuestPlan, resetRoundState, generateBoard,
     randomSymId, computeCurrentWays,
     findBaseSynthCandidates, applySingleSynthesis, applyShipMerge,

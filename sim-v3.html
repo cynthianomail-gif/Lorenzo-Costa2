@@ -129,13 +129,14 @@
     // ================================================================
     // B. 任務佇列同步化收斂測試
     // ================================================================
-    // 以 rand()=0 固定 fillRemainingSteps 的洗牌結果：
-    //   rest=[1,2,3] → i=2,j=0 交換 → [3,2,1] → i=1,j=0 交換 → [2,3,1]
-    //   ⇒ 紅(0)贏分歧後：step1=藍(2), step2=綠(3), step3=金(1)
+    // 2026-08-10 改版後四關＝四色隨機排列（無分歧關）。佇列測試要的是「一波內的推進順序」，
+    // 與洗牌結果無關，所以這裡直接把關卡順序釘死成 紅→藍→綠→金，與改版前定案後的順序相同，
+    // Q1／Q2 的期望值才能沿用（洗牌本身另由 Q5 驗證）。
     function fixedPlanState() {
       const S = blankState();
       S.rand = function () { return 0; };
       K.buildQuestPlan(S);
+      S.questPlan = [0, 2, 3, 1].map(c => ({ colors: [c], kind: 'synth', fork: false }));
       return S;
     }
     // 跑一個「合成波」：逐 op 合成、每個 op 後抽乾佇列（＝逐幀版的等價順序）
@@ -177,7 +178,7 @@
       const seq = build(); runWaveSequential(seq);
       const bat = build(); runWaveBatched(bat);
       OUT.queue.Q1 = {
-        desc: 'Q1 一波 4 次不同色合成（紅→藍→綠→金），rand=0 固定關卡順序 step1=藍 step2=綠 step3=金',
+        desc: 'Q1 一波 4 次不同色合成（紅→藍→綠→金），關卡順序釘死為 紅→藍→綠→金',
         sequential: { questProgress: seq.questProgress, questRoute: seq.questRoute, splitCount: seq.splitCount.slice(), plan: seq.questPlan.map(s => s.colors) },
         batched:    { questProgress: bat.questProgress, questRoute: bat.questRoute, splitCount: bat.splitCount.slice() },
         expectSequential: { questProgress: 4, splitCount: [2, 2, 2, 2] },
@@ -205,41 +206,83 @@
       };
     }
 
-    // Q3：一波內 2 次雙色進階合成 → JP 兩個節點點滿
+    // Q3：宙斯的兩組條件（紅+藍、紅+綠）在同一波達成 → 宙斯 JP 成立、赫拉不成立
     {
       const S = fixedPlanState();
       setBoard(S, [
-        [0, 1, 4, 5, 6],   // row0 紅對 + 藍對（col0-1 / col2-3）→ 可進階合成
-        [0, 1, 4, 5, 6],   // row1 同上
+        [0, 1, 4, 5, 6],   // row0 紅對 + 藍對（col0-1 / col2-3）→ 進階合成「紅+藍」
+        [0, 1, 6, 7, 4],   // row1 紅對 + 綠對 → 進階合成「紅+綠」
         [6, 6, 6, 6, 6],
         [6, 6, 6, 6, 6],
       ]);
       runWaveSequential(S);
       OUT.queue.Q3 = {
-        desc: 'Q3 一波內 2 次雙色進階合成（JP_NODES=2）→ 羅盤點滿',
-        questProgress: S.questProgress, questRoute: S.questRoute,
-        jpNodesLit: S.jpNodesLit, jpIslandSeq: S.jpIslandSeq, jpAdvQueueLeft: S.jpAdvQueue.length,
-        splitCount: S.splitCount.slice(),
-        expect: { jpNodesLit: 2, jpAdvQueueLeft: 0 },
-        pass: S.jpNodesLit === 2 && S.jpAdvQueue.length === 0,
-        note: '進階合成的 seq 必須大於 jpIslandSeq（分歧定案當次不計）；佇列在 calcWin 之前必須抽乾。',
+        desc: 'Q3 一波內達成宙斯的兩組條件（紅+藍、紅+綠）→ 宙斯 JP 成立、赫拉不成立',
+        questProgress: S.questProgress,
+        jpComboLit: JSON.parse(JSON.stringify(S.jpComboLit)),
+        zeusDone: K.jpGodDone(S, 0), heraDone: K.jpGodDone(S, 1),
+        jpAdvQueueLeft: S.jpAdvQueue.length,
+        expect: { zeusDone: true, heraDone: false, jpAdvQueueLeft: 0 },
+        pass: K.jpGodDone(S, 0) === true && K.jpGodDone(S, 1) === false && S.jpAdvQueue.length === 0,
+        note: 'JP 收集一開局就計入（不再有開島／定案的前置條件）；佇列在 calcWin 之前必須抽乾。',
       };
     }
 
-    // Q4：分歧定案「當次」的進階合成不得計入 JP
+    // Q4：只達成其中一組（紅+藍）→ 宙斯 JP 不成立；同一組合重複達成也不會多算
     {
       const S = fixedPlanState();
       setBoard(S, [
-        [0, 1, 4, 5, 6],   // 只有一列可做進階合成
-        [6, 6, 6, 6, 6],
+        [0, 1, 4, 5, 6],   // row0 紅+藍
+        [0, 1, 4, 5, 6],   // row1 同一組合，重複達成不多算
         [6, 6, 6, 6, 6],
         [6, 6, 6, 6, 6],
       ]);
       runWaveSequential(S);
       OUT.queue.Q4 = {
-        desc: 'Q4 一波內僅 1 次進階合成 → 只點亮 1 個羅盤，JP 不成立',
-        jpNodesLit: S.jpNodesLit, questProgress: S.questProgress,
-        expect: { jpNodesLit: 1 }, pass: S.jpNodesLit === 1,
+        desc: 'Q4 同一組合（紅+藍）達成兩次 → 只算 1 組，宙斯 JP 不成立',
+        jpComboLit: JSON.parse(JSON.stringify(S.jpComboLit)),
+        zeusLit: K.jpGodLit(S, 0), zeusDone: K.jpGodDone(S, 0),
+        expect: { zeusLit: 1, zeusDone: false },
+        pass: K.jpGodLit(S, 0) === 1 && K.jpGodDone(S, 0) === false,
+      };
+    }
+
+    // Q5：四組條件全達成 → 宙斯與赫拉同時成立（兩個 JP）
+    {
+      const S = fixedPlanState();
+      setBoard(S, [
+        [0, 1, 6, 7, 0],   // row0 紅+綠
+        [0, 1, 4, 5, 0],   // row1 紅+藍
+        [2, 3, 6, 7, 0],   // row2 金+綠
+        [2, 3, 4, 5, 0],   // row3 金+藍
+      ]);
+      runWaveSequential(S);
+      OUT.queue.Q5 = {
+        desc: 'Q5 一波內四組條件全達成 → 兩尊神同時成立，兩個 JP 都給',
+        jpComboLit: JSON.parse(JSON.stringify(S.jpComboLit)),
+        zeusDone: K.jpGodDone(S, 0), heraDone: K.jpGodDone(S, 1), jpNodesLit: S.jpNodesLit,
+        expect: { zeusDone: true, heraDone: true, jpNodesLit: 4 },
+        pass: K.jpGodDone(S, 0) === true && K.jpGodDone(S, 1) === true && S.jpNodesLit === 4,
+      };
+    }
+
+    // Q6：buildQuestPlan 的四關必須是四色各一次的排列（跑 20 次）
+    {
+      const S = blankState(777);
+      const seen = {}, bad = [];
+      for (let i = 0; i < 20; i++) {
+        K.buildQuestPlan(S);
+        const cols = S.questPlan.map(s => s.colors[0]);
+        const ok = S.questPlan.length === 4
+                && S.questPlan.every(s => s.colors.length === 1 && s.fork === false)
+                && cols.slice().sort().join(',') === '0,1,2,3';
+        if (!ok) bad.push(cols);
+        seen[cols.join('')] = (seen[cols.join('')] || 0) + 1;
+      }
+      OUT.queue.Q6 = {
+        desc: 'Q6 buildQuestPlan ×20：每次都是 [0,1,2,3] 的排列、每關單色且非分歧關',
+        distinctOrders: Object.keys(seen).length, orders: seen, bad,
+        expect: { bad: [] }, pass: bad.length === 0,
       };
     }
 

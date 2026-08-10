@@ -692,8 +692,7 @@ const DEFAULT_LAYOUT = {
   // v3 盤面上方：左＝宙斯石像＋彩金牌、右＝赫拉石像＋彩金牌（石像在外側、牌子在內側）
   statueL:   { x: 249,  y: -1,  w: 311, h: 116 },
   statueR:   { x: 642,  y: -2,  w: 311, h: 116 },
-  // v3 指南針：盤面正上方的半圓，圓心落在框下緣（＝盤面上緣），下半圓不顯示
-  compass:   { x: 532,  y: 42,  w: 140, h: 70 },
+  // （2026-08-10 移除盤面上方中央的指南針：v3 不再有「本局的神」，沒有東西可指）
   jpBar:     { x: 15,   y: 5 },                      // JP 橫幅（相對盤面的偏移）
   ways:      { x: 0,    y: 0 },                      // WAYS 欄位（相對盤面的偏移）
   bottomUI:  { x: 0,    y: 650 },                    // 下方 UI 列頂端
@@ -712,7 +711,6 @@ const LAYOUT_META = [
   ['mapPanel',  '藏寶圖面板', o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
   ['statueL',   '宙斯石像+彩金', o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
   ['statueR',   '赫拉石像+彩金', o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
-  ['compass',   '指南針(半圓)', o => ({ x: o.x, y: o.y, w: o.w, h: o.h }), true],
   ['jpBar',     'JP橫幅',     () => { const p = jpBarPos(); return { x: p.cx - 320, y: p.by, w: 640, h: 44 }; }, false],
   ['ways',      'WAYS欄位',   () => { const p = waysPos();  return { x: p.cx - 55, y: p.cy - 30, w: 110, h: 60 }; }, false],
   ['bottomUI',  '下方UI列',   o => ({ x: o.x, y: o.y, w: 1280, h: 70 }), false],
@@ -877,11 +875,11 @@ let mapSub = {
   x: 0, y: 0, sx: 0, sy: 0, tx: 0, ty: 0,
   alpha: 0, side: 1,
 };
-let beaconAnim = [0, 0, 0, 0];   // 各羅盤的點亮演繹剩餘幀數（index = 節點序）
-let compassAnim = 0;             // v3 盤面指南針：分歧定案時指針甩向該神的演繹剩餘幀數
+// 各羅盤的點亮演繹剩餘幀數（v2＝小島節點序；v3＝jpBeaconIdx()＝2 神 × 2 組條件）
+let beaconAnim = [0, 0, 0, 0];
 let islandFogAnim = 0;           // 小島開啟演繹：兩座小島的雲霧散去剩餘幀數
 let forkResolveAnim = 0;         // 分歧定案演繹：第 1 站落敗色壓黑的過渡剩餘幀數
-let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）※v1 用
+let questOrder    = [0, 1, 2, 3]; // 每局洗牌的顏色順序（colorId）※v1／v3 用
 let questProgress = 0;            // 已完成步驟數 0-5
 let questReveal   = 0;            // 目前地圖上已揭示的最高步驟索引（0=只顯示步驟1）
 // 藏寶圖演繹（美術需求說明 編號 20）
@@ -900,7 +898,7 @@ let questScoreMultiplier = 1;     // 當前連爆得分倍數
 const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 分歧競速', desc: '首關紅金競速定神並開島，之後三關剩餘三色隨機，JP 走小島節點' },
-  3: { name: 'v3 單線分裂', desc: '單線推進 4 關，通關獎勵改為該色分裂；JP 收集點移到盤面兩側石像旁' },
+  3: { name: 'v3 單線分裂', desc: '四色隨機排列 4 關，通關獎勵＝該色分裂；JP 雙神並行，各自湊 2 組顏色組合' },
 };
 // 各規則版本的預設版面（切換版本時套用；之後仍可在「佈局」分頁自行拖動）
 const RULE_LAYOUT = {
@@ -926,11 +924,14 @@ let POP_STYLE = DEFAULT_POP_STYLE;
 
 const DEFAULT_RULE_VERSION = 3;
 let RULE_VERSION = DEFAULT_RULE_VERSION;
-// ── 版本能力判定（下游一律問這三個，不要再直接比對版本號）──
-// isForkRule：4 關 ＋ 首關金紅分歧定神（v2／v3）
+// ── 版本能力判定（下游一律問這幾個，不要再直接比對版本號）──
+// isForkRule：4 關制（v2／v3）※名稱沿用歷史，代表的是「關卡數／分裂／地圖保留」那組行為，
+//             **不代表有分歧關**；要問「第 1 關是不是金紅分歧」請用 hasForkStage()
+// hasForkStage：第 1 關為金／紅分歧定神（只有 v2；v3 改為四色隨機排列，2026-08-10）
 // hasMapIslands：地圖上有三航道／JP 小島／支線小船（只有 v2）
-// isV3：單線推進、通關獎勵＝分裂、JP 收集點在盤面兩側石像旁
+// isV3：單線推進、通關獎勵＝分裂、JP 收集點在盤面兩側石像旁（雙神各自條件）
 function isForkRule()    { return RULE_VERSION === 2 || RULE_VERSION === 3; }
+function hasForkStage()  { return RULE_VERSION === 2; }
 function hasMapIslands() { return RULE_VERSION === 2; }
 function isV3()          { return RULE_VERSION === 3; }
 
@@ -962,14 +963,48 @@ let questAdvSeq     = -1;    // v1 最近一次進階合成的那次事件
 // ── v2 JP 小島 ──
 // 分歧定案時開島；之後每次雙色進階合成點亮一個節點，點滿給該神 JP。
 // 開島「前」已完成的進階合成不計入，所以記下開島當下的事件流水號來比先後。
-const DEFAULT_JP_NODES = 2;  // 節點數量正式版由 SERVER 給，demo 用調校面板調
+const DEFAULT_JP_NODES = 2;  // 節點數量正式版由 SERVER 給，demo 用調校面板調（v3 不適用）
 let JP_NODES     = DEFAULT_JP_NODES;
 let jpIslandSeq  = -1;       // 開島的那次事件（-1 = 尚未開島）
-let jpNodesLit   = 0;        // 已點亮的節點數（v2＝小島羅盤／v3＝石像旁羅盤）
+let jpNodesLit   = 0;        // 已點亮的節點數（v2 小島羅盤專用）
 // 地圖上真的有一座島要開（只有 v2）
 function jpIslandOpen() { return hasMapIslands() && questRoute >= 0; }
-// JP 收集軌道是否已開放：分歧定案就開（v2 開島、v3 石像亮起），此後的進階合成才計入
-function jpTrackOpen()  { return isForkRule() && questRoute >= 0; }
+// JP 收集軌道是否已開放：
+//   v2＝分歧定案才開島，此後的進階合成才計入；
+//   v3（2026-08-10 改版）＝一開局就開始計入，沒有任何前置條件。
+function jpTrackOpen()  { return isV3() ? true : (isForkRule() && questRoute >= 0); }
+
+// ── v3 JP：雙神並行，各自有兩組「進階合成顏色對」條件 ──
+// 顏色編號：0=紅 1=金 2=藍 3=綠
+//   宙斯（JP_BOSSES[0]）：紅+綠、紅+藍　兩組都達成 → 宙斯 JP
+//   赫拉（JP_BOSSES[1]）：金+綠、金+藍　兩組都達成 → 赫拉 JP
+// 兩神各自獨立累積，同一局可同時達成 → 兩個 JP 都給（依序各播一次報獎）。
+// 同一組合重複達成不會多算（每組只是一個 on/off 條件）。
+const JP_COMBOS = [
+  [[0, 3], [0, 2]],   // 0 宙斯：紅+綠、紅+藍
+  [[1, 3], [1, 2]],   // 1 赫拉：金+綠、金+藍
+];
+let jpComboLit    = [[false, false], [false, false]];  // v3：各神各組合是否已達成
+let jpGrantedBoss = [false, false];                    // v3：各神的 JP 是否已發放
+// 顏色對 → 命中哪一尊神的哪一組條件（顏色順序不拘）；不是 JP 條件就回 null
+function jpComboIndex(a, b) {
+  for (let g = 0; g < JP_COMBOS.length; g++) {
+    for (let k = 0; k < JP_COMBOS[g].length; k++) {
+      const [x, y] = JP_COMBOS[g][k];
+      if ((a === x && b === y) || (a === y && b === x)) return { god: g, idx: k };
+    }
+  }
+  return null;
+}
+function jpGodLit(g)  { return jpComboLit[g].filter(Boolean).length; }   // 該神已達成幾組
+function jpGodDone(g) { return jpComboLit[g].every(Boolean); }           // 該神條件是否集滿
+// 該神該組條件的演繹索引（beaconAnim 共 4 格＝2 神 × 2 組）
+function jpBeaconIdx(g, k) { return g * JP_COMBOS[g].length + k; }
+// 條件說明文字（調校面板／石像下方共用）：例「紅+綠」
+function jpComboLabel(g, k) {
+  const [x, y] = JP_COMBOS[g][k];
+  return `${COLOR_NAMES[x][0]}+${COLOR_NAMES[y][0]}`;
+}
 
 function buildQuestPlan() {
   questRoute   = -1;
@@ -981,9 +1016,21 @@ function buildQuestPlan() {
   beaconAnim = [0, 0, 0, 0];
   mapSub.active = false; mapSub.moving = false;
   mapSub.dock = 0; mapSub.litOnArrive = -1; mapSub.alpha = 0;
-  compassAnim = 0;   // v3：盤面指南針回到未定案（指針空轉）
-  if (isForkRule()) {
-    // 第 1 關就是分歧：紅金同時開放競速；其餘三關等分歧定案後才填色
+  // v3 的 JP 收集進度（雙神各兩組條件）與發放旗標一併歸零
+  jpComboLit    = [[false, false], [false, false]];
+  jpGrantedBoss = [false, false];
+  if (isV3()) {
+    // v3（2026-08-10 改版）：不再有分歧關，四關＝紅金藍綠各出現一次的隨機排列，
+    // 每關都是單色、通關獎勵仍為「該色分裂」。
+    const order = [0, 1, 2, 3];
+    for (let i = order.length - 1; i > 0; i--) {     // Fisher-Yates，確保是真排列
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    questOrder = order.slice();
+    questPlan  = order.map(c => ({ colors: [c], kind: 'synth', fork: false }));
+  } else if (hasForkStage()) {
+    // v2：第 1 關就是分歧：紅金同時開放競速；其餘三關等分歧定案後才填色
     questPlan = [
       { colors: V2_FORK_COLORS.slice(), kind: 'synth', fork: true },
       { colors: [], kind: 'synth', fork: false },
@@ -1017,7 +1064,9 @@ function applyQuestReward() {
   questScoreMultiplier = tbl[questProgress] ?? tbl[tbl.length - 1];
 }
 
-let jpAdvQueue = [];   // v2：待補判的雙色進階合成事件流水號（點亮小島節點用）
+// 待補判的雙色進階合成事件：{ seq, a, b }＝流水號＋這一對的兩個顏色。
+// v2 只用 seq（比開島先後）；v3 用 a/b 判斷命中哪一尊神的哪一組 JP 條件。
+let jpAdvQueue = [];
 
 // 排入待補判（不立即推進）。地圖一次只解鎖一關，實際推進交給 updateQuestPending()。
 // atProgress = 合成當下已揭露到第幾關：規則要求「條件揭露後再合成才算」，
@@ -1040,20 +1089,25 @@ function updateQuestPending() {
   }
 
   if (isForkRule()) {
-    // JP 收集點：分歧定案之後的雙色進階合成，一次點亮一個羅盤
+    // JP 收集點：雙色進階合成，一次點亮一個羅盤
     if (hasMapIslands() && mapSub.moving) return;   // v2 小船還在移動 → 等這一段跑完再處理下一筆
     if (isV3() && beaconAnim.some(v => v > 0)) return;   // v3 上一個羅盤還在播 → 一個一個點
     while (jpAdvQueue.length) {
-      const seq = jpAdvQueue.shift();
-      if (!jpTrackOpen() || seq <= jpIslandSeq) continue;   // 定案前（含定案當次）不計入
-      if (jpNodesLit >= JP_NODES) continue;
-      if (hasMapIslands()) {
-        // v2：小船再靠近一段；抵達後才 jpNodesLit++ 並播羅盤點亮演繹
-        advanceMapSub();
+      const ev  = jpAdvQueue.shift();
+      const seq = ev.seq;
+      if (!jpTrackOpen()) continue;
+      if (isV3()) {
+        // v3：顏色對決定屬於哪一尊神的哪一組條件；不是 JP 條件（例：藍+綠）就跳過，
+        //     同一組合重複達成也只算一次。JP 收集一開局就計入，不需要前置條件。
+        const hitc = jpComboIndex(ev.a, ev.b);
+        if (!hitc || jpComboLit[hitc.god][hitc.idx]) continue;
+        jpComboLit[hitc.god][hitc.idx] = true;
+        beaconAnim[jpBeaconIdx(hitc.god, hitc.idx)] = TF(TIMING.mapBeacon);
       } else {
-        // v3：沒有小島也沒有小船 → 直接點亮石像旁的下一個羅盤
-        beaconAnim[jpNodesLit] = TF(TIMING.mapBeacon);
-        jpNodesLit++;
+        // v2：小船再靠近一段；抵達後才 jpNodesLit++ 並播羅盤點亮演繹
+        if (seq <= jpIslandSeq) continue;   // 定案前（含定案當次）不計入
+        if (jpNodesLit >= JP_NODES) continue;
+        advanceMapSub();
       }
       return;
     }
@@ -1087,19 +1141,23 @@ function tryAdvanceQuest(colorIds, tieBreak, seq) {
     jpIslandSeq = seq;                      // 定案：此後的進階合成才計入 JP 收集點
     islandFogAnim   = TF(TIMING.mapIslandOpen);    // 小島開啟演繹：兩座小島的雲霧散去
     forkResolveAnim = TF(TIMING.mapForkResolve);   // 分歧定案演繹：落敗色壓黑
-    if (hasMapIslands()) {
-      openMapSub();                                // v2：小船出港，駛往本局 JP 島附近待命
-    } else if (isV3()) {
-      compassAnim = TF(TIMING.mapForkResolve);     // v3：盤面指南針甩向本局的神
-    }
+    if (hasMapIslands()) openMapSub();             // v2：小船出港，駛往本局 JP 島附近待命
     // 強開「獲得 JP」：開島後直接補齊小島節點的份，演繹（小船＋羅盤）照常一個一個播
     if (forceJpPending) {
       forceJpPending = false;
-      for (let k = 0; k < JP_NODES; k++) jpAdvQueue.push(++questEventSeq);
+      for (let k = 0; k < JP_NODES; k++) jpAdvQueue.push({ seq: ++questEventSeq, a: -1, b: -1 });
     }
     fillRemainingSteps(win);
   }
   questProgress++;
+  // v3 強開「獲得 JP」：沒有分歧關可掛，改在第 1 關通關時補齊兩尊神的四組條件，
+  // 羅盤點亮與兩次 JP 報獎照常一個一個播（demo 用來檢視雙 JP 的演繹順序）。
+  if (isV3() && forceJpPending && questProgress === 1) {
+    forceJpPending = false;
+    for (let g = 0; g < JP_COMBOS.length; g++) {
+      for (const [a, b] of JP_COMBOS[g]) jpAdvQueue.push({ seq: ++questEventSeq, a, b });
+    }
+  }
   if (questProgress === 4) questStage4Seq = seq;   // v1 第 5 關要比這個之後才做的進階合成
   applyQuestReward();
   triggerShipToStep(questProgress - 1);
@@ -1122,8 +1180,9 @@ function activeJpBoss() { return isForkRule() ? questRoute : jpBoss; }
 // 取尊位定義；未決定時給中性佔位（紫色＋金羊毛，等同改版前的第 5 格樣式）
 const JP_BOSS_UNKNOWN = { icon: '🐏', name: '未定', label: '未定', color: '#c4b5fd', glow: '#c4b5fd', value: 0 };
 function jpBossDef() { const i = activeJpBoss(); return (i === 0 || i === 1) ? JP_BOSSES[i] : JP_BOSS_UNKNOWN; }
-// 「哪一次揭露公布尊位」：v2／v3 = 第 1 關分歧（index 0）；v1 = 第 4 關（揭開第 5 格時）
-function jpRevealStepIdx() { return isForkRule() ? 0 : 3; }
+// 「哪一次揭露公布尊位」：v2 = 第 1 關分歧（index 0）；v1 = 第 4 關（揭開第 5 格時）。
+// v3 沒有「本局的神」這件事（兩神並行），回 -1 ＝ 永遠不公布。
+function jpRevealStepIdx() { return isV3() ? -1 : (isForkRule() ? 0 : 3); }
 
 // ── 地圖顯示：把 questPlan 攤成繪製用資訊 ──
 function stepColorIds(i)       { const s = questPlan[i]; return s ? s.colors : []; }
@@ -1201,8 +1260,8 @@ function nodeColorId(i, side) {
   if (forkOpen(i)) return -1;                 // 分歧未定：兩色都還開著，不能只顯示其中一色
   return stepColorIds(i)[0] ?? -1;
 }
-// v2／v3 第 1 關且尚未分出勝負 → 金紅競速中
-function forkOpen(i) { return isForkRule() && i === 0 && questRoute < 0; }
+// v2 第 1 關且尚未分出勝負 → 金紅競速中（v3 已無分歧關，恆為 false）
+function forkOpen(i) { return hasForkStage() && i === 0 && questRoute < 0; }
 function nodeColor(i, side) {
   if (!isForkRule() && i === 4) return jpBossDef().color;
   if (forkOpen(i)) return COLOR_HEX[V2_FORK_COLORS[1]];   // 金（左半）
@@ -1575,9 +1634,9 @@ function resetRoundState() {
   // questAdvSeq 不清：它靠 seq 與 questStage4Seq 比先後，留著才不會在
   // 「第 4 關的解鎖演繹還沒播完就開下一局」時漏掉一次合法的 JP。
   questPending = []; jpAdvQueue = [];
-  // 地圖面板：地圖保留模式下不重置（v2 = FG+SFG 都保留；v1 = 只有 SFG），
-  // JP 小島的收集點進度（jpNodesLit）與 jpGranted 都在 buildQuestPlan 裡一併歸零，
-  // 所以「地圖不重置」＝「小島進度也不重置」＝「本輪最多再拿 1 次 JP」。
+  // 地圖面板：地圖保留模式下不重置（v2／v3 = FG+SFG 都保留；v1 = 只有 SFG），
+  // JP 收集點進度（v2 的 jpNodesLit／v3 的 jpComboLit）與發放旗標都在 buildQuestPlan 裡
+  // 一併歸零，所以「地圖不重置」＝「JP 進度也不重置」＝「本輪每尊神最多再拿 1 次 JP」。
   if (!mapPersists()) {
     mapFlags = [false, false, false, false, false];
     questProgress = 0;
@@ -1683,7 +1742,7 @@ function startSpin() {
     board[2][0].id = 4; board[3][0].id = 5;
   } else if (forceSpinType && (forceSpinType.startsWith('cond_') || forceSpinType === 'force_jp')) {
     // 條件強開：先全盤填紅色角色（同型不配對），放指定對子後掃描修復意外配對
-    // force_jp 只需要第 1 關分歧達成（開島），節點的份在開島時補齊
+    // force_jp 只需要第 1 關達成：v2 在開島時補齊小島節點，v3 在第 1 關通關時補齊雙神四組條件
     for (let _fc = 0; _fc < COLS; _fc++) for (let _fr = 0; _fr < ROWS; _fr++) board[_fc][_fr].id = 0;
     if (forceSpinType === 'force_jp') forceJpPending = true;
     const _cp = (forceSpinType === 'cond_1' || forceSpinType === 'force_jp') ? [[0,0,0]] :
@@ -1693,8 +1752,8 @@ function startSpin() {
                                              [[0,0,0],[2,0,1],[0,1,2],[0,2,3]]; // cond_5
     const _ik = new Set(_cp.map(([c,r]) => `${c},${r}`));
     // 每關要放哪一色由 questPlan 決定；v2 分歧關先隨機挑一邊（讓兩條航線都測得到），
-    // 分歧後那一關的 colors 還是空的，取另一色補上
-    const _forkPick = (isForkRule() && Math.random() < 0.5) ? 1 : 0;
+    // 分歧後那一關的 colors 還是空的，取另一色補上（v3 四關都是單色，走 cs.length===1）
+    const _forkPick = (hasForkStage() && Math.random() < 0.5) ? 1 : 0;
     const _stepCol = ci => {
       const cs = stepColorIds(ci);
       if (cs.length === 1) return cs[0];
@@ -1894,8 +1953,12 @@ function applyAdvancedSynthesis() {
       // 企畫書「視覺流程圖」編號 06 明訂：此階段地圖不變動，雙色進階合成只計入
       // JP 小島節點，不推進主航道關卡。（兩色的關卡達成在各自 1×2 合成時就已判過）
       // 流水號的用途：v1 供第 5 關判先後，v2 是 JP 小島的節點來源（開島之後的才算）。
+      // v3 的 JP 條件是「特定顏色組合」，所以入列時必須把這一對的兩個顏色帶著走 ——
+      // 只傳流水號的話，下游分不出「紅+綠」與「紅+藍」是兩個不同條件。
       questAdvSeq = ++questEventSeq;
-      if (isForkRule()) jpAdvQueue.push(questAdvSeq);   // v1 沒有 JP 收集點，不入列
+      if (isForkRule()) {                              // v1 沒有 JP 收集點，不入列
+        jpAdvQueue.push({ seq: questAdvSeq, a: leftM.colorId, b: rightM.colorId });
+      }
     }
   }
   mergedCells = mergedCells.filter(m => !m.upgraded);
@@ -2486,7 +2549,6 @@ function updateMapPanel() {
   for (let i = 0; i < beaconAnim.length; i++) if (beaconAnim[i] > 0) beaconAnim[i]--;
   if (islandFogAnim > 0) islandFogAnim--;
   if (forkResolveAnim > 0) forkResolveAnim--;
-  if (compassAnim > 0) compassAnim--;   // v3 盤面指南針的定案甩針
   updateMapSub();
   // 更新濺起粒子
   mapSplash = mapSplash.filter(s => {
@@ -2894,112 +2956,26 @@ function drawWaysDisplay(ctx) {
 
 
 // ============================================================
-// === v3：盤面中央指南針 ＋ 左右石像（JP 收集進度）===
-//   指南針：第 1 關（金／紅分歧）定案前指針空轉；
-//           定案後指向本局的神——紅→⚡宙斯（左）、金→👑赫拉（右）。
-//   石像　：左＝宙斯、右＝赫拉，各自頭頂掛 JP_NODES 個羅盤收集點。
-//           每完成 1 次雙色進階合成點亮 1 個，點滿即獲得該神 JP 彩金。
-//   兩者的框都在調校面板「佈局」分頁可拖動／改尺寸（compass／statueL／statueR）。
+// === v3：盤面上方左右石像（雙神 JP 收集進度）===
+//   左＝宙斯、右＝赫拉，各自頭頂掛 2 個羅盤收集點（＝該神的兩組顏色組合條件）。
+//   宙斯＝進階合成「紅+綠」「紅+藍」；赫拉＝「金+綠」「金+藍」。
+//   兩組都達成即獲得該神 JP；兩神各自獨立，同一局可同時達成拿到兩個 JP。
+//   石像的框在調校面板「佈局」分頁可拖動／改尺寸（statueL／statueR）。
+//   （2026-08-10 移除盤面中央的半圓指南針：v3 已無「本局的神」可指）
 // ============================================================
 
-// 該神在畫面上的邊：0=宙斯→左、1=赫拉→右
-function godSideSign(route) { return route === 1 ? 1 : -1; }
-
-// 半圓指南針：LAYOUT.compass 的框就是「看得到的那半個」——
-// 圓心落在框的下緣（＝盤面上緣），下半圓整個被裁掉不畫。
-// 指針停在斜上方對著該尊神的石像：宙斯＝左上、赫拉＝右上。
-const COMPASS_ANG_L = -Math.PI + 0.34;   // 左上（⚡ 宙斯）
-const COMPASS_ANG_R = -0.34;             // 右上（👑 赫拉）
-
-function drawBoardCompass(ctx) {
-  if (!isV3()) return;
-  const o  = LAYOUT.compass;
-  const cx = o.x + o.w / 2, cy = o.y + o.h;   // 圓心＝框下緣中點
-  const r  = o.w / 2;
-  const t  = Date.now();
-  const decided = questRoute >= 0;
-  const boss = jpBossDef();
-  // 定案演繹：指針甩過頭再回穩
-  const k = compassAnim > 0 ? compassAnim / TF(TIMING.mapForkResolve) : 0;   // 1 → 0
-  let ang;
-  if (decided) {
-    const target = godSideSign(questRoute) < 0 ? COMPASS_ANG_L : COMPASS_ANG_R;
-    ang = target + Math.sin(k * Math.PI * 3) * 0.9 * k;
-  } else {
-    // 未定案：在半圓範圍內來回擺（繞著正上方）
-    ang = -Math.PI / 2 + Math.sin(t / 780) * 1.05;
-  }
-
-  ctx.save();
-  // 只留上半圓：下半圓（盤面裡面那半）整個裁掉
-  ctx.beginPath(); ctx.rect(cx - r - 2, cy - r - 2, (r + 2) * 2, r + 2); ctx.clip();
-
-  // 底盤
-  const dial = ctx.createRadialGradient(cx, cy - r * 0.35, r * 0.1, cx, cy, r);
-  dial.addColorStop(0, 'rgba(32,52,68,0.97)');
-  dial.addColorStop(1, 'rgba(6,16,24,0.97)');
-  ctx.fillStyle = dial;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.94, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill();
-
-  // 外圈黃銅環（半圓弧＋底部一道直邊）
-  const ring = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy);
-  ring.addColorStop(0, '#e8cf8e'); ring.addColorStop(0.5, '#8a6c34'); ring.addColorStop(1, '#f2e0b0');
-  ctx.strokeStyle = ring; ctx.lineWidth = r * 0.11;
-  if (decided) { ctx.shadowColor = boss.glow; ctx.shadowBlur = 12 + k * 24; }
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.94, Math.PI, Math.PI * 2); ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(226,205,150,0.55)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(cx - r * 0.94, cy); ctx.lineTo(cx + r * 0.94, cy); ctx.stroke();
-
-  // 刻度（半圓 16 格；兩尊神的方位加長）
-  for (let i = 0; i <= 16; i++) {
-    const a = Math.PI + (i / 16) * Math.PI;
-    const isGod = (i === 2 || i === 14);
-    const l = isGod ? r * 0.22 : (i % 4 === 0 ? r * 0.15 : r * 0.08);
-    ctx.strokeStyle = isGod ? 'rgba(255,232,170,0.85)' : 'rgba(226,205,150,0.55)';
-    ctx.lineWidth = isGod ? 2 : 1;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * r * 0.86, cy + Math.sin(a) * r * 0.86);
-    ctx.lineTo(cx + Math.cos(a) * (r * 0.86 - l), cy + Math.sin(a) * (r * 0.86 - l));
-    ctx.stroke();
-  }
-
-  // 兩尊神的方位標記：本局的神那一側亮起
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(r * 0.30)}px Arial`;
-  [[-1, JP_BOSSES[0], COMPASS_ANG_L], [1, JP_BOSSES[1], COMPASS_ANG_R]].forEach(([sg, bs, a]) => {
-    const on = decided && godSideSign(questRoute) === sg;
-    ctx.save();
-    ctx.globalAlpha = on ? 1 : 0.4;
-    if (on) { ctx.shadowColor = bs.glow; ctx.shadowBlur = 10; }
-    ctx.fillText(bs.icon, cx + Math.cos(a) * r * 0.60, cy + Math.sin(a) * r * 0.60);
-    ctx.restore();
-  });
-
-  // 指針（尖端＝本局的神）；只有前段，尾段會落到裁掉的下半圓
-  ctx.save();
-  ctx.translate(cx, cy); ctx.rotate(ang);
-  const nl = r * 0.72, nw = r * 0.075;
-  if (decided) { ctx.shadowColor = boss.glow; ctx.shadowBlur = 10 + k * 20; }
-  ctx.fillStyle = decided ? boss.color : '#cbb887';
-  ctx.beginPath(); ctx.moveTo(nl, 0); ctx.lineTo(0, -nw); ctx.lineTo(0, nw); ctx.closePath(); ctx.fill();
-  ctx.restore();
-
-  // 軸心（壓在下緣上，看起來像半圓的軸座）
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#f0dfae';
-  ctx.beginPath(); ctx.arc(cx, cy, r * 0.10, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-// 一排羅盤收集點：lit 個已點亮，最新那個播擴散環
-function drawCollectPips(ctx, cx, cy, lit, boss, active) {
-  const n = Math.max(1, JP_NODES);
-  const R = 12, gap = R * 2 + 7;
+// 一排羅盤收集點（v3 專用，只由 drawGodStatues 呼叫）：
+// 該神有幾組條件就畫幾個，第 k 個＝JP_COMBOS[god][k]。外圈用該組合的兩個顏色各畫半圈，
+// 玩家一眼看得出「這一格要湊哪兩色」；達成的那一格點亮並播一次擴散環。
+function drawCollectPips(ctx, cx, cy, god) {
+  const combos = JP_COMBOS[god], boss = JP_BOSSES[god];
+  const n = combos.length;
+  const R = 12, gap = R * 2 + 22;   // 間距加大：外圈要塞得下顏色標示與文字
   const x0 = cx - (n - 1) * gap / 2;
   for (let i = 0; i < n; i++) {
-    const px = x0 + i * gap, on = active && i < lit;
-    const anim = beaconAnim[i] > 0 ? beaconAnim[i] / TF(TIMING.mapBeacon) : 0;   // 1 → 0
+    const px = x0 + i * gap, on = jpComboLit[god][i];
+    const bi = jpBeaconIdx(god, i);
+    const anim = beaconAnim[bi] > 0 ? beaconAnim[bi] / TF(TIMING.mapBeacon) : 0;   // 1 → 0
     ctx.save();
     // 底盤
     ctx.fillStyle = on ? '#caa64f' : 'rgba(18,28,38,0.85)';
@@ -3009,6 +2985,14 @@ function drawCollectPips(ctx, cx, cy, lit, boss, active) {
     ctx.strokeStyle = on ? boss.color : 'rgba(206,170,102,0.5)';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(px, cy, R, 0, Math.PI * 2); ctx.stroke();
+    // 外圈：左半＝組合的第 1 色、右半＝第 2 色（未達成時壓淡）
+    ctx.globalAlpha = on ? 1 : 0.55;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = COLOR_HEX[combos[i][0]];
+    ctx.beginPath(); ctx.arc(px, cy, R + 3, Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+    ctx.strokeStyle = COLOR_HEX[combos[i][1]];
+    ctx.beginPath(); ctx.arc(px, cy, R + 3, Math.PI * 1.5, Math.PI / 2); ctx.stroke();
+    ctx.globalAlpha = 1;
     // 指針：熄滅時歪著晃，點亮時指正北
     const a = on ? -Math.PI / 2 : -Math.PI / 2 + Math.sin(Date.now() / 620 + i) * 0.7;
     ctx.strokeStyle = on ? '#3b2a08' : 'rgba(200,215,230,0.55)';
@@ -3023,6 +3007,12 @@ function drawCollectPips(ctx, cx, cy, lit, boss, active) {
       ctx.strokeStyle = boss.glow; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(px, cy, R + (1 - anim) * 14, 0, Math.PI * 2); ctx.stroke();
     }
+    // 組合文字（例「紅+綠」）標在羅盤正下方
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = 'bold 9px Arial';
+    ctx.fillStyle = on ? '#ffe9b0' : 'rgba(203,213,225,0.75)';
+    ctx.fillText(jpComboLabel(god, i), px, cy + R + 5);
     ctx.restore();
   }
 }
@@ -3045,14 +3035,15 @@ function drawGodStatues(ctx) {
   const t = Date.now();
   const pulse = 0.5 + Math.sin(t / 460) * 0.5;
   const PAD = 26;   // 光暈會溢出框，離屏圖層四周留邊
-  // 一組＝石像（外側）＋彩金牌（內側）。左組是宙斯、右組是赫拉，
-  // 與指南針的指向、地圖的分歧色三者一致。
+  // 一組＝石像（外側）＋彩金牌（內側）。左組是宙斯、右組是赫拉。
+  // 2026-08-10 改版：兩尊神並行累積，沒有「本局的神」，所以兩組都正常顯示、都不壓暗；
+  // 只有在該神兩組條件集滿（＝這一局要給這尊神 JP）時才亮起呼吸光暈。
   [['statueL', 0], ['statueR', 1]].forEach(([key, route]) => {
     const o = LAYOUT[key];
     if (!o) return;
     const boss    = JP_BOSSES[route];
-    const chosen  = questRoute === route;
-    const dim     = questRoute >= 0 && !chosen;   // 落選的那尊壓暗
+    const chosen  = jpGodDone(route);             // 條件集滿 → 這一尊亮起
+    const dim     = false;                        // 兩尊都是活的，不再有落選壓暗
     const outward = (route === 0) ? -1 : 1;       // -1＝石像靠左、+1＝石像靠右
 
     // ── 版位（都由 LAYOUT 的框推算，拖框整組跟著走）──
@@ -3118,12 +3109,14 @@ function drawGodStatues(ctx) {
     g.restore();
 
     // ── JP 羅盤收集進度（牌子下方）──
-    const pipY = plY + plH + 14;
-    drawCollectPips(g, plCx, pipY, chosen ? jpNodesLit : 0, boss, chosen);
+    // 兩尊神各自顯示自己的 0～2 進度，互不影響（可能同時都是 2／2）
+    const pipY = plY + plH + 12;
+    drawCollectPips(g, plCx, pipY, route);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = chosen ? '#ffe9b0' : 'rgba(203,213,225,0.8)';
     g.font = 'bold 9px Arial';
-    g.fillText(chosen ? `羅盤 ${jpNodesLit}／${JP_NODES} → JP` : `集滿 ${JP_NODES} 羅盤 → JP`,
-               plCx, pipY + 17);
+    // +36：要讓在 pipY+17 起繪的組合文字（紅+綠…）不與這一行重疊
+    g.fillText(`${jpGodLit(route)}／${JP_COMBOS[route].length} 組 → JP`, plCx, pipY + 36);
 
     g.restore();
 
@@ -3824,7 +3817,7 @@ function drawMapPanel(ctx) {
       // 地標方塊
       // 第 1 站（分歧站）：不論是否定案，版面都維持「金（左）／紅（右）」雙色並置，
       // 定案後改由下方的「落敗色壓黑」表現收為單色，避免地標寬度／配色跳動。
-      const _isForkNode = isForkRule() && i === 0;
+      const _isForkNode = hasForkStage() && i === 0;   // v3 已無分歧關，恆為 false
       const _blkC1 = _isForkNode ? COLOR_HEX[V2_FORK_COLORS[1]] : color;
       const _blkC2 = _isForkNode ? COLOR_HEX[V2_FORK_COLORS[0]] : nodeColor2(i, side);
       const isle = drawMapBlock(ctx, ncx, ncy, rw, NODE_RH, nodeArt(i, side), _blkC1, _blkC2);
@@ -4093,13 +4086,27 @@ function drawFlyingScores(ctx) {
 
 
 
-// ── JP 發放：第 5 步達成、連爆結束後直接結算本局尊位（不經抽牌）──
-function grantJpBoss() {
-  const boss = jpBossDef();
+// ── JP 發放：條件達成、連爆結束後直接結算（不經抽牌）──
+// bossIdx：v3 明確指定是哪一尊神（兩神可同時達成，各發一次）；v1／v2 不傳，沿用本局尊位。
+function grantJpBoss(bossIdx) {
+  const boss = (bossIdx === 0 || bossIdx === 1) ? JP_BOSSES[bossIdx] : jpBossDef();
   if (!boss.value) return;   // v2 分歧未定（理論上到不了第 5 關）
   totalScore += boss.value;
   enqueueWinAnim({ label: boss.label, value: boss.value, color: boss.color, glow: boss.glow,
                    size: 'jp', caption: 'J A C K P O T' });
+}
+
+// v3：結算時把「條件已集滿但尚未發放」的神一次結清。
+// 兩尊神各自獨立，同一局可能兩尊都成立 → 依序（宙斯先、赫拉後）各發一次，
+// 報獎交給 enqueueWinAnim 排隊，第二次會等第一次的完整演繹播完才播（不合併）。
+// 抽成函式是為了讓結算主流程與測試走同一條路徑。
+function v3GrantReadyJps() {
+  for (let g = 0; g < JP_BOSSES.length; g++) {
+    if (jpGodDone(g) && !jpGrantedBoss[g]) {
+      jpGrantedBoss[g] = true;
+      grantJpBoss(g);
+    }
+  }
 }
 
 // ── 報獎動畫（JP／結算彩金共用；一次結算可能兩者都有，依序播）──
@@ -4459,13 +4466,17 @@ function update(dt) {
       } else {
         // 連爆到不能再連爆 → 本局結算，排入三階大獎判定（大獎播完才進 FG／SFG）
         pendingBigWinCheck = true;
-        // JP：v2／v3 看收集點是否點滿，v1 看第 5 步是否達成（尊位早在分歧／揭格時公布）
-        const _jpDone = isForkRule()
-          ? (jpTrackOpen() && jpNodesLit >= JP_NODES)
-          : (questProgress >= 5);
-        if (_jpDone && !jpGranted) {
-          jpGranted = true;
-          grantJpBoss();
+        // JP：v3 兩尊神各自判定（可同時成立）；v2 看小島節點是否點滿；v1 看第 5 步是否達成
+        if (isV3()) {
+          v3GrantReadyJps();
+        } else {
+          const _jpDone = isForkRule()
+            ? (jpTrackOpen() && jpNodesLit >= JP_NODES)
+            : (questProgress >= 5);
+          if (_jpDone && !jpGranted) {
+            jpGranted = true;
+            grantJpBoss();
+          }
         }
         if (shipSFGPending) {
           // 相鄰合成 → SFG：等JP動畫播完後再顯示SFG面板
@@ -5932,7 +5943,6 @@ function draw() {
 
   drawGameFrame(ctx);
   drawBoard(ctx);
-  drawBoardCompass(ctx);   // v3：盤面正上方的半圓指南針
   drawGodStatues(ctx);     // v3：盤面上方左右的宙斯／赫拉石像＋彩金牌＋羅盤進度
   // v3 的彩金改由石像旁的彩金牌顯示，舊的棕色 JP 橫幅就不再畫（避免兩套並存）
   if (!isV3()) drawJPBars(ctx);
@@ -6566,11 +6576,12 @@ const RULE_SUMMARY = {
     ['JP', '開島後每次雙色進階合成點亮 1 節點', '節點點滿 → 該神 JP 彩金'],
   ],
   3: [
-    ['1', '紅｜金 同時開放競速，先合成者定神', '該色分裂＋指南針指向該神'],
-    ['2', '剩餘三色隨機一色，合成 1 次', '該色分裂'],
-    ['3', '剩餘兩色隨機一色，合成 1 次', '該色分裂'],
-    ['4', '最後剩餘一色，合成 1 次', '該色分裂'],
-    ['JP', '定神後每次雙色進階合成點亮 1 個羅盤', '羅盤點滿 → 該神 JP 彩金'],
+    ['1', '四色隨機排列 ①：該色合成 1 次', '該色分裂'],
+    ['2', '四色隨機排列 ②：該色合成 1 次', '該色分裂'],
+    ['3', '四色隨機排列 ③：該色合成 1 次', '該色分裂'],
+    ['4', '四色隨機排列 ④：該色合成 1 次', '該色分裂'],
+    ['JP ⚡', '進階合成「紅+綠」與「紅+藍」各 1 次', '兩組都達成 → 宙斯 JP'],
+    ['JP 👑', '進階合成「金+綠」與「金+藍」各 1 次', '兩組都達成 → 赫拉 JP'],
   ],
 };
 function buildRulesTab() {
@@ -6637,36 +6648,48 @@ function buildRulesTab() {
   tuneBody.appendChild(tbl);
 
   if (isForkRule()) {
-    // JP 收集點數量（正式版由 SERVER 給，這裡給企劃試手感）
     const h3 = document.createElement('div');
     h3.className = 'tune-group'; h3.textContent = isV3() ? 'JP 收集點（石像旁羅盤）' : 'JP 小島';
     tuneBody.appendChild(h3);
-    const row = document.createElement('div'); row.className = 'tune-row';
-    const lab = document.createElement('label'); lab.textContent = isV3() ? '羅盤數量' : '節點數量';
-    const rng = document.createElement('input');
-    rng.type = 'range'; rng.min = 1; rng.max = 6; rng.step = 1; rng.value = JP_NODES;
-    const num = document.createElement('input');
-    num.type = 'number'; num.min = 1; num.max = 6; num.step = 1; num.value = JP_NODES;
-    const apply = src => {
-      const v = Math.min(6, Math.max(1, parseInt(src.value, 10) || 1));
-      JP_NODES = v; rng.value = v; num.value = v;
-      if (jpNodesLit > v) jpNodesLit = v;
-      saveTuning();
-    };
-    rng.addEventListener('input', () => apply(rng));
-    num.addEventListener('change', () => apply(num));
-    row.append(lab, rng, num);
-    tuneBody.appendChild(row);
+    // v3（2026-08-10 改版）：JP 條件固定為「每尊神 2 組顏色組合」，節點數量不再是可調參數，
+    // 所以不畫滑桿——避免企劃調了以為有效。v2 維持原本的節點數量滑桿。
+    if (isV3()) {
+      const na = document.createElement('div');
+      na.className = 'tune-hint';
+      na.textContent = '（v3 不適用）JP 條件已固定為每尊神 2 組顏色組合，'
+        + `宙斯＝${jpComboLabel(0, 0)}／${jpComboLabel(0, 1)}，赫拉＝${jpComboLabel(1, 0)}／${jpComboLabel(1, 1)}，`
+        + '不再由「節點數量」控制。';
+      tuneBody.appendChild(na);
+    } else {
+      // JP 收集點數量（正式版由 SERVER 給，這裡給企劃試手感）
+      const row = document.createElement('div'); row.className = 'tune-row';
+      const lab = document.createElement('label'); lab.textContent = '節點數量';
+      const rng = document.createElement('input');
+      rng.type = 'range'; rng.min = 1; rng.max = 6; rng.step = 1; rng.value = JP_NODES;
+      const num = document.createElement('input');
+      num.type = 'number'; num.min = 1; num.max = 6; num.step = 1; num.value = JP_NODES;
+      const apply = src => {
+        const v = Math.min(6, Math.max(1, parseInt(src.value, 10) || 1));
+        JP_NODES = v; rng.value = v; num.value = v;
+        if (jpNodesLit > v) jpNodesLit = v;
+        saveTuning();
+      };
+      rng.addEventListener('input', () => apply(rng));
+      num.addEventListener('change', () => apply(num));
+      row.append(lab, rng, num);
+      tuneBody.appendChild(row);
+    }
 
     const note = document.createElement('div');
     note.className = 'tune-hint';
     note.style.marginTop = '8px';
     note.textContent = isV3()
-      ? '紅色先合成→指南針指向左側宙斯石像、金色先合成→指向右側赫拉石像。'
-      + '定神後每次雙色進階合成點亮該石像旁的一個羅盤，點滿給該神 JP。'
-      + '通關獎勵是「該色分裂」：NG／FG 切 1 刀（2×1）、SFG 切 3 刀（4×1）；'
-      + '尚未通關的顏色只會合成、不會分裂。JP 彩金獨立計算，v3 沒有盤面倍數。'
-      + '條件揭露前完成的合成、定神前完成的進階合成，都不計入。'
+      ? '地圖四關＝紅金藍綠各一次的隨機排列（沒有分歧關），通關獎勵是「該色分裂」：'
+      + 'NG／FG 切 1 刀（2×1）、SFG 切 3 刀（4×1）；尚未通關的顏色只會合成、不會分裂。'
+      + 'JP 走兩尊神並行的顏色組合條件：左側宙斯要「紅+綠」與「紅+藍」、右側赫拉要「金+綠」與「金+藍」，'
+      + '各自集滿兩組就給該神 JP，同一局兩尊都達成就給兩個 JP（依序各播一次報獎）。'
+      + 'JP 收集一開局就計入、同一組合重複達成不會多算；地圖條件揭露前完成的合成仍不計入關卡。'
+      + 'JP 彩金獨立計算，v3 沒有盤面倍數。'
       : '紅色先合成→開右側宙斯小島、金色先合成→開左側赫拉小島；兩尊神的盤面倍數相同。'
       + '開島後每次雙色進階合成點亮一個節點，點滿給該神 JP，JP 不與盤面倍數相乘。'
       + '條件揭露前完成的合成、開島前完成的進階合成，都不計入。';
