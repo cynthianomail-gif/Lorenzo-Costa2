@@ -395,8 +395,8 @@
         <div class="grid2">
           <div>
             <h3>▌ 基本規則</h3>
-            <p>• 盤面 <b>5 欄 × 4 列</b>，共 10 種符號</p>
-            <p>• 符號分 4 色（🔴紅 🟡黃 🔵藍 🟢綠），每色各有 <b>🧑角色</b> 與 <b>⚔️武器</b></p>
+            <p>• 盤面 <b>5 欄 × 4 列</b>。一般符號 <b>v4 為 10 個</b>（5 色）、v1～v3 為 8 個（4 色），另加船頭／船尾</p>
+            <p>• 符號分色，每色各有 <b>🧑角色</b> 與 <b>⚔️武器</b>：🔴紅 🟡金 🔵藍 🟢綠，<b>v4 另加 🟣紫（阿塔蘭忒／弓）</b></p>
             <p>• 另有特殊 FG 符號：<b>🚢 船頭</b> 與 <b>⚓ 船尾</b>（每局各最多出現 1 個）</p>
             <p>• 從最左欄起，連續 <b>3 欄以上</b>出現同種符號即得分</p>
             <p>• 採用 <b>Ways</b> 計算：各欄符號數之積 = 本次中獎路數</p>
@@ -412,7 +412,20 @@
             <p>• 兩個相鄰不同色 1×2 合成格 → 進階合成為 <b>1×4 合成格</b></p>
             <p>• 1×4 合成格同時替代兩種顏色的角色與武器</p>
 
-            <h3>▌ 航海地圖（右側面板）</h3>
+            <h3>▌ v4 角色列（預設版本）</h3>
+            <p>• 一般符號 10 個：紅海克力斯／木棒、金伊阿宋／刀盾、藍美狄亞／魔法、綠奧菲斯／七弦琴、<b>紫阿塔蘭忒／弓</b></p>
+            <p>• <b>分裂</b>：同色合成 <b>切一刀</b>（該色每格算 2 個）；<b>只有雙色進階合成能切第二刀</b>（算 3 個）到頂</p>
+            <p>&nbsp;&nbsp;五色全部切滿時 ways ＝ (4×3)<sup>5</sup> ＝ <b>248,832</b></p>
+            <p>• <b>取得 JP／彩金</b>：任一橫列 5 格<b>相鄰排滿 5 隻不同角色</b>，看<b>中間格（第 3 欄）</b>是誰：</p>
+            <p>&nbsp;&nbsp;海克力斯 → <b>⚡ 宙斯 JP</b>／伊阿宋 → <b>👑 赫拉 JP</b>／美狄亞 → <b>MAJOR</b>／奧菲斯 → <b>MINOR</b>／阿塔蘭忒 → <b>MINI</b></p>
+            <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>（同時替代五色的角色與武器）並照常計分，獎項於連爆全部結束後發放</p>
+            <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
+            <p>• <b>NG 無地圖、無盤面倍數</b>，得分公式維持 押注額 × 賠率 × Ways</p>
+            <p>• <b>FG 航海地圖</b>：每次連爆推進 1 站，倍數 ×1（首次得分）→ ×2 → ×3 → ×4 → ×5 → ×10，<b>第 7 段起維持 ×10</b></p>
+            <p>&nbsp;&nbsp;FG <b>每局重置</b>回起點；<b>SFG 不重置</b>，跨局一路累積。JP 與彩金<b>不</b>與此倍數相乘</p>
+            <p>• FG 中分裂（刀）不重置，直到 FG 結束</p>
+
+            <h3>▌ 航海地圖（右側面板・v1～v3）</h3>
             <p>• 地圖共 5 個里程碑；達成條件後依序解鎖</p>
             <p>• 每完成一步，盤面暫停並跳出動畫，揭示下一個條件</p>
             <p>• 第 5 步（科爾基斯聖林）：達成進階合成（1×4 格）即完成並獲得 JP</p>
@@ -444,6 +457,8 @@
               <tr><td>🔴⚔️ 木棒（紅）</td><td>×0.10</td><td>×0.15</td><td>×0.20</td></tr>
               <tr><td>🔵⚔️ 魔法（藍）</td><td>×0.10</td><td>×0.15</td><td>×0.20</td></tr>
               <tr><td>🟢⚔️ 七弦琴（綠）</td><td>×0.10</td><td>×0.15</td><td>×0.20</td></tr>
+              <tr><td>🟣🧑 阿塔蘭忒（紫・v4）</td><td>×0.10</td><td>×0.15</td><td>×0.25</td></tr>
+              <tr><td>🟣⚔️ 弓（紫・v4）</td><td>×0.10</td><td>×0.15</td><td>×0.18</td></tr>
             </table>
 
             <h3>▌ 🚢 Free Game（FG）</h3>
@@ -537,12 +552,20 @@ document.addEventListener('webkitfullscreenchange', updateFsBtn);
 // === 遊戲設定與資料 ===
 const COLS = 5;
 const ROWS = 4;
-const CELL_SIZE = 130;
+// 格子邊長。v4 移除右側地圖後盤面置中放大，故改為 let；改動一律走 setCellSize()，
+// 它會同步重算 GRID_W／GRID_H（其餘繪圖程式都是即時讀 CELL_SIZE，不需要另外處理）。
+// 垂直空間是硬限制：下方 spin 按鈕在 y≈658 起，盤面 y+4×CELL_SIZE 不能超過它。
+let CELL_SIZE = 130;
 // 盤面每一格的圓角半徑。0 = 正方形（企劃指定）；要改回圓角改這一個值就好，
 // 圖示、合成格、得分框、標示框、壓暗層全部共用。
 const CELL_R = 0;
-const GRID_W = COLS * CELL_SIZE;   // 650
-const GRID_H = ROWS * CELL_SIZE;   // 520
+let GRID_W = COLS * CELL_SIZE;   // 650（v4＝670）
+let GRID_H = ROWS * CELL_SIZE;   // 520（v4＝536）
+function setCellSize(n) {
+  CELL_SIZE = n;
+  GRID_W = COLS * CELL_SIZE;
+  GRID_H = ROWS * CELL_SIZE;
+}
 let GRID_X = Math.floor((1280 - GRID_W) / 2);  // 315，水平置中（可由調校面板調整）
 let GRID_Y = 120;                              // （可由調校面板調整）
 
@@ -747,7 +770,7 @@ function syncLayoutDerived() {
 }
 
 // === 取圖：分裂演繹橫切成細條時，要取原圖的哪一部分 ===
-// 每個一般圖示（id 0-7）一組，×2／×3／×4 三種分裂數共用。
+// 每個一般圖示（id 0-9）一組，×2～×5 各種分裂數共用。
 // mode: 'cover' 等比裁切（現行）／'contain' 整張縮進條帶留邊／'stretch' 拉伸填滿
 // 2026-08-03 企劃實調後匯出的焦點值：多半往上取（fy < 0.5）讓細條露出角色頭部／武器主體
 const DEFAULT_CROP = [
@@ -759,6 +782,8 @@ const DEFAULT_CROP = [
   { mode: 'cover', fx: 0.5, fy: 0.52, zoom: 1 },  // 5 魔法
   { mode: 'cover', fx: 0.5, fy: 0.33, zoom: 1 },  // 6 奧菲斯
   { mode: 'cover', fx: 0.5, fy: 0.21, zoom: 1 },  // 7 七弦琴
+  { mode: 'cover', fx: 0.5, fy: 0.35, zoom: 1 },  // 8 阿塔蘭忒（v4 新增，尚無美術，值先比照其他角色）
+  { mode: 'cover', fx: 0.5, fy: 0.45, zoom: 1 },  // 9 弓（v4 新增，尚無美術）
 ];
 const CROP_MODES = [['cover', '裁切'], ['contain', '完整'], ['stretch', '壓扁']];
 let CROP = JSON.parse(JSON.stringify(DEFAULT_CROP));
@@ -786,7 +811,11 @@ function drawFocus(ctx, img, x, y, w, h, crop) {
 }
 
 // id 偶數 = 高分角色（character），奇數 = 低分武器（weapon）
-// colorId = Math.floor(id / 2)：0=紅,1=金,2=藍,3=綠（對應美術需求說明的四大主色）
+// colorId = Math.floor(id / 2)：0=紅,1=金,2=藍,3=綠,4=紫
+//   紫色（阿塔蘭塔／弓箭）是 v4 新增的第 5 色，只在 v4 出現；v1～v3 的 randomSymId 不會抽到它，
+//   因此舊版本的四色行為（地圖四關、金紅競速）完全不受影響。
+// 船頭／船尾接在五色之後（id 10／11）。全檔一律用 SC_BOW／SC_STERN 與 isNormalSym() 比對，
+// 不要再寫死 8／9 或 `id < 8` —— 那是四色時代的舊邊界。
 const SYMBOLS = [
   { id: 0, name: '海克力斯', color: '#e63946', colorId: 0, type: 'char' },
   { id: 1, name: '木棒',     color: '#e63946', colorId: 0, type: 'weapon' },
@@ -796,11 +825,21 @@ const SYMBOLS = [
   { id: 5, name: '魔法',     color: '#2563eb', colorId: 2, type: 'weapon' },
   { id: 6, name: '奧菲斯',   color: '#059669', colorId: 3, type: 'char' },
   { id: 7, name: '七弦琴',   color: '#059669', colorId: 3, type: 'weapon' },
-  { id: 8, name: '船頭', color: '#7c3aed', colorId: -1, type: 'fg' },
-  { id: 9, name: '船尾', color: '#7c3aed', colorId: -1, type: 'fg' },
+  { id: 8, name: '阿塔蘭忒', color: '#a855f7', colorId: 4, type: 'char' },
+  { id: 9, name: '弓',       color: '#a855f7', colorId: 4, type: 'weapon' },
+  { id: 10, name: '船頭', color: '#7c3aed', colorId: -1, type: 'fg' },
+  { id: 11, name: '船尾', color: '#7c3aed', colorId: -1, type: 'fg' },
 ];
-const COLOR_NAMES = ['紅色', '金色', '藍色', '綠色'];
-const COLOR_HEX   = ['#e63946', '#f5c542', '#2563eb', '#059669'];
+const SC_BOW   = 10;   // 船頭（FG scatter）
+const SC_STERN = 11;   // 船尾（FG scatter）
+const NORMAL_SYM_COUNT = 10;   // id 0..9 ＝ 一般圖示（5 色 × 角色／武器）
+function isNormalSym(id) { return id >= 0 && id < NORMAL_SYM_COUNT; }
+function isScSymId(id)   { return id === SC_BOW || id === SC_STERN; }
+function isCharSym(id)   { return isNormalSym(id) && id % 2 === 0; }
+const COLOR_NAMES = ['紅色', '金色', '藍色', '綠色', '紫色'];
+const COLOR_HEX   = ['#e63946', '#f5c542', '#2563eb', '#059669', '#a855f7'];
+const COLOR_COUNT = COLOR_HEX.length;
+function newSplitArray() { return new Array(COLOR_COUNT).fill(1); }
 
 // PAYOUTS[symId] = [rate3, rate4, rate5]
 const PAYOUTS = [
@@ -812,8 +851,10 @@ const PAYOUTS = [
   [0.10, 0.15, 0.20], // 5 魔法（藍）
   [0.10, 0.15, 0.30], // 6 奧菲斯（綠）
   [0.10, 0.15, 0.20], // 7 七弦琴（綠）
-  [0, 0, 0],          // 8 船頭 (FG scatter)
-  [0, 0, 0],          // 9 船尾 (FG scatter)
+  [0.10, 0.15, 0.25], // 8 阿塔蘭忒（紫）← v4 新增，角色中最低分（對應 MINI）
+  [0.10, 0.15, 0.18], // 9 弓（紫）
+  [0, 0, 0],          // 10 船頭 (FG scatter)
+  [0, 0, 0],          // 11 船尾 (FG scatter)
 ];
 
 
@@ -828,7 +869,7 @@ const STATE = {
 let currentState = STATE.IDLE;
 let board = [];          // board[col][row] = { id, yOffset, isMatched, scale, _flash }
 // === 合成機制狀態 ===
-let splitCount = [1, 1, 1, 1];      // 各色分裂倍數（0=紅,1=黃,2=藍,3=綠）
+let splitCount = newSplitArray();   // 各色分裂倍數（0=紅,1=金,2=藍,3=綠,4=紫）
 let synthesizedColors = new Set();   // 本局已合成的顏色（JP判定用）
 // === 航海地圖面板常數與狀態 ===
 // 以下座標由調校面板的 LAYOUT.mapPanel 驅動，syncLayoutDerived() 會重算
@@ -899,16 +940,24 @@ const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 分歧競速', desc: '首關紅金競速定神並開島，之後三關剩餘三色隨機，JP 走小島節點' },
   3: { name: 'v3 單線分裂', desc: '四色隨機排列 4 關，通關獎勵＝該色分裂；JP 雙神並行，各自湊 2 組顏色組合' },
+  4: { name: 'v4 角色列',   desc: '五色（新增紫）；無地圖，每次合成該色切一刀最高 5；一整列 5 隻角色相鄰 → 中間格定獎（海克力斯＝宙斯 JP／伊阿宋＝赫拉 JP／其餘＝MAJOR、MINOR、MINI）' },
 };
 // 各規則版本的預設版面（切換版本時套用；之後仍可在「佈局」分頁自行拖動）
 const RULE_LAYOUT = {
   1: { grid: { x: 265, y: 120 }, mapPanel: { x: 925,  y: 120, w: 300, h: 462 } },
   2: { grid: { x: 195, y: 120 }, mapPanel: { x: 865,  y: 120, w: 390, h: 462 } },
   3: { grid: { x: 195, y: 120 }, mapPanel: { x: 1010, y: 120, w: 245, h: 462 } },
+  // v4 的實際版面由 syncV4Layout() 依 NG／FG 切換（見 V4_LAYOUT_NG／V4_LAYOUT_FG），
+  // 這裡給的是切到 v4 當下的初始值（＝NG 版面）。
+  4: { grid: { x: 310, y: 124 }, mapPanel: { x: 1010, y: 120, w: 245, h: 462 }, cell: 132 },
 };
 function applyRuleLayout(ver) {
   const p = RULE_LAYOUT[ver];
   if (!p) return;
+  // 這裡直接覆寫了 LAYOUT.grid／CELL_SIZE，必須讓 syncV4Layout() 忘記上一次的模式，
+  // 否則「在 FG 中切換規則版本」之後它會誤判模式沒變，不再把 FG 版面補回來。
+  _v4LayoutMode = null;
+  setCellSize(p.cell || 130);
   LAYOUT.grid     = { ...LAYOUT.grid,     ...p.grid };
   LAYOUT.mapPanel = { ...LAYOUT.mapPanel, ...p.mapPanel };
   syncLayoutDerived();
@@ -922,7 +971,7 @@ const POP_STYLES = [
 const DEFAULT_POP_STYLE = 1;  // 2026-08-05 企劃實調後匯出的值＝「光焰爆散」
 let POP_STYLE = DEFAULT_POP_STYLE;
 
-const DEFAULT_RULE_VERSION = 3;
+const DEFAULT_RULE_VERSION = 4;
 let RULE_VERSION = DEFAULT_RULE_VERSION;
 // ── 版本能力判定（下游一律問這幾個，不要再直接比對版本號）──
 // isForkRule：4 關制（v2／v3）※名稱沿用歷史，代表的是「關卡數／分裂／地圖保留」那組行為，
@@ -930,10 +979,18 @@ let RULE_VERSION = DEFAULT_RULE_VERSION;
 // hasForkStage：第 1 關為金／紅分歧定神（只有 v2；v3 改為四色隨機排列，2026-08-10）
 // hasMapIslands：地圖上有三航道／JP 小島／支線小船（只有 v2）
 // isV3：單線推進、通關獎勵＝分裂、JP 收集點在盤面兩側石像旁（雙神各自條件）
+// isV4：五色、無地圖、合成即切割（上限 5）、角色列定獎。v4 不屬於 isForkRule 那一組
+//       （它連地圖／關卡都沒有），所以任何以 isForkRule() 為前提的地圖程式碼在 v4 都不會跑。
 function isForkRule()    { return RULE_VERSION === 2 || RULE_VERSION === 3; }
 function hasForkStage()  { return RULE_VERSION === 2; }
 function hasMapIslands() { return RULE_VERSION === 2; }
 function isV3()          { return RULE_VERSION === 3; }
+function isV4()          { return RULE_VERSION === 4; }
+// 本規則版本啟用幾個顏色：v4 五色（含紫），其餘四色。
+// randomSymId() 靠它決定抽樣範圍 —— 這是「紫色只在 v4 出現」的唯一開關。
+function activeColorCount() { return isV4() ? 5 : 4; }
+// v4 是否有地圖／關卡（沒有）。地圖繪製與關卡推進都先問這個。
+function hasMapQuest()   { return !isV4(); }
 
 // v1：達成任務後的連爆得分倍數（index=questProgress）
 const QUEST_MULTIPLIERS = [1, 2, 3, 5, 10, 10];
@@ -1072,6 +1129,7 @@ let jpAdvQueue = [];
 // atProgress = 合成當下已揭露到第幾關：規則要求「條件揭露後再合成才算」，
 // 所以這筆只能推進那一關，對不上就作廢。回傳流水號供進階合成記錄先後。
 function requestQuestAdvance(colors, tieBreak) {
+  if (!hasMapQuest()) return ++questEventSeq;   // v4 無地圖：只給流水號，不排關卡待補判
   questPending.push({ colors: colors.slice(), tieBreak, seq: ++questEventSeq, atProgress: questProgress });
   return questEventSeq;
 }
@@ -1128,6 +1186,7 @@ function updateQuestPending() {
 // 關卡推進：colorIds = 本次事件涉及的顏色。
 // tieBreak：一次事件同時湊齊分歧兩色時以哪一色為準（依盤面左至右、上至下的先觸發者）
 function tryAdvanceQuest(colorIds, tieBreak, seq) {
+  if (!hasMapQuest()) return false;             // v4 無關卡
   if (questProgress >= questStepCount()) return false;
   const step = questPlan[questProgress];
   if (!step || step.kind !== 'synth') return false;
@@ -1346,17 +1405,162 @@ function rollJpBoss() { jpBoss = Math.random() < 0.5 ? 0 : 1; jpGranted = false;
 //   故 v3 的保留條件與 mapPersists() 同步（FG／SFG 都保留），FG 結束才一併歸零。
 // v1／v2 維持原行為不動（v2 只有 SFG 保留、v1 為 FG+SFG）。
 function splitAccumulates() {
+  if (isV4()) return inFG || inSFG;                 // v4：FG／SFG 內跨局保留，NG 每局歸零
   if (isV3()) return inFG || inSFG;                 // 與 mapPersists() 同步
   return isForkRule() ? inSFG : (inFG || inSFG);
 }
 // 分裂上限與「是否跨局保留」是兩件事：v3 的 FG 雖然保留分裂，上限仍是 2×1，
 // 只有 SFG 才放寬到 4×1（切 3 刀），這點不隨上面的保留條件改變。
 function maxSplitCap() {
+  // v4（企劃 2026-08-13）：同色合成只切「一刀」＝2×1，唯有雙色進階合成能再切第二刀＝3×1。
+  // 上限 3 是刻意壓的：五色全部切滿時 ways＝(4 列 × 3)^5 ＝ 12^5 ＝ 248,832，
+  // 與企劃書給的終態數字一致；放到 4 刀以上會數值膨脹（5 刀時是 3,200,000）。
+  // NG／FG／SFG 上限相同，差別只在 FG／SFG 內跨局不重置。
+  if (isV4()) return V4_SPLIT_ADV;
   if (isV3()) return inSFG ? 4 : 2;
   return splitAccumulates() ? 4 : 2;
 }
 // 地圖條件與 JP 收集點進度是否跨局保留
 function mapPersists()      { return isForkRule() ? (inFG || inSFG) : inSFG; }
+
+// ============================================================
+// === v4：角色列（企劃 2026-08-13 口述）===
+//   條件：任一橫列的 5 格「左右相鄰」全是角色圖示，且 5 隻角色各不相同
+//         （盤面 5 欄、v4 剛好 5 色 → 等於五隻角色排滿一整列）。
+//   定獎：看該列**中間格**（第 3 欄）是哪一隻角色 ——
+//         海克力斯 → ⚡宙斯 JP、伊阿宋 → 👑赫拉 JP、其餘三隻 → MAJOR／MINOR／MINI。
+//   結算：該整列 5 格合成為一個 1×5 合成格（同時替代五色的角色與武器）並照常計分，
+//         獎項等本局連爆全部結束後再發（與 v3 的 JP 同一個時機，避免蓋掉連爆演繹）。
+// ============================================================
+// ── 分裂（刀）──
+// 一般同色合成＝第一刀（每格算 2 個）；雙色進階合成＝第二刀（每格算 3 個），到此封頂。
+// 五色都切滿時 ways ＝ (ROWS × 3)^COLS ＝ 12^5 ＝ 248,832（企劃書終態數字）。
+const V4_SPLIT_BASE = 2;   // 一刀
+const V4_SPLIT_ADV  = 3;   // 二刀（上限）
+
+const V4_CENTER_COL  = Math.floor(COLS / 2);   // 5 欄 → index 2＝中間格（＝第 3 輪）
+const V4_GOD_CHAR_ID = [0, 2];                 // [宙斯, 赫拉] 各自對應的角色 symbol id
+// 其餘角色 → 三階彩金。固定對應、按賠率高低：
+// 美狄亞(4)×0.30 → MAJOR、奧菲斯(6)×0.30 → MINOR、阿塔蘭塔(8)×0.25 → MINI。
+// 倍率沿用畫面左側 drawJPPanel 既有的 75／10／5，兩邊要改一起改。
+const V4_CASH_TIERS = {
+  4: { label: 'MAJOR', mult: 75, color: '#f97316', glow: '#fb923c' },
+  6: { label: 'MINOR', mult: 10, color: '#60a5fa', glow: '#93c5fd' },
+  8: { label: 'MINI',  mult: 5,  color: '#94a3b8', glow: '#cbd5e1' },
+};
+let heroRowPending = [];   // 本局已成立、待結算的角色列（存中間格的角色 id；一局可能不只一列）
+
+// 掃描盤面找角色列。由上往下，一次只回傳第一個成立的列
+// （同一輪若兩列都成立，第二列會在下一輪重掃時處理 —— 合成後的列不再是角色列，不會重複算）。
+function findHeroRow() {
+  if (!isV4()) return null;
+  for (let r = 0; r < ROWS; r++) {
+    const ids = [];
+    let ok = true;
+    for (let c = 0; c < COLS; c++) {
+      const cell = board[c]?.[r];
+      if (!cell || cell.isMerged || !isCharSym(cell.id)) { ok = false; break; }
+      ids.push(cell.id);
+    }
+    if (!ok) continue;
+    if (new Set(ids).size !== COLS) continue;   // 5 隻角色必須各不相同
+    return { row: r, ids, centerId: ids[V4_CENTER_COL] };
+  }
+  return null;
+}
+
+// 角色列成立 → 整列合成為 1×5，並把獎項排進待結算佇列。
+function applyHeroRow(hit) {
+  const colorIds = hit.ids.map(id => Math.floor(id / 2)).sort((a, b) => a - b);
+  const centerColorId = Math.floor(hit.centerId / 2);
+  const mergeId = mergedCells.length;
+  // 角色列**不給分裂**（企劃 2026-08-14 確認）：它是純粹的給分／發獎事件，
+  // 不計入「同色合成切一刀」。分裂的來源只有一般合成（第一刀）與進階合成（第二刀）。
+  // 也刻意不寫進 synthesizedColors —— 那是給合成流程用的，角色列不算一次合成。
+  for (let c = 0; c < COLS; c++) {
+    board[c][hit.row] = {
+      id: -1, isMerged: true, mergeId,
+      colorId: centerColorId, colorIds,
+      mergeSize: COLS, mergeCol: 0, mergeRow: hit.row,
+      isMergeSlave: (c !== 0), isMatched: false, yOffset: 0, scale: 1
+    };
+  }
+  mergedCells.push({
+    col: 0, row: hit.row, colorId: centerColorId, colorIds,
+    ids: hit.ids.slice(),          // 左→右的原始角色順序，繪製時要照這個排
+    size: COLS, displayCount: 1, isHeroRow: true, centerId: hit.centerId
+  });
+  heroRowPending.push(hit.centerId);
+}
+
+// v4 的獎項標籤（給演繹與說明文字共用）
+function heroRowAwardLabel(centerId) {
+  const g = V4_GOD_CHAR_ID.indexOf(centerId);
+  if (g >= 0) return `${JP_BOSSES[g].label} JP`;
+  return V4_CASH_TIERS[centerId] ? V4_CASH_TIERS[centerId].label : '';
+}
+
+// ── v4：FG 航海地圖（企劃 2026-08-13）──
+// NG 沒有地圖也沒有倍數；地圖只在 FG／SFG 出現。
+// 每次連爆推進 1 站，站別對應本次得分的倍數：
+//   第 1 次得分 ×1、第 2 次 ×2、第 3 次 ×3、第 4 次 ×4、第 5 次 ×5、第 6 次 ×10，第 7 站起維持 ×10。
+// FG：每局（每次 spin）重置回起點；SFG：不重置，跨局一路累積（企劃「SFG 小地圖不重製」）。
+// JP 與角色列彩金**不**與這個倍數相乘（沿用 v2／v3 的 JP 規則）。
+const V4_VOYAGE_MULT  = [1, 2, 3, 4, 5, 10];
+const V4_VOYAGE_STEPS = 7;    // 面板上畫幾站（第 7 站起都是 ×10）
+let v4VoyageStep = 0;         // 本趟已推進到第幾站（0-based；0＝還沒得分，下一次得分用 ×1）
+
+function v4VoyageMult(step) {
+  return V4_VOYAGE_MULT[Math.min(Math.max(0, step), V4_VOYAGE_MULT.length - 1)];
+}
+// 本次連爆得分要套的倍數（NG 恆 1）
+function v4CurrentMult() {
+  if (!isV4() || (!inFG && !inSFG)) return 1;
+  return v4VoyageMult(v4VoyageStep);
+}
+function v4VoyageAdvance() {
+  if (!isV4() || (!inFG && !inSFG)) return;
+  v4VoyageStep = Math.min(v4VoyageStep + 1, V4_VOYAGE_STEPS - 1);
+}
+// 每次 spin 開始時呼叫：FG 重置、SFG 保留
+function v4VoyageResetForSpin() {
+  if (isV4() && inFG) v4VoyageStep = 0;
+}
+
+// v4 版面：NG 沒有面板 → 盤面置中放大；FG／SFG 要騰出右側給航海地圖 → 收回原位。
+// 只在模式真的切換時套用一次，避免每幀覆蓋掉調校面板「佈局」分頁的手動拖動。
+// y 至少 122：上方石像組（statueL／statueR）下緣在 y=120，再低就會被盤面壓到。
+// cell 132 → 盤面 660×528，置中 x=(1280-660)/2=310，下緣 124+528=652，仍在 spin 按鈕（y≈658）之上。
+const V4_LAYOUT_NG = { grid: { x: 310, y: 124 }, cell: 132 };
+const V4_LAYOUT_FG = { grid: { x: 195, y: 120 }, cell: 130,
+                       mapPanel: { x: 1010, y: 120, w: 245, h: 462 } };
+let _v4LayoutMode = null;
+function syncV4Layout() {
+  if (!isV4()) { _v4LayoutMode = null; return; }
+  const mode = (inFG || inSFG) ? 'fg' : 'ng';
+  if (mode === _v4LayoutMode) return;
+  _v4LayoutMode = mode;
+  const p = (mode === 'fg') ? V4_LAYOUT_FG : V4_LAYOUT_NG;
+  setCellSize(p.cell);
+  LAYOUT.grid = { ...LAYOUT.grid, ...p.grid };
+  if (p.mapPanel) LAYOUT.mapPanel = { ...LAYOUT.mapPanel, ...p.mapPanel };
+  syncLayoutDerived();
+}
+
+// 連爆全部結束後結清本局成立的所有角色列（報獎由 enqueueWinAnim 排隊，一個播完才播下一個）
+function v4GrantHeroRows() {
+  while (heroRowPending.length) {
+    const centerId = heroRowPending.shift();
+    const god = V4_GOD_CHAR_ID.indexOf(centerId);
+    if (god >= 0) { grantJpBoss(god); continue; }
+    const tier = V4_CASH_TIERS[centerId];
+    if (!tier) continue;
+    const value = tier.mult * betAmount;
+    totalScore += value;
+    enqueueWinAnim({ label: tier.label, value, color: tier.color, glow: tier.glow,
+                     size: 'cash', caption: '角色列彩金' });
+  }
+}
 
 // ── v3：分裂的唯一來源是「地圖通關」 ──
 // 某色在本輪地圖上已通關 ＝ 該色取得分裂能力；之後再合成仍會分裂
@@ -1405,32 +1609,70 @@ let sfgSpinsTotal    = 0;
 let showSFGEndPanel  = false;  // SFG 結束面板
 const SFG_TOTAL_SPINS = 10;
 
-// 取得隨機符號 ID。權重：高分角色 9%、低分武器 15%（四色完全相同），NG 另有船頭／船尾各 2%。
-// 四色等權重是刻意的——企畫「體感規劃」要求金／紅的同色合成觸發率相等，
+// 取得隨機符號 ID。權重：高分角色 9%、低分武器 15%（各色完全相同），NG 另有船頭／船尾各 2%。
+// 各色等權重是刻意的——企畫「體感規劃」要求金／紅的同色合成觸發率相等，
 // 確保第 1 關分歧維持 50／50，不得依自然圖示出現率決定。
-function randomSymId() {
-  const weights = (inFG || inSFG)
-    ? [9, 15, 9, 15, 9, 15, 9, 15]            // FG/SFG 中無船符號
-    : [9, 15, 9, 15, 9, 15, 9, 15, 2, 2];     // NG 共 100
+//
+// v4（企劃 2026-08-13「體感規劃」）：
+//   (1) 改為「五色合成率相等」→ 五色同權重，角色 7／武器 12。
+//   (2) **第 3 輪（col index 2，即 V4_CENTER_COL）單獨配重**：那一欄正好是角色列的中位格，
+//       決定拿到哪一階獎，所以在該欄把阿塔蘭忒調多、海克力士／伊阿宋調少，
+//       做出「宙斯 < 赫拉 < MAJOR < MINOR < MINI」的五階獎頻率階梯。
+//       其他四輪維持五色等權，因此「五色合成率相等」不受影響
+//       （合成看的是同一列相鄰兩格，不是單一輪）。
+const V4_REEL3_CHAR_W = { 0: 3, 2: 4, 4: 7, 6: 9, 8: 13 };   // 第 3 輪的角色權重（id → 權重）
+function symWeights(col) {
+  const nColors = activeColorCount();
+  const [wChar, wWeapon] = (nColors >= 5) ? [7, 12] : [9, 15];
+  const w = [];
+  for (let i = 0; i < nColors; i++) w.push(wChar, wWeapon);
+  // 一般圖示的 id 是連續的 0..9，但只取前 nColors 色；未啟用的色權重補 0，
+  // 讓索引直接等於 symbol id（下游 return i 才不需要另做映射）。
+  while (w.length < NORMAL_SYM_COUNT) w.push(0);
+  if (isV4() && col === V4_CENTER_COL) {
+    for (const id in V4_REEL3_CHAR_W) w[id] = V4_REEL3_CHAR_W[id];
+  }
+  if (!inFG && !inSFG) { w[SC_BOW] = 2; w[SC_STERN] = 2; }   // FG/SFG 中無船符號
+  return w;
+}
+function randomSymId(col) {
+  const weights = symWeights(col);
   let total = weights.reduce((a, b) => a + b, 0);
   let r = Math.random() * total;
   for (let i = 0; i < weights.length; i++) {
+    if (weights[i] <= 0) continue;
     r -= weights[i];
     if (r <= 0) return i;
   }
-  return weights.length - 1;
+  for (let i = weights.length - 1; i >= 0; i--) if (weights[i] > 0) return i;
+  return 0;
 }
-// 捲軸動畫用隨機符號：船頭(8)/船尾(9)不出現在滾動動畫中（僅在最終停止位置顯示）
+// 捲軸動畫用隨機符號：船頭／船尾不出現在滾動動畫中（僅在最終停止位置顯示）
 function randomReelSymId(col) {
-  let id = randomSymId();
+  let id = randomSymId(col);
   let tries = 0;
-  while ((id === 8 || id === 9) && tries++ < 30) id = randomSymId();
+  while (isScSymId(id) && tries++ < 30) id = randomSymId(col);
   return id;
+}
+// 隨機一個「一般圖示」（不含船頭船尾），供強開流程補位用
+function randomNormalSymId(col) {
+  let id = randomSymId(col);
+  let tries = 0;
+  while (!isNormalSym(id) && tries++ < 30) id = randomSymId(col);
+  return isNormalSym(id) ? id : 0;
 }
 
 // 合成後的船（1×2、colorId -1）等同同時佔用船頭與船尾，
 // 否則補盤／下一次 spin 會誤判「盤面上沒有船尾」而再生一個。
 function isShipCell(cell) { return !!cell && cell.isMerged && cell.colorId === -1; }
+// 合成格代表哪幾個顏色（1×2 一色、1×4 兩色、v4 的 1×5 角色列五色全包）。
+// 下游一律問這個函式，不要再自己組 [colorId, colorId2] —— 那樣接不到 1×5。
+function mergeColorIds(cell) {
+  if (!cell) return [];
+  if (Array.isArray(cell.colorIds)) return cell.colorIds;
+  if (cell.colorId2 !== undefined)  return [cell.colorId, cell.colorId2];
+  return [cell.colorId];
+}
 // 盤面上是否已有船頭／船尾
 function scanShipSymbols() {
   let bow = false, stern = false;
@@ -1439,15 +1681,15 @@ function scanShipSymbols() {
       const cell = board[c]?.[r];
       if (!cell) continue;
       if (isShipCell(cell)) { bow = true; stern = true; }
-      else if (cell.id === 8) bow = true;
-      else if (cell.id === 9) stern = true;
+      else if (cell.id === SC_BOW) bow = true;
+      else if (cell.id === SC_STERN) stern = true;
     }
   }
   return { bow, stern };
 }
 // 該欄是否已有 SC 符號（每欄最多一個）
 function colHasShipSymbol(c) {
-  return (board[c] || []).some(cell => cell && (cell.id === 8 || cell.id === 9 || isShipCell(cell)));
+  return (board[c] || []).some(cell => cell && (isScSymId(cell.id) || isShipCell(cell)));
 }
 
 let particles = [];
@@ -1627,7 +1869,7 @@ function resetRoundState() {
   forceLineRows2 = null;
   forceLineSymbol = -1;
   // 合成狀態重置：分裂累積模式下不歸零（v2 = 只有 SFG；v1 = FG+SFG）
-  if (!splitAccumulates()) splitCount = [1, 1, 1, 1];
+  if (!splitAccumulates()) splitCount = newSplitArray();
   synthesizedColors = new Set();
   mergedCells = [];
   // 待補判是「單次合成事件」的暫存，每局都要清（地圖不重置時也一樣）。
@@ -1682,6 +1924,8 @@ function startSpin() {
   winLog = [];
   resetRoundState();
   stats.spins++;
+  heroRowPending = [];      // v4：上一局若有殘留（理論上已結清）一併清掉
+  v4VoyageResetForSpin();   // v4：FG 每局把航海地圖收回起點；SFG 不重置
 
   forcedMult = 0;
   forceJpPending = false;
@@ -1699,8 +1943,8 @@ function startSpin() {
   // 預掃描舊盤面：若舊盤面「還看得到」船頭/船尾則本次 spin 不再生成，
   // 避免滾動動畫中新舊各一個同時出現。合成後的船不算——resetRoundState()
   // 已清掉 mergedCells，合成格此時不會被畫出來。
-  let _hasBow   = board.some(col => col?.some(cell => cell?.id === 8));
-  let _hasStern = board.some(col => col?.some(cell => cell?.id === 9));
+  let _hasBow   = board.some(col => col?.some(cell => cell?.id === SC_BOW));
+  let _hasStern = board.some(col => col?.some(cell => cell?.id === SC_STERN));
   let _bowCol = -1, _bowRow = -1, _sternCol = -1, _sternRow = -1;
   for (let c = 0; c < COLS; c++) {
     board[c]           = [];
@@ -1714,14 +1958,14 @@ function startSpin() {
     // 任何欄都可出現FG符號，但全局只能有一個船頭、一個船尾，每欄最多一個FG
     let _colHasFG = false;
     for (let r = 0; r < ROWS; r++) {
-      let _id = randomSymId();
+      let _id = randomSymId(c);
       // 允許FG符號的條件：全局未有 且 本欄未有
-      while (_id >= 8 && !(
-        (_id === 8 && !_hasBow   && !_colHasFG) ||
-        (_id === 9 && !_hasStern && !_colHasFG)
-      )) _id = randomSymId();
-      if (_id === 8) { _hasBow = true; _bowCol = c; _bowRow = r; _colHasFG = true; }
-      if (_id === 9) { _hasStern = true; _sternCol = c; _sternRow = r; _colHasFG = true; }
+      while (isScSymId(_id) && !(
+        (_id === SC_BOW   && !_hasBow   && !_colHasFG) ||
+        (_id === SC_STERN && !_hasStern && !_colHasFG)
+      )) _id = randomSymId(c);
+      if (_id === SC_BOW)   { _hasBow = true; _bowCol = c; _bowRow = r; _colHasFG = true; }
+      if (_id === SC_STERN) { _hasStern = true; _sternCol = c; _sternRow = r; _colHasFG = true; }
       board[c][r]          = { id: _id, yOffset: 0, isMatched: false, scale: 1 };
       reelOffset[c][r]     = 0;
       reelSpeed[c][r]      = TIMING.reelSpeed;
@@ -1740,6 +1984,24 @@ function startSpin() {
     // 進階合成：紅色一對 + 藍色一對，合成後觸發 1×4
     board[0][0].id = 0; board[1][0].id = 1;
     board[2][0].id = 4; board[3][0].id = 5;
+  } else if (forceSpinType && forceSpinType.startsWith('hero_')) {
+    // v4 強開角色列：第 0 列鋪滿 5 隻不同角色，中間格（第 3 欄）放指定的那一隻。
+    // 順便把整盤的船頭／船尾清掉，避免同一局又被 FG 轉場打斷、看不到角色列演繹。
+    const _centerId = forceSpinType === 'hero_zeus' ? 0
+                    : forceSpinType === 'hero_hera' ? 2
+                    : [4, 6, 8][Math.floor(Math.random() * 3)];
+    const _rest = [0, 2, 4, 6, 8].filter(id => id !== _centerId);
+    for (let i = _rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [_rest[i], _rest[j]] = [_rest[j], _rest[i]];
+    }
+    let _k = 0;
+    for (let c = 0; c < COLS; c++) {
+      board[c][0].id = (c === V4_CENTER_COL) ? _centerId : _rest[_k++];
+    }
+    for (let _c = 0; _c < COLS; _c++)
+      for (let _r = 0; _r < ROWS; _r++)
+        if (isScSymId(board[_c]?.[_r]?.id)) board[_c][_r].id = randomNormalSymId(_c);
   } else if (forceSpinType && (forceSpinType.startsWith('cond_') || forceSpinType === 'force_jp')) {
     // 條件強開：先全盤填紅色角色（同型不配對），放指定對子後掃描修復意外配對
     // force_jp 只需要第 1 關達成：v2 在開島時補齊小島節點，v3 在第 1 關通關時補齊雙神四組條件
@@ -1769,25 +2031,25 @@ function startSpin() {
       for (let _fc2 = 0; _fc2 < COLS-1; _fc2++) {
         if (_ik.has(`${_fc2},${_fr2}`)) continue;
         const _a = board[_fc2][_fr2], _b = board[_fc2+1][_fr2];
-        if (_a.id < 8 && _b.id < 8 && Math.floor(_a.id/2) === Math.floor(_b.id/2) && (_a.id%2) !== (_b.id%2))
-          board[_fc2+1][_fr2].id = ((Math.floor(_b.id/2)+1)%4)*2;
+        if (isNormalSym(_a.id) && isNormalSym(_b.id) && Math.floor(_a.id/2) === Math.floor(_b.id/2) && (_a.id%2) !== (_b.id%2))
+          board[_fc2+1][_fr2].id = ((Math.floor(_b.id/2)+1) % activeColorCount())*2;
       }
   }
   if (forceSpinType === 'force_sfg' || forceSpinType === 'force_fg') {
     // 先清除 random gen 已放置的所有 FG 符號，避免重複
     for (let _c = 0; _c < COLS; _c++)
       for (let _r = 0; _r < ROWS; _r++)
-        if (board[_c]?.[_r]?.id >= 8) board[_c][_r].id = randomSymId() % 8; // 換成普通符號
+        if (isScSymId(board[_c]?.[_r]?.id)) board[_c][_r].id = randomNormalSymId(_c); // 換成普通符號
     if (forceSpinType === 'force_sfg') {
       // 強開SFG：同列相鄰放置船頭+船尾 → 合成觸發SFG
-      board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
-      board[4][0] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
+      board[3][0] = { id: SC_BOW,   yOffset: 0, isMatched: false, scale: 1 };
+      board[4][0] = { id: SC_STERN, yOffset: 0, isMatched: false, scale: 1 };
       reelStopFrame[3][0] = TF(TIMING.reelFirstStop) + 3 * TF(TIMING.reelStopInterval);
       reelStopFrame[4][0] = TF(TIMING.reelFirstStop) + 4 * TF(TIMING.reelStopInterval);
     } else {
       // 強開FG：不同列放置船頭+船尾 → 不相鄰，觸發FG
-      board[3][0] = { id: 8, yOffset: 0, isMatched: false, scale: 1 };
-      board[4][1] = { id: 9, yOffset: 0, isMatched: false, scale: 1 };
+      board[3][0] = { id: SC_BOW,   yOffset: 0, isMatched: false, scale: 1 };
+      board[4][1] = { id: SC_STERN, yOffset: 0, isMatched: false, scale: 1 };
       reelStopFrame[3][0] = TF(TIMING.reelFirstStop) + 3 * TF(TIMING.reelStopInterval);
       reelStopFrame[4][1] = TF(TIMING.reelFirstStop) + (4 + 1) * TF(TIMING.reelStopInterval);
     }
@@ -1797,8 +2059,8 @@ function startSpin() {
   if (!inFG && !inSFG) {
     let _fb = -1, _fc_b = -1, _fs = -1, _fc_s = -1;
     for (let _c = 0; _c < COLS; _c++) for (let _r = 0; _r < ROWS; _r++) {
-      if (board[_c]?.[_r]?.id === 8) { _fb = _r; _fc_b = _c; }
-      if (board[_c]?.[_r]?.id === 9) { _fs = _r; _fc_s = _c; }
+      if (board[_c]?.[_r]?.id === SC_BOW)   { _fb = _r; _fc_b = _c; }
+      if (board[_c]?.[_r]?.id === SC_STERN) { _fs = _r; _fc_s = _c; }
     }
     if (_fb >= 0 && _fs >= 0) {
       const _adj = Math.abs(_fc_b - _fc_s) <= 1 && _fb === _fs;
@@ -1821,7 +2083,7 @@ function computeCurrentWays() {
       const cell = board[col][row];
       if (!cell) { colTotal += 1; continue; }
       if (cell.isMerged) { const _cid = cell.colorId; colTotal += (_cid >= 0 ? splitCount[_cid] : 1); continue; }
-      if (cell.id >= 0 && cell.id < 8) colTotal += splitCount[Math.floor(cell.id / 2)];
+      if (isNormalSym(cell.id)) colTotal += splitCount[Math.floor(cell.id / 2)];
       else colTotal += 1;
     }
     total *= Math.max(1, colTotal);
@@ -1839,8 +2101,8 @@ function findBaseSynthCandidates() {
       const a = board[col][row];
       const b = board[col + 1][row];
       if (!a || !b || a.isMerged || b.isMerged) continue;
-      if (a.id === undefined || a.id < 0 || a.id >= 8) continue;
-      if (b.id === undefined || b.id < 0 || b.id >= 8) continue;
+      if (!isNormalSym(a.id)) continue;
+      if (!isNormalSym(b.id)) continue;
       const aColorId = Math.floor(a.id / 2);
       const bColorId = Math.floor(b.id / 2);
       const aIsChar  = (a.id % 2 === 0);
@@ -1877,7 +2139,12 @@ function applySingleSynthesis(col, row) {
   const displayCount = splitCount[colorId] || 1; // 合成前的值 = 此格的顯示數
   const MAX_SPLIT = maxSplitCap();
   const _isNewColor = !synthesizedColors.has(colorId);
-  if (isV3()) {
+  if (isV4()) {
+    // v4：沒有地圖，分裂改由合成本身給。同色合成一律只切「第一刀」（2×1），
+    // 再合成幾次都停在 2 —— 第二刀是進階合成的專屬獎勵（見 applyAdvancedSynthesis）。
+    splitCount[colorId] = Math.max(splitCount[colorId], V4_SPLIT_BASE);
+    synthesizedColors.add(colorId);
+  } else if (isV3()) {
     // v3：合成本身不給分裂，分裂是「地圖通關」的獎勵。
     // 通關（或該色先前已通關）→ 直接切到上限：NG／FG 2×1、SFG 4×1。
     if (v3CanSplit(colorId)) splitCount[colorId] = MAX_SPLIT;
@@ -1907,7 +2174,7 @@ function applyShipMerge() {
     for (let c = 0; c < COLS - 1; c++) {
       const ca = board[c]?.[r], cb = board[c+1]?.[r];
       if (!ca || !cb || ca.isMerged || cb.isMerged) continue;
-      if (!((ca.id === 8 && cb.id === 9) || (ca.id === 9 && cb.id === 8))) continue;
+      if (!((ca.id === SC_BOW && cb.id === SC_STERN) || (ca.id === SC_STERN && cb.id === SC_BOW))) continue;
       const mergeId = mergedCells.length;
       board[c][r]   = { id: -1, isMerged: true, mergeId, colorId: -1, mergeSize: 2, mergeCol: c, mergeRow: r, isMergeSlave: false, isMatched: false, yOffset: 0, scale: 1 };
       board[c+1][r] = { id: -1, isMerged: true, mergeId, colorId: -1, mergeSize: 2, mergeCol: c, mergeRow: r, isMergeSlave: true,  isMatched: false, yOffset: 0, scale: 1 };
@@ -1932,7 +2199,12 @@ function applyAdvancedSynthesis() {
       if (leftM.col + 2 !== rightM.col) continue;
       const displayCount4 = Math.max(leftM.displayCount || 1, rightM.displayCount || 1); // 合成前的值
       // v3：進階合成只計入 JP 收集點，不給分裂（分裂的唯一來源是地圖通關）
-      if (!isV3()) {
+      if (isV4()) {
+        // v4：進階合成＝第二刀。兩個來源 1×2 必定各自跑過同色合成（已是 2×1），
+        // 這裡直接指派成 3×1，不用 ++ —— 語意是「切到第二刀」而不是「再加一層」。
+        splitCount[leftM.colorId]  = Math.max(splitCount[leftM.colorId],  V4_SPLIT_ADV);
+        splitCount[rightM.colorId] = Math.max(splitCount[rightM.colorId], V4_SPLIT_ADV);
+      } else if (!isV3()) {
         const _maxSplit = maxSplitCap();
         if (splitCount[leftM.colorId]  < _maxSplit) splitCount[leftM.colorId]++;
         if (splitCount[rightM.colorId] < _maxSplit) splitCount[rightM.colorId]++;
@@ -2039,7 +2311,7 @@ function updateSpinning() {
           if (board[c][r]) {
             board[c][r]._landSquash = TF(TIMING.landSquash);
             // SC 登場演繹（0.3s）：船頭／船尾落定時微晃發光
-            if (board[c][r].id === 8 || board[c][r].id === 9) {
+            if (isScSymId(board[c][r].id)) {
               board[c][r]._scAppear = TF(TIMING.scAppear);
             }
           }
@@ -2068,7 +2340,7 @@ function calcWin() {
   let totalWin = 0;
   winLines = [];
 
-  for (let symId = 0; symId < 8; symId++) {
+  for (let symId = 0; symId < NORMAL_SYM_COUNT; symId++) {
     const colorId = Math.floor(symId / 2);
     const split   = splitCount[colorId];
 
@@ -2084,10 +2356,7 @@ function calcWin() {
           regCount++;
         } else if (cell.isMerged) {
           // 合成符 master 與 slave 都計入該列
-          const cids = cell.colorId2 !== undefined
-            ? [cell.colorId, cell.colorId2]
-            : [cell.colorId];
-          if (cids.includes(colorId)) mergeCount++;
+          if (mergeColorIds(cell).includes(colorId)) mergeCount++;
         }
       }
       // 規則：普通格 ×splitCount，合成格本身固定 ×1（不套用 split，不增也不減）
@@ -2115,10 +2384,7 @@ function calcWin() {
           if (!cell.isMerged && cell.id === symId) {
             cells.push([col, row]);
           } else if (cell.isMerged && !cell.isMergeSlave) {
-            const cids = cell.colorId2 !== undefined
-              ? [cell.colorId, cell.colorId2]
-              : [cell.colorId];
-            if (cids.includes(colorId)) {
+            if (mergeColorIds(cell).includes(colorId)) {
               cells.push([col, row]);
               // 同步收進所有從格，確保縮小動畫和粒子特效覆蓋整個合成格
               const sz = cell.mergeSize || 2;
@@ -2140,7 +2406,9 @@ function calcWin() {
 // FG／SFG 全部局數打完：分裂、地圖條件與 JP 小島收集點進度一併歸零
 // （企畫「不會重置，直到 FG 結束」＝ 結束的這一刻才重置）
 function resetAfterFreeGame() {
-  splitCount = [1, 1, 1, 1];
+  splitCount = newSplitArray();
+  v4VoyageStep = 0;        // v4：FG／SFG 結束 → 航海地圖收回起點
+  heroRowPending = [];
   mapFlags = [false, false, false, false, false];
   questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
   buildQuestPlan();   // 內含 jpNodesLit / jpGranted / 小船 / 羅盤 的歸零
@@ -2793,14 +3061,14 @@ function applyGravity() {
     for (let c = 0; c < COLS; c++) {
       if (board[c][r].id === -1 && !board[c][r].isMerged) {
         const _gColHasFG = colHasShipSymbol(c);
-        let _gId = randomSymId();
+        let _gId = randomSymId(c);
         // 任何欄都可補入FG符號，全局各最多一個 且 本欄未有
-        while (_gId >= 8 && !(
-          (_gId === 8 && !_gHasBow   && !_gColHasFG) ||
-          (_gId === 9 && !_gHasStern && !_gColHasFG)
-        )) _gId = randomSymId();
-        if (_gId === 8) _gHasBow = true;
-        if (_gId === 9) _gHasStern = true;
+        while (isScSymId(_gId) && !(
+          (_gId === SC_BOW   && !_gHasBow   && !_gColHasFG) ||
+          (_gId === SC_STERN && !_gHasStern && !_gColHasFG)
+        )) _gId = randomSymId(c);
+        if (_gId === SC_BOW)   _gHasBow = true;
+        if (_gId === SC_STERN) _gHasStern = true;
         board[c][r]          = { id: _gId, yOffset: 0, isMatched: false, scale: 1 };
         reelOffset[c][r]     = 0;
         reelSpeed[c][r]      = TIMING.reelSpeed;
@@ -2851,7 +3119,7 @@ function updateGravity() {
           if (board[c][r]) {
             board[c][r]._landSquash = TF(TIMING.landSquash);
             // SC 登場演繹（0.3s）：船頭／船尾落定時微晃發光
-            if (board[c][r].id === 8 || board[c][r].id === 9) {
+            if (isScSymId(board[c][r].id)) {
               board[c][r]._scAppear = TF(TIMING.scAppear);
             }
           }
@@ -3031,7 +3299,9 @@ function godLayerCtx(w, h) {
 }
 
 function drawGodStatues(ctx) {
-  if (!isV3()) return;
+  // v3 與 v4 都用這組石像顯示兩尊神的 JP。差別在牌子下方：
+  // v3 畫收集進度羅盤（要湊顏色組合），v4 沒有收集過程（角色列當下就定獎），改印觸發條件。
+  if (!isV3() && !isV4()) return;
   const t = Date.now();
   const pulse = 0.5 + Math.sin(t / 460) * 0.5;
   const PAD = 26;   // 光暈會溢出框，離屏圖層四周留邊
@@ -3111,12 +3381,21 @@ function drawGodStatues(ctx) {
     // ── JP 羅盤收集進度（牌子下方）──
     // 兩尊神各自顯示自己的 0～2 進度，互不影響（可能同時都是 2／2）
     const pipY = plY + plH + 12;
-    drawCollectPips(g, plCx, pipY, route);
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = chosen ? '#ffe9b0' : 'rgba(203,213,225,0.8)';
-    g.font = 'bold 9px Arial';
-    // +36：要讓在 pipY+17 起繪的組合文字（紅+綠…）不與這一行重疊
-    g.fillText(`${jpGodLit(route)}／${JP_COMBOS[route].length} 組 → JP`, plCx, pipY + 36);
+    if (isV4()) {
+      // v4：條件是「一整列 5 隻角色相鄰，中間格＝這尊神的角色」，沒有累積進度可畫，
+      // 直接把該神對應的角色名字印出來當提示。
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = chosen ? '#ffe9b0' : 'rgba(203,213,225,0.85)';
+      g.font = 'bold 10px Arial';
+      g.fillText(`角色列中心＝${SYMBOLS[V4_GOD_CHAR_ID[route]].name}`, plCx, pipY + 4);
+    } else {
+      drawCollectPips(g, plCx, pipY, route);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = chosen ? '#ffe9b0' : 'rgba(203,213,225,0.8)';
+      g.font = 'bold 9px Arial';
+      // +36：要讓在 pipY+17 起繪的組合文字（紅+綠…）不與這一行重疊
+      g.fillText(`${jpGodLit(route)}／${JP_COMBOS[route].length} 組 → JP`, plCx, pipY + 36);
+    }
 
     g.restore();
 
@@ -3710,6 +3989,7 @@ function drawMapLaneTabs(ctx, t) {
 }
 
 function drawMapPanel(ctx) {
+  if (!hasMapQuest()) return;   // v4：地圖機制整個移除，面板不畫
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
   const allLit = questProgress >= questStepCount();
   const t = Date.now();
@@ -3959,6 +4239,133 @@ function drawTMAnim(ctx) {
   ctx.shadowColor = glowC;
   ctx.shadowBlur  = 10;
   ctx.fillText(text, cx, cy + 36);
+  ctx.restore();
+}
+
+// ── v4：角色列 1×5 合成格 ──
+// 不做單一張美術圖，是因為「中間那一隻角色」決定獎項，用五隻原圖並排能讓玩家
+// 直接看到中位是誰；中間格另外加金框與獎項字樣強調。
+function drawHeroRowCell(ctx, m, x, y, w, dim, isMatched) {
+  const ids  = m.ids || [];
+  const unit = w / COLS;
+  ctx.save();
+  // 底：橫向五色漸層
+  const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+  m.colorIds.forEach((cid, i) => {
+    grad.addColorStop(Math.min(1, i / Math.max(1, m.colorIds.length - 1)), COLOR_HEX[cid] + 'bb');
+  });
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
+
+  // 五隻角色原圖並排
+  ids.forEach((id, i) => {
+    const cx0 = x + i * unit;
+    if (!drawArtCell(ctx, iconImgs[id], cx0 + 3, y + 5, unit - 6, CELL_SIZE - 10, CELL_R)) {
+      // 美術未載入（阿塔蘭忒目前就是這條路）→ 備援：該色底＋角色 emoji
+      ctx.save();
+      ctx.fillStyle = (SYMBOLS[id]?.color || '#888') + 'dd';
+      ctx.beginPath(); ctx.roundRect(cx0 + 3, y + 5, unit - 6, CELL_SIZE - 10, CELL_R); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `${Math.floor(unit * 0.34)}px Arial`;
+      ctx.fillText('🧑', cx0 + unit / 2, y + CELL_SIZE * 0.42);
+      ctx.font = `bold ${Math.floor(unit * 0.14)}px Arial`;
+      ctx.fillText(SYMBOLS[id]?.name || '', cx0 + unit / 2, y + CELL_SIZE * 0.78);
+      ctx.restore();
+    }
+  });
+
+  // 中間格（決定獎項）加金框
+  const mx0 = x + V4_CENTER_COL * unit;
+  ctx.save();
+  ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 18;
+  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(mx0 + 3, y + 5, unit - 6, CELL_SIZE - 10, CELL_R); ctx.stroke();
+  ctx.restore();
+
+  // 獎項字樣（壓在中間格下緣）
+  const award = heroRowAwardLabel(m.centerId);
+  if (award) {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.floor(unit * 0.17)}px Arial`;
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    const tw = ctx.measureText(award).width + 14;
+    ctx.beginPath();
+    ctx.roundRect(mx0 + unit / 2 - tw / 2, y + CELL_SIZE - 30, tw, 20, 6);
+    ctx.fill();
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(award, mx0 + unit / 2, y + CELL_SIZE - 20);
+    ctx.restore();
+  }
+
+  if (dim > 0) {
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (isMatched) drawWinFrame(ctx, x, y, w, CELL_SIZE, winFxTier);
+  else {
+    ctx.strokeStyle = 'rgba(251,191,36,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(x + 2, y + 2, w - 4, CELL_SIZE - 4, CELL_R); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ── v4：FG 航海地圖（右側面板）──
+// 由下往上七站，站上標倍數；已抵達的站點亮，目前所在站再加一圈呼吸光。
+// NG 不畫（NG 無地圖無倍數）。
+function drawV4Voyage(ctx) {
+  if (!isV4() || (!inFG && !inSFG)) return;
+  const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
+  const t = Date.now();
+  ctx.save();
+  ctx.fillStyle = 'rgba(8,16,30,0.82)';
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 12); ctx.fill();
+  ctx.strokeStyle = '#3b5a7a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 12); ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#e9d8a6'; ctx.font = 'bold 15px Arial';
+  ctx.fillText('⛵ 航海地圖', px + pw / 2, py + 22);
+  ctx.fillStyle = 'rgba(203,213,225,0.75)'; ctx.font = '11px Arial';
+  ctx.fillText(inSFG ? 'SFG：跨局累積不重置' : 'FG：每局回到起點', px + pw / 2, py + 42);
+
+  const top = py + 70, bottom = py + ph - 34;
+  const gap = (bottom - top) / (V4_VOYAGE_STEPS - 1);
+  const cx  = px + pw / 2;
+  // 航線
+  ctx.strokeStyle = 'rgba(233,216,166,0.28)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, bottom); ctx.lineTo(cx, top); ctx.stroke();
+
+  for (let i = 0; i < V4_VOYAGE_STEPS; i++) {
+    const y   = bottom - i * gap;
+    const on  = i < v4VoyageStep;          // 已經拿過這一站的倍數
+    const cur = i === v4VoyageStep;        // 下一次得分會用這一站
+    const mult = v4VoyageMult(i);
+    const pulse = cur ? 0.5 + Math.sin(t / 320) * 0.5 : 0;
+    ctx.save();
+    if (on || cur) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 8 + pulse * 16; }
+    ctx.fillStyle = on ? '#caa64f' : (cur ? '#7c6a34' : 'rgba(18,28,38,0.9)');
+    ctx.beginPath(); ctx.arc(cx, y, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = (on || cur) ? '#fbbf24' : 'rgba(206,170,102,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, y, 13, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = (on || cur) ? '#1a1206' : 'rgba(226,232,240,0.75)';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText(`×${mult}`, cx, y + 1);
+    ctx.restore();
+    // 站別說明（第 7 站標「以後」）
+    ctx.fillStyle = 'rgba(203,213,225,0.7)'; ctx.font = '10px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(i === V4_VOYAGE_STEPS - 1 ? `第 ${i + 1} 段起` : `第 ${i + 1} 段`, cx + 22, y + 1);
+    ctx.textAlign = 'center';
+  }
+
+  ctx.fillStyle = 'rgba(148,163,184,0.85)'; ctx.font = '10px Arial';
+  ctx.fillText('每次連爆推進 1 站　JP／彩金不相乘', px + pw / 2, py + ph - 14);
   ctx.restore();
 }
 
@@ -4254,6 +4661,7 @@ function drawJpWinAnim(ctx) {
 
 // === 更新 ===
 function update(dt) {
+  syncV4Layout();   // v4：NG 置中放大／FG 收回騰出航海地圖（只在模式切換那一幀真的動作）
   // 合成動畫：逐幀更新每格的 _flashTimer 與 splitAnim
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
@@ -4296,14 +4704,21 @@ function update(dt) {
     case STATE.SYNTHESIS: {
       // 初始化佇列
       if (synthOpIdx === -1) {
-        // 偵測船頭(8)+船尾(9)相鄰 → 播放合成特效，再繼續一般合成
+        // v4：先判角色列（一整列 5 隻不同角色相鄰）。它會把整列吃成 1×5 合成格，
+        // 所以要在一般合成掃描之前做，之後那一列就不會再被當成一般合成的候選。
+        // 角色列不可能含船頭／船尾（那不是角色圖示），與下面的船偵測互不干擾。
+        if (isV4()) {
+          const _hero = findHeroRow();
+          if (_hero) applyHeroRow(_hero);
+        }
+        // 偵測船頭+船尾相鄰 → 播放合成特效，再繼續一般合成
         let _shipFound = false;
         if (!inFG && !inSFG && !shipFGPending && !shipSFGPending) {
           outer: for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS - 1; c++) {
               const ca = board[c]?.[r], cb = board[c+1]?.[r];
               if (ca && cb && !ca.isMerged && !cb.isMerged &&
-                  ((ca.id === 8 && cb.id === 9) || (ca.id === 9 && cb.id === 8))) {
+                  ((ca.id === SC_BOW && cb.id === SC_STERN) || (ca.id === SC_STERN && cb.id === SC_BOW))) {
                 // SC 中獎演繹（強度高／1.2s）：船頭＋船尾合成為一艘完整的船
                 ca._flashTimer = TF(TIMING.scWinSFG);
                 cb._flashTimer = TF(TIMING.scWinSFG);
@@ -4323,8 +4738,8 @@ function update(dt) {
         if (!_shipFound && !inFG && !inSFG && !shipFGPending && !shipSFGPending) {
           let _bPos = null, _sPos = null;
           for (let _c = 0; _c < COLS; _c++) for (let _r = 0; _r < ROWS; _r++) {
-            if (board[_c]?.[_r]?.id === 8) _bPos = { c: _c, r: _r };
-            if (board[_c]?.[_r]?.id === 9) _sPos = { c: _c, r: _r };
+            if (board[_c]?.[_r]?.id === SC_BOW)   _bPos = { c: _c, r: _r };
+            if (board[_c]?.[_r]?.id === SC_STERN) _sPos = { c: _c, r: _r };
           }
           if (_bPos && _sPos) {
             const _adj = Math.abs(_bPos.c - _sPos.c) <= 1 && _bPos.r === _sPos.r;
@@ -4444,7 +4859,11 @@ function update(dt) {
 
       const win = calcWin();
       if (win > 0) {
-        const multipliedWin = Math.floor(win * questScoreMultiplier);
+        // v4：NG 無倍數（恆 1）；FG／SFG 套航海地圖倍數，且這一次得分用「推進前」的站別
+        //     （第 1 次得分 ×1），給完分才推進到下一站。
+        const _mult = isV4() ? v4CurrentMult() : questScoreMultiplier;
+        const multipliedWin = Math.floor(win * _mult);
+        if (isV4()) v4VoyageAdvance();
         winScore += multipliedWin;
         roundBaseScore = win;
         roundScore = multipliedWin;
@@ -4467,7 +4886,9 @@ function update(dt) {
         // 連爆到不能再連爆 → 本局結算，排入三階大獎判定（大獎播完才進 FG／SFG）
         pendingBigWinCheck = true;
         // JP：v3 兩尊神各自判定（可同時成立）；v2 看小島節點是否點滿；v1 看第 5 步是否達成
-        if (isV3()) {
+        if (isV4()) {
+          v4GrantHeroRows();   // 本局成立的角色列，連爆全部結束後一次結清
+        } else if (isV3()) {
           v3GrantReadyJps();
         } else {
           const _jpDone = isForkRule()
@@ -4561,8 +4982,8 @@ function drawSymbol(ctx, id, x, y, size, alpha, scFx) {
 
   // ── 船頭／船尾（SC）特殊繪製 ──
   //    登場演繹 0.3s、預報演繹 LOOP（微晃發光）、中獎演繹（發光放大縮小）
-  if (id === 8 || id === 9) {
-    const isBow   = (id === 8);
+  if (isScSymId(id)) {
+    const isBow   = (id === SC_BOW);
     const now     = Date.now();
     const appearP = scFx > 0 ? scFx / TF(TIMING.scAppear) : 0;             // 1 → 0
     const winP    = scWinAnim.active ? scWinAnim.timer / scWinAnim.total : 0;
@@ -4858,7 +5279,7 @@ function drawBoard(ctx) {
       for (let r = 0; r < ROWS; r++) {
         if (reelState[c]?.[r] === 'done') {
           const _id = board[c][r]?.id;
-          if (_id === 8 || _id === 9) _nearMissSC++;
+          if (isScSymId(_id)) _nearMissSC++;
         } else _stillSpinning = true;
       }
     }
@@ -4943,7 +5364,7 @@ function drawBoard(ctx) {
         ctx.translate(-(x + CELL_SIZE / 2), -(y + CELL_SIZE / 2));
       }
 
-      const colorId = (cell.id >= 0 && cell.id < 8) ? Math.floor(cell.id / 2) : -1;
+      const colorId = isNormalSym(cell.id) ? Math.floor(cell.id / 2) : -1;
       const sp = (colorId >= 0) ? (splitCount[colorId] || 1) : 1;
       if (sp >= 2) {
         const prog = (cell.splitAnim !== undefined) ? cell.splitAnim : 1;
@@ -5058,6 +5479,13 @@ function drawBoard(ctx) {
       return;
     }
 
+    // ── v4 角色列 1×5：沒有專屬美術，直接用五隻角色的原圖並排＋金框＋獎項字樣 ──
+    if (m.isHeroRow) {
+      drawHeroRowCell(ctx, m, x, y, w, _dim, isMatched);
+      ctx.restore();
+      return;
+    }
+
     // ── 合成圖示美術（1×2 同色 WILD／1×4 雙色進階 WILD）──
     const mergeArt = (m.size === 4 && m.colorId2 !== undefined)
       ? advImgs[advArtKey(m.colorId, m.colorId2)]
@@ -5165,7 +5593,7 @@ function drawBoard(ctx) {
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
       const cell = board[c][r];
-      if (!cell || cell.isMerged || cell.id < 0 || cell.id >= 8) continue;
+      if (!cell || cell.isMerged || !isNormalSym(cell.id)) continue;
       if (reelState[c]?.[r] === 'spinning' || reelState[c]?.[r] === 'stopping') continue;
       const colorId = Math.floor(cell.id / 2);
       const sp = splitCount[colorId];
@@ -5288,12 +5716,22 @@ function drawBottomBar(ctx) {
   ctx.fillText('INFO', LAYOUT.infoBtn.x + LAYOUT.infoBtn.w / 2, LAYOUT.infoBtn.y + LAYOUT.infoBtn.h / 2);
 }
 
-function drawForceMenu(ctx) {
-  if (!showForceMenu) return;
-
-  const menuX = 148, menuW = 110;
-  // 強開選項＝一般遊戲頁「NG出牌規則／SERVER 強開選項」那張表
-  const opts = [
+// 強開選單清單（繪製與點擊命中共用同一份，順序＝索引）。
+// v4 沒有地圖關卡，條件1～4／獲得JP 換成三種角色列強開，直接驗五階獎。
+function forceMenuOptions() {
+  if (isV4()) {
+    return [
+      { label: '關閉',      value: null },
+      { label: '合成',      value: 'synth' },
+      { label: '進階合成',  value: 'adv_synth' },
+      { label: '角色列⚡宙斯', value: 'hero_zeus' },
+      { label: '角色列👑赫拉', value: 'hero_hera' },
+      { label: '角色列彩金', value: 'hero_cash' },
+      { label: '進FG',      value: 'force_fg' },
+      { label: '進SFG',     value: 'force_sfg' },
+    ];
+  }
+  return [
     { label: '關閉',    value: null },
     { label: '合成',    value: 'synth' },
     { label: '進階合成', value: 'adv_synth' },
@@ -5305,7 +5743,13 @@ function drawForceMenu(ctx) {
     { label: '進FG',    value: 'force_fg' },
     { label: '進SFG',   value: 'force_sfg' },
   ];
-  const options = opts.map(o => ({ label: o.label, type: o.value }));
+}
+
+function drawForceMenu(ctx) {
+  if (!showForceMenu) return;
+
+  const menuX = 148, menuW = 110;
+  const options = forceMenuOptions().map(o => ({ label: o.label, type: o.value }));
   const menuH = 10 + options.length * 40 - 8 + 10;
   const menuY = 658 - menuH - 6;  // 上浮到 強開 按鈕上方
   ctx.fillStyle = 'rgba(10,18,35,0.97)';
@@ -5943,13 +6387,16 @@ function draw() {
 
   drawGameFrame(ctx);
   drawBoard(ctx);
-  drawGodStatues(ctx);     // v3：盤面上方左右的宙斯／赫拉石像＋彩金牌＋羅盤進度
-  // v3 的彩金改由石像旁的彩金牌顯示，舊的棕色 JP 橫幅就不再畫（避免兩套並存）
-  if (!isV3()) drawJPBars(ctx);
+  drawGodStatues(ctx);     // v3／v4：盤面上方左右的宙斯／赫拉石像＋彩金牌
+  // v3／v4 的彩金改由石像旁的彩金牌顯示，舊的棕色 JP 橫幅就不再畫（避免兩套並存）
+  if (!isV3() && !isV4()) drawJPBars(ctx);
   drawWaysDisplay(ctx);
   drawMapPanel(ctx);
-  drawMapShip(ctx);  // 船在地圖上層，但在抽牌/報獎 overlay 之下
-  drawTMAnim(ctx);   // 藏寶圖動畫（地圖面板上方）
+  drawV4Voyage(ctx);   // v4：FG／SFG 的航海地圖（NG 不畫）
+  if (hasMapQuest()) {
+    drawMapShip(ctx);  // 船在地圖上層，但在抽牌/報獎 overlay 之下
+    drawTMAnim(ctx);   // 藏寶圖動畫（地圖面板上方）
+  }
   drawFlyingScores(ctx);
   drawParticles(ctx);
   drawCenterWin(ctx);
@@ -5985,7 +6432,7 @@ canvas.addEventListener('click', e => {
   // 船一併回出發港。進場之後才在 FG／SFG 內跨局保留（見 mapPersists()），
   // 一路保留到 FG／SFG 結束（結束時由 resetAfterFreeGame() 再歸零）。
   function _resetForFreeGame() {
-    splitCount = [1, 1, 1, 1];
+    splitCount = newSplitArray();
     forceSpinType = null;
 
     mapFlags = [false, false, false, false, false];
@@ -6059,19 +6506,8 @@ canvas.addEventListener('click', e => {
   // 強開選單選項（優先判斷，避免被按鈕覆蓋）
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
-    // ※ 與 drawForceMenu() 的 opts 必須一致（順序即點擊命中的索引）
-    const forceOpts = [
-      { label: '關閉',    value: null },
-      { label: '合成',    value: 'synth' },
-      { label: '進階合成', value: 'adv_synth' },
-      { label: '條件1',   value: 'cond_1' },
-      { label: '條件2',   value: 'cond_2' },
-      { label: '條件3',   value: 'cond_3' },
-      { label: '條件4',   value: 'cond_4' },
-      { label: '獲得JP',  value: 'force_jp' },
-      { label: '進FG',    value: 'force_fg' },
-      { label: '進SFG',   value: 'force_sfg' },
-    ];
+    // 與 drawForceMenu() 共用同一份清單（順序即點擊命中的索引），不再各寫一份
+    const forceOpts = forceMenuOptions();
     const menuH = 10 + forceOpts.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
     let hit = false;
@@ -6139,7 +6575,7 @@ function gameLoop(ts) {
 // === 調校面板：節奏甘特圖 + 佈局拖曳 + 取圖 + localStorage ===
 // ============================================================
 const TUNE_KEY = 'argo_tuning';
-const TUNE_VERSION = 6;  // v6: 盤面＋任務面板整體置中、宙斯赫拉石像收窄至不超出盤面。舊存檔自動作廢。
+const TUNE_VERSION = 7;  // v7: 新增 v4（五色／角色列／FG 航海地圖），版面預設值改變。舊存檔自動作廢。
 let tunePanelOpen = false;
 let tuneTab = 'timing';        // 'timing' | 'layout' | 'crop' | 'rules'
 let layoutEditMode = false;    // 佈局分頁開啟中 = 編輯模式（攔截畫布輸入）
@@ -6506,7 +6942,7 @@ function buildCropTab() {
   cropPreviewCanvas = cv;
 
   const list = document.createElement('div'); list.className = 'tune-obj-list';
-  SYMBOLS.slice(0, 8).forEach(sym => {
+  SYMBOLS.slice(0, NORMAL_SYM_COUNT).forEach(sym => {
     const b = document.createElement('button');
     b.className = 'tune-obj-btn' + (sym.id === cropSelected ? ' selected' : '');
     b.textContent = sym.name;
@@ -6582,6 +7018,17 @@ const RULE_SUMMARY = {
     ['4', '四色隨機排列 ④：該色合成 1 次', '該色分裂'],
     ['JP ⚡', '進階合成「紅+綠」與「紅+藍」各 1 次', '兩組都達成 → 宙斯 JP'],
     ['JP 👑', '進階合成「金+綠」與「金+藍」各 1 次', '兩組都達成 → 赫拉 JP'],
+  ],
+  4: [
+    ['分裂', '同色（角色＋武器）相鄰合成', '該色切一刀 → 2×1'],
+    ['分裂', '兩個相鄰 1×2 不同色 → 進階合成 1×4', '兩色各切第二刀 → 3×1（上限）'],
+    ['JP ⚡', '一整列 5 隻角色相鄰，中間格＝海克力斯', '整列合成給分 ＋ 宙斯 JP'],
+    ['JP 👑', '一整列 5 隻角色相鄰，中間格＝伊阿宋', '整列合成給分 ＋ 赫拉 JP'],
+    ['彩金', '同上，中間格＝美狄亞／奧菲斯／阿塔蘭忒', '依序 MAJOR／MINOR／MINI'],
+    ['NG', '無地圖、無盤面倍數', '得分公式維持現狀'],
+    ['FG', '航海地圖：每次連爆推進 1 站', '×1→×2→×3→×4→×5→×10（第 7 段起維持 ×10）'],
+    ['FG', '分裂（刀）不重置，直到 FG 結束', '五色切滿＝248,832 ways'],
+    ['SFG', '航海地圖跨局不重置', '倍數一路累積'],
   ],
 };
 function buildRulesTab() {
