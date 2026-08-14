@@ -949,7 +949,7 @@ const RULE_LAYOUT = {
   3: { grid: { x: 195, y: 120 }, mapPanel: { x: 1010, y: 120, w: 245, h: 462 } },
   // v4 的實際版面由 syncV4Layout() 依 NG／FG 切換（見 V4_LAYOUT_NG／V4_LAYOUT_FG），
   // 這裡給的是切到 v4 當下的初始值（＝NG 版面）。
-  4: { grid: { x: 310, y: 124 }, mapPanel: { x: 1010, y: 120, w: 245, h: 462 }, cell: 132 },
+  4: { grid: { x: 310, y: 124 }, mapPanel: { x: 910, y: 120, w: 245, h: 520 }, cell: 132 },
 };
 function applyRuleLayout(ver) {
   const p = RULE_LAYOUT[ver];
@@ -1527,13 +1527,36 @@ function v4VoyageResetForSpin() {
   if (isV4() && inFG) v4VoyageStep = 0;
 }
 
-// v4 版面：NG 沒有面板 → 盤面置中放大；FG／SFG 要騰出右側給航海地圖 → 收回原位。
+// ── v4 版面 ──
+// NG 沒有右側面板 → 盤面置中放大；FG／SFG 要騰出右側給航海地圖 → 盤面左移並縮回 130。
 // 只在模式真的切換時套用一次，避免每幀覆蓋掉調校面板「佈局」分頁的手動拖動。
-// y 至少 122：上方石像組（statueL／statueR）下緣在 y=120，再低就會被盤面壓到。
-// cell 132 → 盤面 660×528，置中 x=(1280-660)/2=310，下緣 124+528=652，仍在 spin 按鈕（y≈658）之上。
-const V4_LAYOUT_NG = { grid: { x: 310, y: 124 }, cell: 132 };
-const V4_LAYOUT_FG = { grid: { x: 195, y: 120 }, cell: 130,
-                       mapPanel: { x: 1010, y: 120, w: 245, h: 462 } };
+//
+// 排版的四個硬條件（2026-08-14 依實截重排）：
+//  1. y 至少 122：上方石像組下緣在 y≈120；盤面下緣不能超過 spin 按鈕（y≈658）。
+//  2. 盤面左邊要留得下「WAYS 欄位」與「FG 局數徽章」。WAYS 錨在盤面上
+//     （中心＝GRID_X-68、寬 110），所以 GRID_X 不能太小，否則 WAYS 會被切到畫布外。
+//     fgCounter 的 x 是**中心**，要和 WAYS 對齊在同一直行——不能沿用 v3 的 190，
+//     那是配 DEFAULT_LAYOUT 盤面 x=258 調的，搬到 v4 FG 的盤面會直接壓在盤面上（實截抓到）。
+//  3. 航海地圖要**緊貼**盤面右緣（間距 30）。沿用 v3 的 x=1010 會離盤面 165px，
+//     看起來像兩塊沒關係的東西。高度也拉成與盤面同高。
+//  4. 石像組對齊盤面中心。組跨距固定 704、兩者間距固定 393，故 statueL.x ＝ 盤面中心 − 352。
+//   註：左側原本的 JP 獎池面板與連線紀錄面板（drawJPPanel／drawWinLog）已是死程式、
+//       沒有被 draw() 呼叫，所以左邊整條是空的，可以給 WAYS／局數徽章用。
+const V4_LAYOUT_NG = {
+  cell: 132,                                     // 盤面 660×528，下緣 124+528=652
+  grid:      { x: 310, y: 124 },                 // 置中：(1280-660)/2 = 310 → 中心 640
+  statueL:   { x: 288, y: -1 },                  // 640-352
+  statueR:   { x: 681, y: -2 },                  // 288+393
+  fgCounter: { x: 242, y: 375 },                 // NG 不畫，先對齊 WAYS（310-68）備用
+};
+const V4_LAYOUT_FG = {
+  cell: 130,                                     // 盤面 650×520
+  grid:      { x: 230, y: 120 },                 // 230..880 → 中心 555
+  mapPanel:  { x: 910, y: 120, w: 245, h: 520 }, // 緊貼盤面右緣（880+30），與盤面同高
+  statueL:   { x: 203, y: -1 },                  // 555-352
+  statueR:   { x: 596, y: -2 },                  // 203+393
+  fgCounter: { x: 162, y: 375 },                 // 與 WAYS 同一直行（230-68=162），在 WAYS 下方
+};
 let _v4LayoutMode = null;
 function syncV4Layout() {
   if (!isV4()) { _v4LayoutMode = null; return; }
@@ -1542,8 +1565,9 @@ function syncV4Layout() {
   _v4LayoutMode = mode;
   const p = (mode === 'fg') ? V4_LAYOUT_FG : V4_LAYOUT_NG;
   setCellSize(p.cell);
-  LAYOUT.grid = { ...LAYOUT.grid, ...p.grid };
-  if (p.mapPanel) LAYOUT.mapPanel = { ...LAYOUT.mapPanel, ...p.mapPanel };
+  ['grid', 'mapPanel', 'statueL', 'statueR', 'fgCounter'].forEach(k => {
+    if (p[k]) LAYOUT[k] = { ...LAYOUT[k], ...p[k] };
+  });
   syncLayoutDerived();
 }
 
