@@ -418,7 +418,8 @@
             <p>&nbsp;&nbsp;五色全部切滿時 ways ＝ (4×3)<sup>5</sup> ＝ <b>248,832</b></p>
             <p>• <b>取得 JP／彩金</b>：任一橫列 5 格<b>相鄰排滿 5 隻不同角色</b>，看<b>中間格（第 3 欄）</b>是誰：</p>
             <p>&nbsp;&nbsp;海克力斯 → <b>⚡ 宙斯 JP</b>／伊阿宋 → <b>👑 赫拉 JP</b>／美狄亞 → <b>MAJOR</b>／奧菲斯 → <b>MINOR</b>／阿塔蘭忒 → <b>MINI</b></p>
-            <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>（同時替代五色的角色與武器）並照常計分，獎項於連爆全部結束後發放</p>
+            <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>。合成後它是<b>一個全新的圖示</b>：<b>不替代任何顏色、不與任何符號連線、不進 Ways、不給分</b></p>
+            <p>&nbsp;&nbsp;合成狀態<b>保留在盤面上</b>，其他列照常連爆；等連爆到<b>無法再得分</b>時，才結算該列的 JP／彩金</p>
             <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
             <p>• <b>NG 無地圖、無盤面倍數</b>，得分公式維持 押注額 × 賠率 × Ways</p>
             <p>• <b>FG 航海地圖</b>：每次連爆推進 1 站，倍數 ×1（首次得分）→ ×2 → ×3 → ×4 → ×5 → ×10，<b>第 7 段起維持 ×10</b></p>
@@ -940,7 +941,7 @@ const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 分歧競速', desc: '首關紅金競速定神並開島，之後三關剩餘三色隨機，JP 走小島節點' },
   3: { name: 'v3 單線分裂', desc: '四色隨機排列 4 關，通關獎勵＝該色分裂；JP 雙神並行，各自湊 2 組顏色組合' },
-  4: { name: 'v4 角色列',   desc: '五色（新增紫）；無地圖，每次合成該色切一刀最高 5；一整列 5 隻角色相鄰 → 中間格定獎（海克力斯＝宙斯 JP／伊阿宋＝赫拉 JP／其餘＝MAJOR、MINOR、MINI）' },
+  4: { name: 'v4 角色列',   desc: '五色（新增紫）；無地圖，每次合成該色切一刀最高 5；一整列 5 隻角色相鄰 → 中間格定獎（海克力斯＝宙斯 JP／伊阿宋＝赫拉 JP／其餘＝MAJOR、MINOR、MINI）。角色列 1×5 合成後＝全新圖示，不替代顏色、不連線、不進 Ways，保留到連爆結束才結算彩金' },
 };
 // 各規則版本的預設版面（切換版本時套用；之後仍可在「佈局」分頁自行拖動）
 const RULE_LAYOUT = {
@@ -1429,8 +1430,11 @@ function mapPersists()      { return isForkRule() ? (inFG || inSFG) : inSFG; }
 //         （盤面 5 欄、v4 剛好 5 色 → 等於五隻角色排滿一整列）。
 //   定獎：看該列**中間格**（第 3 欄）是哪一隻角色 ——
 //         海克力斯 → ⚡宙斯 JP、伊阿宋 → 👑赫拉 JP、其餘三隻 → MAJOR／MINOR／MINI。
-//   結算：該整列 5 格合成為一個 1×5 合成格（同時替代五色的角色與武器）並照常計分，
-//         獎項等本局連爆全部結束後再發（與 v3 的 JP 同一個時機，避免蓋掉連爆演繹）。
+//   結算：該整列 5 格合成為一個 1×5 合成格。合成後它就是**一個全新的圖示**（企劃 2026-08-14 確認）：
+//         不替代任何顏色、不與任何符號連線、不進 ways、不給分 —— 純粹是演出＋發獎的載體。
+//         合成狀態一直保留在盤面上（不會被消除，也不會擋住其他列的連爆），
+//         等本局連爆連到不能再連（win===0）時才結算 JP／彩金
+//         （與 v3 的 JP 同一個時機，避免蓋掉連爆演繹）。
 // ============================================================
 // ── 分裂（刀）──
 // 一般同色合成＝第一刀（每格算 2 個）；雙色進階合成＝第二刀（每格算 3 個），到此封頂。
@@ -1482,6 +1486,7 @@ function applyHeroRow(hit) {
       id: -1, isMerged: true, mergeId,
       colorId: centerColorId, colorIds,
       mergeSize: COLS, mergeCol: 0, mergeRow: hit.row,
+      isHeroRow: true,          // ← 計分時的識別旗標：mergeColorIds() 看到它就回空陣列
       isMergeSlave: (c !== 0), isMatched: false, yOffset: 0, scale: 1
     };
   }
@@ -1689,10 +1694,15 @@ function randomNormalSymId(col) {
 // 合成後的船（1×2、colorId -1）等同同時佔用船頭與船尾，
 // 否則補盤／下一次 spin 會誤判「盤面上沒有船尾」而再生一個。
 function isShipCell(cell) { return !!cell && cell.isMerged && cell.colorId === -1; }
-// 合成格代表哪幾個顏色（1×2 一色、1×4 兩色、v4 的 1×5 角色列五色全包）。
-// 下游一律問這個函式，不要再自己組 [colorId, colorId2] —— 那樣接不到 1×5。
+// 合成格代表哪幾個顏色（1×2 一色、1×4 兩色）。
+// 下游一律問這個函式，不要再自己組 [colorId, colorId2]。
 function mergeColorIds(cell) {
   if (!cell) return [];
+  // v4 角色列 1×5 合成後＝**一個全新的圖示**（企劃 2026-08-14 確認）：不替代任何顏色，
+  // 底下那五隻角色即使與其他格連得起來也不算。回空陣列 → calcWin 的兩處 includes()
+  // 都不會命中，等於整列在計分上不存在（連帶也不會被當成中獎格消除，會留在盤面上）。
+  // 註：它身上仍留著 colorId／colorIds，那是給 drawHeroRowCell 畫五色漸層用的，不可拿來計分。
+  if (cell.isHeroRow) return [];
   if (Array.isArray(cell.colorIds)) return cell.colorIds;
   if (cell.colorId2 !== undefined)  return [cell.colorId, cell.colorId2];
   return [cell.colorId];
