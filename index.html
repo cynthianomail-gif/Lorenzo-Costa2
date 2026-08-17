@@ -423,7 +423,7 @@
             <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
             <p>• <b>NG 無地圖、無盤面倍數</b>，得分公式維持 押注額 × 賠率 × Ways</p>
             <p>• <b>FG 航海地圖</b>：<b>共 6 站</b>，倍數 ×1 → ×2 → ×3 → ×4 → ×5 → ×10。每達成 1 段連爆船前進 1 站</p>
-            <p>&nbsp;&nbsp;站點分「已通過（彩色）」與「未通過（壓黑＋雲霧）」；終點站為<b>科耳基斯聖林與金羊毛</b>，抵達後本局後續連爆維持 ×10</p>
+            <p>&nbsp;&nbsp;站點分「已通過（彩色＋插旗）」與「未通過（壓黑）」；終點站為<b>科耳基斯聖林與金羊毛</b>，抵達後本局後續連爆維持 ×10</p>
             <p>&nbsp;&nbsp;FG <b>每局重置</b>回起點；<b>SFG 不重置</b>，跨局一路累積。JP 與彩金<b>不</b>與此倍數相乘</p>
             <p>• FG 中分裂（刀）不重置，直到 FG 結束</p>
 
@@ -4420,53 +4420,6 @@ function v4StationPos(i) {
   return { x: px + pw / 2, y: bottom - i * gap };
 }
 
-// 未通過站點的雲霧遮罩。樣式沿用 v1～v3 藏寶圖的那片霧（同一組顏色與流動做法），
-// 但邊界改由「船的所在站」決定，不走 questProgress，所以不能直接呼叫 drawMapFog()。
-function drawV4Fog(ctx, edgeY, t) {
-  const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
-  const top = py + 66;
-  if (edgeY <= top + 1) return;
-  const amp = 5;
-  ctx.save();
-  ctx.beginPath(); ctx.roundRect(px + 5, py + 5, pw - 10, ph - 10, 7); ctx.clip();
-  const fogY = x => edgeY + Math.sin(x / 23 + t / 1600) * amp
-                          + Math.sin(x / 9  - t / 2400) * amp * 0.35;
-  const p = new Path2D();
-  p.moveTo(px, top);
-  p.lineTo(px + pw, top);
-  for (let x = px + pw; x >= px; x -= 6) p.lineTo(x, fogY(x));
-  p.closePath();
-  ctx.save();
-  ctx.clip(p);
-  const span0 = Math.max(24, edgeY - top);
-  const fade  = 1 - 14 / span0;
-  // 濃度比 v1～v3 的藏寶圖霧低（那邊是 0.99 幾乎全遮）。
-  // 原因：美術需求同時要求「未通過站點壓黑」與「雲霧遮罩」兩件事 ——
-  // 用 0.99 會把壓黑的站點也一起吃掉，玩家看不到上面還有幾站、終點是金羊毛，
-  // 少了往上爬的目標感。降到 0.66 讓壓黑站點以剪影透出來。
-  const g = ctx.createLinearGradient(0, top, 0, edgeY);
-  g.addColorStop(0,           'rgba(74,94,124,0.70)');
-  g.addColorStop(0.55 * fade, 'rgba(74,94,124,0.66)');
-  g.addColorStop(fade,        'rgba(96,118,152,0.62)');
-  g.addColorStop(1,           'rgba(126,146,178,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(px, top, pw, edgeY + amp * 2 - top);
-  const span = Math.max(1, edgeY - top);
-  for (let k = 0; k < 4; k++) {
-    const wy = top + ((k * span / 4) + (t / 70) % span) % span;
-    const wx = px + pw * (0.5 + Math.sin(t / 3400 + k * 2.1) * 0.22);
-    const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.55);
-    rg.addColorStop(0, 'rgba(226,236,248,0.16)');
-    rg.addColorStop(1, 'rgba(226,236,248,0)');
-    ctx.fillStyle = rg;
-    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.3); ctx.translate(-wx, -wy);
-    ctx.beginPath(); ctx.arc(wx, wy, pw * 0.55, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  ctx.restore();
-  ctx.restore();
-}
-
 // 終點站：科耳基斯聖林＋金羊毛。抵達時整片金光（強度：強）。
 function drawV4Fleece(ctx, x, y, lit, burst, t) {
   ctx.save();
@@ -4631,11 +4584,9 @@ function drawV4Voyage(ctx) {
     if (on && i !== V4_FLEECE_STEP) drawMapFlag(ctx, p.x + 17, p.y - 8, '#fbbf24', flag, t);
   }
 
-  // 雲霧遮罩：蓋住尚未通過的站（邊界取「目前站與下一站的中間」）
-  if (v4VoyageStep < V4_VOYAGE_STEPS - 1) {
-    const a = v4StationPos(v4VoyageStep), b = v4StationPos(v4VoyageStep + 1);
-    drawV4Fog(ctx, (a.y + b.y) / 2 + 6, t);
-  }
+  // （2026-08-14 企劃決定：v4 的航海地圖**不要雲霧遮罩**。
+  //   未通過站點只用「壓黑」表示，整條航線一眼看得到終點金羊毛。
+  //   v1～v3 藏寶圖的 drawMapFog() 不受影響，那邊仍照舊。）
 
   drawV4Splash(ctx);
   drawV4Ship(ctx, t);
