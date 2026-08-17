@@ -2116,6 +2116,10 @@ function computeCurrentWays() {
     for (let row = 0; row < ROWS; row++) {
       const cell = board[col][row];
       if (!cell) { colTotal += 1; continue; }
+      // v4 角色列 1×5 是「全新圖示」，不替代顏色也不進 ways（calcWin 那邊靠
+      // mergeColorIds() 回空陣列擋掉）。這裡也必須只算中性的 1，否則畫面左側的
+      // WAYS 數字會把它算成 splitCount[中間格的色]，與實際賠付對不上。
+      if (cell.isMerged && cell.isHeroRow) { colTotal += 1; continue; }
       if (cell.isMerged) { const _cid = cell.colorId; colTotal += (_cid >= 0 ? splitCount[_cid] : 1); continue; }
       if (isNormalSym(cell.id)) colTotal += splitCount[Math.floor(cell.id / 2)];
       else colTotal += 1;
