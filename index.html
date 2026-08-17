@@ -422,7 +422,8 @@
             <p>&nbsp;&nbsp;合成狀態<b>保留在盤面上</b>，其他列照常連爆；等連爆到<b>無法再得分</b>時，才結算該列的 JP／彩金</p>
             <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
             <p>• <b>NG 無地圖、無盤面倍數</b>，得分公式維持 押注額 × 賠率 × Ways</p>
-            <p>• <b>FG 航海地圖</b>：每次連爆推進 1 站，倍數 ×1（首次得分）→ ×2 → ×3 → ×4 → ×5 → ×10，<b>第 7 段起維持 ×10</b></p>
+            <p>• <b>FG 航海地圖</b>：<b>共 6 站</b>，倍數 ×1 → ×2 → ×3 → ×4 → ×5 → ×10。每達成 1 段連爆船前進 1 站</p>
+            <p>&nbsp;&nbsp;站點分「已通過（彩色）」與「未通過（壓黑＋雲霧）」；終點站為<b>科耳基斯聖林與金羊毛</b>，抵達後本局後續連爆維持 ×10</p>
             <p>&nbsp;&nbsp;FG <b>每局重置</b>回起點；<b>SFG 不重置</b>，跨局一路累積。JP 與彩金<b>不</b>與此倍數相乘</p>
             <p>• FG 中分裂（刀）不重置，直到 FG 結束</p>
 
@@ -941,7 +942,7 @@ const RULE_VERSIONS = {
   1: { name: 'v1 四色隨機', desc: '4 色隨機排序，倍數 ×2/×3/×5/×10，JP 尊位開局隨機' },
   2: { name: 'v2 分歧競速', desc: '首關紅金競速定神並開島，之後三關剩餘三色隨機，JP 走小島節點' },
   3: { name: 'v3 單線分裂', desc: '四色隨機排列 4 關，通關獎勵＝該色分裂；JP 雙神並行，各自湊 2 組顏色組合' },
-  4: { name: 'v4 角色列',   desc: '五色（新增紫）；無地圖，每次合成該色切一刀最高 5；一整列 5 隻角色相鄰 → 中間格定獎（海克力斯＝宙斯 JP／伊阿宋＝赫拉 JP／其餘＝MAJOR、MINOR、MINI）。角色列 1×5 合成後＝全新圖示，不替代顏色、不連線、不進 Ways，保留到連爆結束才結算彩金' },
+  4: { name: 'v4 角色列',   desc: '五色（新增紫）；NG 無地圖無倍數。同色合成切一刀（2×1）、進階合成切第二刀（3×1）封頂；一整列 5 隻角色相鄰 → 中間格定獎（海克力斯＝宙斯 JP／伊阿宋＝赫拉 JP／其餘＝MAJOR、MINOR、MINI），該 1×5 合成後＝全新圖示，不替代顏色、不連線、不進 Ways。FG 航海地圖 6 站 ×1→×10，每段連爆船前進 1 站' },
 };
 // 各規則版本的預設版面（切換版本時套用；之後仍可在「佈局」分頁自行拖動）
 const RULE_LAYOUT = {
@@ -1505,15 +1506,36 @@ function heroRowAwardLabel(centerId) {
   return V4_CASH_TIERS[centerId] ? V4_CASH_TIERS[centerId].label : '';
 }
 
-// ── v4：FG 航海地圖（企劃 2026-08-13）──
+// ── v4：FG 航海地圖（企劃 2026-08-13 規則／2026-08-14 美術需求）──
 // NG 沒有地圖也沒有倍數；地圖只在 FG／SFG 出現。
-// 每次連爆推進 1 站，站別對應本次得分的倍數：
-//   第 1 次得分 ×1、第 2 次 ×2、第 3 次 ×3、第 4 次 ×4、第 5 次 ×5、第 6 次 ×10，第 7 站起維持 ×10。
-// FG：每局（每次 spin）重置回起點；SFG：不重置，跨局一路累積（企劃「SFG 小地圖不重製」）。
+//
+// **共 6 站**，倍數 ×1／×2／×3／×4／×5／×10。
+//   v4VoyageStep ＝ 船目前所在的站（0-based，0＝起點站）。
+//   本次連爆得分套「船現在這一站」的倍數，給完分船才前進 1 站；
+//   因此第 1 次得分 ×1、第 2 次 ×2 …… 第 6 次 ×10，之後船停在第 6 站，
+//   後續連爆一律維持 ×10（美術需求「本局後續連爆維持 ×10」）。
+//   站點狀態：index <= v4VoyageStep ＝ 已通過（彩色）；其餘壓黑＋雲霧遮罩。
+// FG：每局（每次 spin）重置回起點；SFG：不重置，船位與倍數跨局保留。
 // JP 與角色列彩金**不**與這個倍數相乘（沿用 v2／v3 的 JP 規則）。
 const V4_VOYAGE_MULT  = [1, 2, 3, 4, 5, 10];
-const V4_VOYAGE_STEPS = 7;    // 面板上畫幾站（第 7 站起都是 ×10）
-let v4VoyageStep = 0;         // 本趟已推進到第幾站（0-based；0＝還沒得分，下一次得分用 ×1）
+const V4_VOYAGE_STEPS = V4_VOYAGE_MULT.length;   // 6
+const V4_FLEECE_STEP  = V4_VOYAGE_STEPS - 1;     // 終點站＝科耳基斯聖林／金羊毛
+let v4VoyageStep = 0;
+
+// 演繹狀態。全部是「與盤面連爆並行」的純表現，不會擋住結算流程
+//（美術需求：「與盤面連爆並行，不打斷節奏」），所以推進倍數時不等動畫播完。
+let v4ShipAnim   = 0;    // 船移動演繹剩餘幀（0＝待機）
+let v4ShipTotal  = 1;
+let v4ShipFrom   = 0;    // 這次移動的起訖站
+let v4ShipTo     = 0;
+let v4Splash     = [];   // 落海水花粒子
+let v4FlagAnim   = [];   // 每站的插旗演繹剩餘幀（1→0 淡入）
+let v4FleeceAnim = 0;    // 金羊毛終點演繹剩餘幀
+function v4VoyageResetAnims() {
+  v4ShipAnim = 0; v4ShipTotal = 1; v4ShipFrom = 0; v4ShipTo = 0;
+  v4Splash = []; v4FlagAnim = new Array(V4_VOYAGE_STEPS).fill(0); v4FleeceAnim = 0;
+}
+v4VoyageResetAnims();
 
 function v4VoyageMult(step) {
   return V4_VOYAGE_MULT[Math.min(Math.max(0, step), V4_VOYAGE_MULT.length - 1)];
@@ -1525,11 +1547,46 @@ function v4CurrentMult() {
 }
 function v4VoyageAdvance() {
   if (!isV4() || (!inFG && !inSFG)) return;
-  v4VoyageStep = Math.min(v4VoyageStep + 1, V4_VOYAGE_STEPS - 1);
+  if (v4VoyageStep >= V4_VOYAGE_STEPS - 1) return;   // 已在終點站，不再前進（倍數維持 ×10）
+  v4ShipFrom  = v4VoyageStep;
+  v4VoyageStep = v4VoyageStep + 1;
+  v4ShipTo    = v4VoyageStep;
+  v4ShipTotal = mapFlyFrames();
+  v4ShipAnim  = v4ShipTotal;
+  // 抵達那一站的插旗演繹與（若是終點）金羊毛演繹，都排在船落海之後才起跳，
+  // 由 updateV4Voyage() 在動畫過半時觸發。
 }
 // 每次 spin 開始時呼叫：FG 重置、SFG 保留
 function v4VoyageResetForSpin() {
-  if (isV4() && inFG) v4VoyageStep = 0;
+  if (isV4() && inFG) { v4VoyageStep = 0; v4VoyageResetAnims(); }
+}
+
+// 每幀推進航海地圖的演繹（由 update() 呼叫）
+function updateV4Voyage() {
+  if (!isV4()) return;
+  if (v4ShipAnim > 0) {
+    const half = Math.floor(v4ShipTotal / 2);
+    v4ShipAnim--;
+    if (v4ShipAnim === half) {
+      // 船在下一站淡入落海 → 濺起水花，同時點亮該站（插旗演繹）
+      const p = v4StationPos(v4ShipTo);
+      for (let i = 0; i < 14; i++) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+        const sp = 0.9 + Math.random() * 1.9;
+        v4Splash.push({ x: p.x, y: p.y + 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 0.7,
+                        life: 22 + Math.random() * 14, max: 36 });
+      }
+      v4FlagAnim[v4ShipTo] = TF(TIMING.mapBeacon);
+      if (v4ShipTo === V4_FLEECE_STEP) v4FleeceAnim = TF(TIMING.mapBeacon) * 2;
+    }
+  }
+  for (let i = 0; i < v4FlagAnim.length; i++) if (v4FlagAnim[i] > 0) v4FlagAnim[i]--;
+  if (v4FleeceAnim > 0) v4FleeceAnim--;
+  for (let i = v4Splash.length - 1; i >= 0; i--) {
+    const s = v4Splash[i];
+    s.x += s.vx; s.y += s.vy; s.vy += 0.12; s.life--;
+    if (s.life <= 0) v4Splash.splice(i, 1);
+  }
 }
 
 // ── v4 版面 ──
@@ -2446,6 +2503,7 @@ function calcWin() {
 function resetAfterFreeGame() {
   splitCount = newSplitArray();
   v4VoyageStep = 0;        // v4：FG／SFG 結束 → 航海地圖收回起點
+  v4VoyageResetAnims();
   heroRowPending = [];
   mapFlags = [false, false, false, false, false];
   questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
@@ -4354,56 +4412,237 @@ function drawHeroRowCell(ctx, m, x, y, w, dim, isMatched) {
 // ── v4：FG 航海地圖（右側面板）──
 // 由下往上七站，站上標倍數；已抵達的站點亮，目前所在站再加一圈呼吸光。
 // NG 不畫（NG 無地圖無倍數）。
+// 第 i 站在畫布上的座標（由下往上，起點在底部）。繪製與水花／船位共用同一份。
+function v4StationPos(i) {
+  const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
+  const top = py + 96, bottom = py + ph - 52;
+  const gap = (bottom - top) / (V4_VOYAGE_STEPS - 1);
+  return { x: px + pw / 2, y: bottom - i * gap };
+}
+
+// 未通過站點的雲霧遮罩。樣式沿用 v1～v3 藏寶圖的那片霧（同一組顏色與流動做法），
+// 但邊界改由「船的所在站」決定，不走 questProgress，所以不能直接呼叫 drawMapFog()。
+function drawV4Fog(ctx, edgeY, t) {
+  const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
+  const top = py + 66;
+  if (edgeY <= top + 1) return;
+  const amp = 5;
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(px + 5, py + 5, pw - 10, ph - 10, 7); ctx.clip();
+  const fogY = x => edgeY + Math.sin(x / 23 + t / 1600) * amp
+                          + Math.sin(x / 9  - t / 2400) * amp * 0.35;
+  const p = new Path2D();
+  p.moveTo(px, top);
+  p.lineTo(px + pw, top);
+  for (let x = px + pw; x >= px; x -= 6) p.lineTo(x, fogY(x));
+  p.closePath();
+  ctx.save();
+  ctx.clip(p);
+  const span0 = Math.max(24, edgeY - top);
+  const fade  = 1 - 14 / span0;
+  // 濃度比 v1～v3 的藏寶圖霧低（那邊是 0.99 幾乎全遮）。
+  // 原因：美術需求同時要求「未通過站點壓黑」與「雲霧遮罩」兩件事 ——
+  // 用 0.99 會把壓黑的站點也一起吃掉，玩家看不到上面還有幾站、終點是金羊毛，
+  // 少了往上爬的目標感。降到 0.66 讓壓黑站點以剪影透出來。
+  const g = ctx.createLinearGradient(0, top, 0, edgeY);
+  g.addColorStop(0,           'rgba(74,94,124,0.70)');
+  g.addColorStop(0.55 * fade, 'rgba(74,94,124,0.66)');
+  g.addColorStop(fade,        'rgba(96,118,152,0.62)');
+  g.addColorStop(1,           'rgba(126,146,178,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(px, top, pw, edgeY + amp * 2 - top);
+  const span = Math.max(1, edgeY - top);
+  for (let k = 0; k < 4; k++) {
+    const wy = top + ((k * span / 4) + (t / 70) % span) % span;
+    const wx = px + pw * (0.5 + Math.sin(t / 3400 + k * 2.1) * 0.22);
+    const rg = ctx.createRadialGradient(wx, wy, 0, wx, wy, pw * 0.55);
+    rg.addColorStop(0, 'rgba(226,236,248,0.16)');
+    rg.addColorStop(1, 'rgba(226,236,248,0)');
+    ctx.fillStyle = rg;
+    ctx.save(); ctx.translate(wx, wy); ctx.scale(1, 0.3); ctx.translate(-wx, -wy);
+    ctx.beginPath(); ctx.arc(wx, wy, pw * 0.55, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+// 終點站：科耳基斯聖林＋金羊毛。抵達時整片金光（強度：強）。
+function drawV4Fleece(ctx, x, y, lit, burst, t) {
+  ctx.save();
+  const pulse = 0.5 + Math.sin(t / 300) * 0.5;
+  if (lit) {
+    const rg = ctx.createRadialGradient(x, y, 0, x, y, 52 + burst * 46);
+    rg.addColorStop(0, `rgba(255,226,140,${0.5 + burst * 0.45})`);
+    rg.addColorStop(0.5, `rgba(250,204,21,${0.22 + burst * 0.3})`);
+    rg.addColorStop(1, 'rgba(250,204,21,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(x, y, 52 + burst * 46, 0, Math.PI * 2); ctx.fill();
+  }
+  // 聖林：兩側樹影
+  ctx.globalAlpha = lit ? 1 : 0.5;
+  ctx.font = '17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🌳', x - 27, y + 2);
+  ctx.fillText('🌳', x + 27, y + 2);
+  // 金羊毛本體
+  ctx.globalAlpha = 1;
+  if (lit) { ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 16 + pulse * 18 + burst * 34; }
+  ctx.font = `${Math.round(23 + burst * 7)}px Arial`;
+  ctx.fillText('🐏', x, y);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// 亞格號船。樣式沿用既有的 ⛵（drawMapShip 用的同一個字符），
+// 待機時隨海浪晃動；移動時「原地彈起淡出 → 下一站淡入落海」。
+function drawV4Ship(ctx, t) {
+  const moving = v4ShipAnim > 0;
+  const half   = Math.floor(v4ShipTotal / 2);
+  let pos, alpha = 1, lift = 0, rot;
+  if (moving && v4ShipAnim > half) {
+    // 前半：在原站彈起並淡出
+    const k = (v4ShipAnim - half) / Math.max(1, v4ShipTotal - half);   // 1 → 0
+    pos   = v4StationPos(v4ShipFrom);
+    lift  = -(1 - k) * 26;
+    alpha = k;
+    rot   = (1 - k) * 0.25;
+  } else if (moving) {
+    // 後半：在下一站淡入並落到海面
+    const k = v4ShipAnim / Math.max(1, half);                           // 1 → 0
+    pos   = v4StationPos(v4ShipTo);
+    lift  = -k * 22;
+    alpha = 1 - k;
+    rot   = -k * 0.2;
+  } else {
+    // 待機：隨海浪上下晃 ＋ 輕微搖擺（LOOP）
+    pos  = v4StationPos(v4VoyageStep);
+    lift = Math.sin(t / 520) * 3;
+    rot  = Math.sin(t / 700) * 0.09;
+  }
+  // 終點站的聖林／金羊毛佔掉了站點本身的位置，船再停在同一點會疊成一團 →
+  // 停靠終點時整體再往上讓 20px，看起來像停在聖林前的岸邊。
+  const atFleece = (!moving && v4VoyageStep === V4_FLEECE_STEP)
+                || (moving && v4ShipAnim <= Math.floor(v4ShipTotal / 2) && v4ShipTo === V4_FLEECE_STEP);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(pos.x, pos.y - 16 + lift - (atFleece ? 20 : 0));
+  ctx.rotate(rot);
+  ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6;
+  ctx.fillText('⛵', 0, 0);
+  ctx.restore();
+}
+
+function drawV4Splash(ctx) {
+  ctx.save();
+  v4Splash.forEach(s => {
+    const a = Math.max(0, s.life / s.max);
+    ctx.globalAlpha = a * 0.9;
+    ctx.fillStyle = '#cfeaff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, 1.6 + a * 1.7, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
 function drawV4Voyage(ctx) {
+  // NG 不畫（美術需求：NG 期間不顯示航海地圖／或壓黑待機，待與美術討論 —— 目前採「不顯示」，
+  // 因為 NG 的盤面是置中放大的，右側沒有留位置給面板）
   if (!isV4() || (!inFG && !inSFG)) return;
   const px = MAP_PX, py = MAP_PY, pw = MAP_PW, ph = MAP_PH;
   const t = Date.now();
+  const cx = px + pw / 2;
+
   ctx.save();
-  ctx.fillStyle = 'rgba(8,16,30,0.82)';
+  // 面板底＋海面
+  ctx.fillStyle = 'rgba(8,16,30,0.86)';
   ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 12); ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(px + 5, py + 5, pw - 10, ph - 10, 7); ctx.clip();
+  const sea = ctx.createLinearGradient(0, py + 60, 0, py + ph);
+  sea.addColorStop(0, 'rgba(23,52,84,0.9)');
+  sea.addColorStop(1, 'rgba(12,28,50,0.9)');
+  ctx.fillStyle = sea; ctx.fillRect(px, py + 60, pw, ph - 60);
+  // 海浪紋
+  ctx.strokeStyle = 'rgba(148,190,230,0.10)'; ctx.lineWidth = 1;
+  for (let k = 0; k < 9; k++) {
+    const wy = py + 96 + k * 46 + Math.sin(t / 900 + k) * 3;
+    ctx.beginPath();
+    for (let x = px + 6; x <= px + pw - 6; x += 8) {
+      const yy = wy + Math.sin((x + t / 26) / 17) * 2.4;
+      if (x === px + 6) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.strokeStyle = '#3b5a7a'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 12); ctx.stroke();
 
+  // 標題
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#e9d8a6'; ctx.font = 'bold 15px Arial';
-  ctx.fillText('⛵ 航海地圖', px + pw / 2, py + 22);
+  ctx.fillText('⛵ 航海地圖', cx, py + 22);
   ctx.fillStyle = 'rgba(203,213,225,0.75)'; ctx.font = '11px Arial';
-  ctx.fillText(inSFG ? 'SFG：跨局累積不重置' : 'FG：每局回到起點', px + pw / 2, py + 42);
+  ctx.fillText(inSFG ? 'SFG：船位與倍數跨局保留' : 'FG：每局重置回起點', cx, py + 42);
 
-  const top = py + 70, bottom = py + ph - 34;
-  const gap = (bottom - top) / (V4_VOYAGE_STEPS - 1);
-  const cx  = px + pw / 2;
   // 航線
-  ctx.strokeStyle = 'rgba(233,216,166,0.28)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(cx, bottom); ctx.lineTo(cx, top); ctx.stroke();
+  const pTop = v4StationPos(V4_VOYAGE_STEPS - 1), pBot = v4StationPos(0);
+  ctx.strokeStyle = 'rgba(233,216,166,0.26)';
+  ctx.lineWidth = 3; ctx.setLineDash([7, 6]);
+  ctx.beginPath(); ctx.moveTo(pBot.x, pBot.y); ctx.lineTo(pTop.x, pTop.y); ctx.stroke();
+  ctx.setLineDash([]);
 
+  // 站點：index <= v4VoyageStep ＝ 已通過（彩色）；其餘壓黑
   for (let i = 0; i < V4_VOYAGE_STEPS; i++) {
-    const y   = bottom - i * gap;
-    const on  = i < v4VoyageStep;          // 已經拿過這一站的倍數
-    const cur = i === v4VoyageStep;        // 下一次得分會用這一站
-    const mult = v4VoyageMult(i);
-    const pulse = cur ? 0.5 + Math.sin(t / 320) * 0.5 : 0;
+    const p    = v4StationPos(i);
+    const on   = i <= v4VoyageStep;
+    const mult = V4_VOYAGE_MULT[i];
+    const flag = v4FlagAnim[i] > 0 ? v4FlagAnim[i] / TF(TIMING.mapBeacon) : 0;   // 1 → 0
+    if (i === V4_FLEECE_STEP) {
+      const burst = v4FleeceAnim > 0 ? v4FleeceAnim / (TF(TIMING.mapBeacon) * 2) : 0;
+      drawV4Fleece(ctx, p.x, p.y, on, burst, t);
+    } else {
+      ctx.save();
+      if (on) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 9; }
+      ctx.fillStyle = on ? '#caa64f' : 'rgba(14,22,34,0.92)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = on ? '#fbbf24' : 'rgba(206,170,102,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    // 倍數：已通過才顯示（插旗演繹點亮的同時出現）
     ctx.save();
-    if (on || cur) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 8 + pulse * 16; }
-    ctx.fillStyle = on ? '#caa64f' : (cur ? '#7c6a34' : 'rgba(18,28,38,0.9)');
-    ctx.beginPath(); ctx.arc(cx, y, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = (on || cur) ? '#fbbf24' : 'rgba(206,170,102,0.45)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx, y, 13, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = (on || cur) ? '#1a1206' : 'rgba(226,232,240,0.75)';
-    ctx.font = 'bold 12px Arial';
-    ctx.fillText(`×${mult}`, cx, y + 1);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (i === V4_FLEECE_STEP) {
+      ctx.fillStyle = on ? '#fde68a' : 'rgba(226,232,240,0.45)';
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(`×${mult}`, p.x, p.y + 27);
+      ctx.font = 'bold 10px Arial';
+      ctx.fillStyle = on ? '#fcd34d' : 'rgba(226,232,240,0.4)';
+      ctx.fillText('科耳基斯聖林・金羊毛', p.x, p.y + 41);
+    } else {
+      ctx.fillStyle = on ? '#1a1206' : 'rgba(226,232,240,0.5)';
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(`×${mult}`, p.x, p.y + 1);
+    }
     ctx.restore();
-    // 站別說明（第 7 站標「以後」）
-    ctx.fillStyle = 'rgba(203,213,225,0.7)'; ctx.font = '10px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(i === V4_VOYAGE_STEPS - 1 ? `第 ${i + 1} 段起` : `第 ${i + 1} 段`, cx + 22, y + 1);
-    ctx.textAlign = 'center';
+    // 插旗演繹（站點由壓黑轉彩色時插上小旗）
+    if (on && i !== V4_FLEECE_STEP) drawMapFlag(ctx, p.x + 17, p.y - 8, '#fbbf24', flag, t);
   }
 
+  // 雲霧遮罩：蓋住尚未通過的站（邊界取「目前站與下一站的中間」）
+  if (v4VoyageStep < V4_VOYAGE_STEPS - 1) {
+    const a = v4StationPos(v4VoyageStep), b = v4StationPos(v4VoyageStep + 1);
+    drawV4Fog(ctx, (a.y + b.y) / 2 + 6, t);
+  }
+
+  drawV4Splash(ctx);
+  drawV4Ship(ctx, t);
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(148,163,184,0.85)'; ctx.font = '10px Arial';
-  ctx.fillText('每次連爆推進 1 站　JP／彩金不相乘', px + pw / 2, py + ph - 14);
+  ctx.fillText('每達成 1 段連爆前進 1 站　JP／彩金不相乘', cx, py + ph - 14);
   ctx.restore();
 }
 
@@ -4700,6 +4939,7 @@ function drawJpWinAnim(ctx) {
 // === 更新 ===
 function update(dt) {
   syncV4Layout();   // v4：NG 置中放大／FG 收回騰出航海地圖（只在模式切換那一幀真的動作）
+  updateV4Voyage(); // v4：航海地圖的船／水花／插旗／金羊毛演繹（與連爆並行，不擋流程）
   // 合成動畫：逐幀更新每格的 _flashTimer 與 splitAnim
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
@@ -7064,7 +7304,7 @@ const RULE_SUMMARY = {
     ['JP 👑', '一整列 5 隻角色相鄰，中間格＝伊阿宋', '整列合成給分 ＋ 赫拉 JP'],
     ['彩金', '同上，中間格＝美狄亞／奧菲斯／阿塔蘭忒', '依序 MAJOR／MINOR／MINI'],
     ['NG', '無地圖、無盤面倍數', '得分公式維持現狀'],
-    ['FG', '航海地圖：每次連爆推進 1 站', '×1→×2→×3→×4→×5→×10（第 7 段起維持 ×10）'],
+    ['FG', '航海地圖 6 站：每達成 1 段連爆船前進 1 站', '×1→×2→×3→×4→×5→×10（終點金羊毛，之後維持 ×10）'],
     ['FG', '分裂（刀）不重置，直到 FG 結束', '五色切滿＝248,832 ways'],
     ['SFG', '航海地圖跨局不重置', '倍數一路累積'],
   ],
