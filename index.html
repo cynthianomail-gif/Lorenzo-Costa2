@@ -216,7 +216,8 @@
         }
         #tunePanel.visible { display: flex; }
         #tuneDragBar {
-            padding: 7px 12px 5px;
+            position: relative;
+            padding: 7px 34px 5px 12px;   /* 右側留給 ✕ 關閉鈕 */
             color: #64748b; font-size: 11px; letter-spacing: 1px;
             background: #0b1322;
             border-bottom: 1px solid #1e293b;
@@ -224,6 +225,14 @@
             touch-action: none;
         }
         #tuneDragBar:hover { color: #94a3b8; }
+        #tuneClose {
+            position: absolute; top: 4px; right: 6px;
+            width: 24px; height: 24px; line-height: 1;
+            background: #1e293b; border: 1px solid #475569; border-radius: 6px;
+            color: #cbd5e1; font-size: 13px; cursor: pointer; padding: 0;
+            transition: all 0.15s;
+        }
+        #tuneClose:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
         #tuneTabs { display: flex; gap: 6px; padding: 10px 12px 0; }
         .tune-tab {
             flex: 1;
@@ -373,7 +382,7 @@
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
     <div id="tunePanel">
-        <div id="tuneDragBar">⠿ 調校面板（按住此列可拖曳移動）</div>
+        <div id="tuneDragBar">⠿ 調校面板（按住此列可拖曳移動）<button id="tuneClose" title="關閉面板（Esc）">✕</button></div>
         <div id="tuneTabs">
             <button class="tune-tab active" data-tab="timing">⏱️ 節奏</button>
             <button class="tune-tab" data-tab="layout">📐 佈局</button>
@@ -6687,6 +6696,7 @@ function draw() {
 
 // === Canvas 事件監聽器 ===
 canvas.addEventListener('click', e => {
+  if (isPaused) return;         // 暫停中不接受任何盤面操作
   if (layoutEditMode) return;   // 佈局編輯中，輸入優先給編輯器
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (1280 / rect.width);
@@ -6838,9 +6848,36 @@ canvas.addEventListener('mousemove', e => {
 
 // === 遊戲主迴圈 ===
 let lastTime = 0;
+// 暫停（P 鍵）：整個畫面凍結。
+// 作法是連 draw() 都不呼叫 —— 畫布保留最後一幀，所以連那些直接讀 Date.now() 的
+// LOOP 演繹（石像呼吸光、船隨浪晃動、海浪紋）也會一起停住。
+// 若只停 update()、照常 draw()，那些演繹會繼續動，就不算「全部暫停」。
+let isPaused = false;
+function setPaused(p) {
+  if (p === isPaused) return;
+  isPaused = p;
+  if (isPaused) drawPauseOverlay();   // 只畫一次；畫面已凍結，不會被洗掉也不會越疊越暗
+}
+function drawPauseOverlay() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(4, 10, 22, 0.62)';
+  ctx.fillRect(0, 0, 1280, 720);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 26;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 62px "Microsoft JhengHei", Arial';
+  ctx.fillText('PAUSED', 640, 330);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(203,213,225,0.85)';
+  ctx.font = 'bold 20px "Microsoft JhengHei", Arial';
+  ctx.fillText('按 P 繼續', 640, 392);
+  ctx.restore();
+}
+
 function gameLoop(ts) {
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
-  lastTime = ts;
+  lastTime = ts;                      // 暫停時也要更新，否則恢復當幀 dt 會爆掉
+  if (isPaused) { requestAnimationFrame(gameLoop); return; }
   update(dt);
   draw();
   requestAnimationFrame(gameLoop);
@@ -7435,11 +7472,19 @@ function syncLayoutFields() {
   for (const pr in layoutRangeRefs) layoutRangeRefs[pr].value = o[pr];
 }
 
-tuneBtn.addEventListener('click', () => {
-  tunePanelOpen = !tunePanelOpen;
+// 開關集中在這裡：🔧 按鈕、標題列的 ✕、Esc 都走同一條，狀態不會不同步
+function setTunePanelOpen(open) {
+  tunePanelOpen = open;
   tunePanel.classList.toggle('visible', tunePanelOpen);
   tuneBtn.classList.toggle('active', tunePanelOpen);
-  refreshTuneBody();
+  if (tunePanelOpen) refreshTuneBody();
+}
+tuneBtn.addEventListener('click', () => setTunePanelOpen(!tunePanelOpen));
+// ✕ 關閉鈕在拖曳把手裡面，pointerdown 要擋掉，否則按下去會變成拖曳面板
+document.getElementById('tuneClose').addEventListener('pointerdown', e => e.stopPropagation());
+document.getElementById('tuneClose').addEventListener('click', e => {
+  e.stopPropagation();
+  setTunePanelOpen(false);
 });
 tunePanel.querySelectorAll('.tune-tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -7548,6 +7593,13 @@ window.addEventListener('mousemove', e => {
   }
 });
 window.addEventListener('mouseup', () => { if (layoutDrag) { layoutDrag = null; saveTuning(); } });
+// P：暫停／繼續。Esc：關閉調校面板。
+window.addEventListener('keydown', e => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  if (e.key === 'p' || e.key === 'P') { e.preventDefault(); setPaused(!isPaused); return; }
+  if (e.key === 'Escape' && tunePanelOpen) { e.preventDefault(); setTunePanelOpen(false); }
+});
+
 window.addEventListener('keydown', e => {
   if (!layoutEditMode || !layoutSelected) return;
   if (e.target instanceof HTMLInputElement) return;   // 面板輸入框打字不攔截
