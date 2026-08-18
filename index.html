@@ -6856,21 +6856,33 @@ let isPaused = false;
 function setPaused(p) {
   if (p === isPaused) return;
   isPaused = p;
-  if (isPaused) drawPauseOverlay();   // 只畫一次；畫面已凍結，不會被洗掉也不會越疊越暗
+  if (isPaused) drawPauseOverlay();   // 只畫一次；畫面已凍結，不會被洗掉也不會越疊越深
 }
+// 暫停提示：右上角一個小框，不壓灰畫面（企劃 2026-08-18）。
+// 右界停在 1215：再往右會撞到畫面右上角那顆全螢幕鈕（DOM，約 x1225 起）。
 function drawPauseOverlay() {
+  const label = '⏸ 已暫停';
+  const hint  = '按 P 繼續';
   ctx.save();
-  ctx.fillStyle = 'rgba(4, 10, 22, 0.62)';
-  ctx.fillRect(0, 0, 1280, 720);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 26;
-  ctx.fillStyle = '#e2e8f0';
-  ctx.font = 'bold 62px "Microsoft JhengHei", Arial';
-  ctx.fillText('PAUSED', 640, 330);
+  ctx.font = 'bold 19px "Microsoft JhengHei", Arial';
+  const lw = ctx.measureText(label).width;
+  ctx.font = 'bold 13px "Microsoft JhengHei", Arial';
+  const hw = ctx.measureText(hint).width;
+  const bw = Math.max(lw, hw) + 32, bh = 54;
+  const bx = 1215 - bw, by = 12;
+  ctx.fillStyle = 'rgba(6, 14, 28, 0.92)';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+  ctx.shadowColor = '#0ea5e9'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(203,213,225,0.85)';
-  ctx.font = 'bold 20px "Microsoft JhengHei", Arial';
-  ctx.fillText('按 P 繼續', 640, 392);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 19px "Microsoft JhengHei", Arial';
+  ctx.fillText(label, bx + bw / 2, by + 20);
+  ctx.fillStyle = 'rgba(148,163,184,0.95)';
+  ctx.font = 'bold 13px "Microsoft JhengHei", Arial';
+  ctx.fillText(hint, bx + bw / 2, by + 39);
   ctx.restore();
 }
 
