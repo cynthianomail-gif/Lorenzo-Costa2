@@ -428,7 +428,8 @@
             <p>• <b>取得 JP／彩金</b>：任一橫列 5 格<b>相鄰排滿 5 隻不同角色</b>，看<b>中間格（第 3 欄）</b>是誰：</p>
             <p>&nbsp;&nbsp;海克力斯 → <b>⚡ 宙斯 JP</b>／伊阿宋 → <b>👑 赫拉 JP</b>／美狄亞 → <b>MAJOR（100×）</b>／奧菲斯 → <b>MINOR（25×）</b>／阿塔蘭忒 → <b>MINI（10×）</b>　※相同獎項每局最多 1 次</p>
             <p>• <b>聽牌提示</b>：上方 5 個圓圈對應 5 個輪。某一列湊到 <b>3 個以上互不相同的角色</b>時，該列的角色會填進對應圓圈、缺的維持空槽</p>
-            <p>&nbsp;&nbsp;只缺 1 個時圓圈與獎項的發光加強；中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。多列同時符合則<b>淡入淡出輪播</b></p>
+            <p>&nbsp;&nbsp;缺的那一輪：<b>上方圓圈與盤面該格都會出現發光預報框</b>（同色對應）。只缺 1 個＝金色強框＋「?」；還差 2 個以上＝青色弱框</p>
+            <p>&nbsp;&nbsp;中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。五個都湊到時圓圈全亮並顯示獎項。多列同時符合則<b>淡入淡出輪播</b>（已達成的列優先，其餘越上面越優先）</p>
             <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>。合成後它是<b>一個全新的圖示</b>：<b>不替代任何顏色、不與任何符號連線、不進 Ways、不給分</b></p>
             <p>&nbsp;&nbsp;合成狀態<b>保留在盤面上</b>，其他列照常連爆；等連爆到<b>無法再得分</b>時，才結算該列的 JP／彩金</p>
             <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
@@ -1813,13 +1814,42 @@ function drawV4HeroPips(ctx) {
       ctx.lineWidth = strong ? 2.5 : 2;
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
-    } else {
-      // 空槽：虛線圈
+    } else if (!cur) {
+      // 完全沒有進度時的待機樣式：淡淡的虛線圈
       ctx.save();
       ctx.strokeStyle = 'rgba(206,170,102,0.45)'; ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
+    } else {
+      // 缺的那一輪 → 圓圈也畫成「預報框」，顏色與盤面上那一格的框同一套，
+      // 讓玩家能把「上面這個圈」對上「盤面那一格」（企劃 2026-08-19）。
+      // 聽牌（只缺 1 個）＝金色強框＋脈動外環＋「?」；還差 2 個以上＝青色弱框。
+      const missStrong = cur.hint.nearMiss;
+      const mc = missStrong ? '#fde68a' : '#38bdf8';
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = mc;
+      ctx.lineWidth = missStrong ? 3 : 2;
+      ctx.shadowColor = mc;
+      ctx.shadowBlur = (missStrong ? 14 : 8) + pulse * (missStrong ? 20 : 10);
+      ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      if (missStrong) {
+        // 脈動外環（瞄準感）＋問號，強調「就差這一個」
+        ctx.save();
+        ctx.globalAlpha = a * (0.22 + pulse * 0.55);
+        ctx.strokeStyle = mc; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R + 3 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = mc;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = 'bold 16px "Microsoft JhengHei", Arial';
+        ctx.fillText('?', cx, cy + 1);
+        ctx.restore();
+      }
     }
   }
   // 進度文字放在圓圈「左右兩側」，不放下方 ——
