@@ -430,6 +430,7 @@
             <p>• <b>聽牌提示</b>：上方 5 個圓圈對應 5 個輪。某一列湊到 <b>3 個以上互不相同的角色</b>時，該列的角色會填進對應圓圈、缺的維持空槽</p>
             <p>&nbsp;&nbsp;缺的那一輪：<b>上方圓圈與盤面該格都會出現發光預報框</b>（同色對應）。只缺 1 個＝金色強框＋「?」；還差 2 個以上＝青色弱框</p>
             <p>&nbsp;&nbsp;中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。五個都湊到時圓圈全亮並顯示獎項。多列同時符合則<b>淡入淡出輪播</b>（已達成的列優先，其餘越上面越優先）</p>
+            <p>&nbsp;&nbsp;圓圈的角色圖示以<b>浮現演繹</b>出現（白霧散去＋放大＋擴散光環，約 0.45s），不會突然跳出</p>
             <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>。合成後它是<b>一個全新的圖示</b>：<b>不替代任何顏色、不與任何符號連線、不進 Ways、不給分</b></p>
             <p>&nbsp;&nbsp;合成狀態<b>保留在盤面上</b>，其他列照常連爆；等連爆到<b>無法再得分</b>時，才結算該列的 JP／彩金</p>
             <p>• <b>出牌</b>：五色合成率相等；<b>第 3 輪單獨配重</b>（阿塔蘭忒多、海克力士／伊阿宋少）做出五階獎頻率階梯</p>
@@ -1560,6 +1561,10 @@ let v4HintList  = [];   // 目前符合條件的列（依 row 由上往下＝越
 let v4HintRow   = -1;   // 目前預報的「列號」。刻意不用陣列索引 —— 滾輪逐格落定時
                         // 清單幾乎每幀都在變，用索引會被一直重設。
 let v4HintPhase = 0;    // 這一列已經顯示幾幀
+// 圓圈圖示的「浮現」演繹（企劃 2026-08-19：不要突然出現，要像水晶球顯現）
+const V4_PIP_REVEAL = 0.45;                       // 浮現秒數
+let v4PipReveal = new Array(COLS).fill(0);        // 每個圓圈的浮現剩餘幀
+let v4PipShown  = new Array(COLS).fill(null);    // 上一幀該圓圈顯示的角色 id
 // 某一格是否「已落定」。還在轉的格算未知：不能拿來湊進度（會提前洩題），
 // 但要被當成「缺的那一格」框起來預報 —— 它還有機會轉出需要的角色。
 function v4CellSettled(c, r) {
@@ -1702,6 +1707,21 @@ function drawV4HintFrame(ctx) {
   ctx.restore();
 }
 
+// 圓圈浮現：某個圓圈從「空」變成「有角色」（或換成別的角色）時重新起跳。
+// 換列輪播時整排 id 都變，會整排一起浮現 —— 那正是「水晶球換一個畫面」的感覺。
+function updateV4PipReveal() {
+  if (!isV4()) return;
+  const cur = v4HintCurrent();
+  for (let i = 0; i < COLS; i++) {
+    if (v4PipReveal[i] > 0) v4PipReveal[i]--;
+    const id = cur ? cur.hint.ids[i] : null;
+    if (id !== v4PipShown[i]) {
+      v4PipShown[i] = id;
+      v4PipReveal[i] = (id !== null && id !== undefined) ? TF(V4_PIP_REVEAL) : 0;
+    }
+  }
+}
+
 // 讓 drawGodStatues 知道要不要替某尊神點呼吸光（聽牌中位是那尊神的角色）
 function v4HintGodGlow(route) {
   const cur = v4HintCurrent();
@@ -1785,17 +1805,26 @@ function drawV4HeroPips(ctx) {
       const col = COLOR_HEX[Math.floor(id / 2)];
       // 待機發亮：聽牌（只缺 1 個）時光暈更強
       const strong = cur.hint.nearMiss || cur.hint.complete;   // 聽牌與達成都用強光暈
+      // 浮現演繹（水晶球顯現）：rv 1→0，ease 0→1
+      const rvT  = TF(V4_PIP_REVEAL);
+      const rv   = v4PipReveal[i] > 0 ? v4PipReveal[i] / rvT : 0;
+      const ease = 1 - Math.pow(rv, 3);          // ease-out：一開始快、尾段慢慢定住
+      const aIn  = a * ease;
+      // 底色圓：跟著浮現一起變實
       ctx.save();
-      ctx.globalAlpha = a;
+      ctx.globalAlpha = aIn;
       ctx.shadowColor = col;
-      ctx.shadowBlur = (strong ? 14 : 7) + pulse * (strong ? 20 : 9);
+      // 浮現當下光暈更大，收束回待機值
+      ctx.shadowBlur = (strong ? 14 : 7) + pulse * (strong ? 20 : 9) + rv * 26;
       ctx.fillStyle = col + 'dd';
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      // 角色圖示（裁成圓形；沒有美術時退回文字）
+      // 角色圖示（裁成圓形；沒有美術時退回文字）。浮現時由 0.78 倍放大定位。
       ctx.save();
-      ctx.globalAlpha = a;
+      ctx.globalAlpha = aIn;
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 3, 0, Math.PI * 2); ctx.clip();
+      const sc = 0.78 + 0.22 * ease;
+      ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
       const img = iconImgs[id];
       if (img && img.width) {
         const d = (V4_PIP_R - 3) * 2;
@@ -1807,6 +1836,19 @@ function drawV4HeroPips(ctx) {
         ctx.fillText((SYMBOLS[id].name || '?').charAt(0), cx, cy + 1);
       }
       ctx.restore();
+      // 霧氣：浮現初期蓋一層由中心散開的白霧，讓圖示像從霧裡凝聚出來
+      if (rv > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = a * rv * 0.8;
+        ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 2, 0, Math.PI * 2); ctx.clip();
+        const mg = ctx.createRadialGradient(cx, cy, 0, cx, cy, V4_PIP_R);
+        mg.addColorStop(0, 'rgba(255,255,255,0.95)');
+        mg.addColorStop(0.55, 'rgba(236,246,255,0.55)');
+        mg.addColorStop(1, 'rgba(200,225,255,0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
       // 外圈
       ctx.save();
       ctx.globalAlpha = a;
@@ -1814,6 +1856,16 @@ function drawV4HeroPips(ctx) {
       ctx.lineWidth = strong ? 2.5 : 2;
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
+      // 浮現的擴散環：一圈白光從圓心向外散掉
+      if (rv > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = a * rv * 0.7;
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (V4_PIP_R - 2) + (1 - rv) * 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     } else if (!cur) {
       // 完全沒有進度時的待機樣式：淡淡的虛線圈
       ctx.save();
@@ -5292,6 +5344,7 @@ function update(dt) {
   syncV4Layout();   // v4：NG 置中放大／FG 收回騰出航海地圖（只在模式切換那一幀真的動作）
   updateV4Voyage(); // v4：航海地圖的船／水花／插旗／金羊毛演繹（與連爆並行，不擋流程）
   updateV4Hint();   // v4：五角連線聽牌提示（掃盤面＋多列輪播）
+  updateV4PipReveal();  // v4：圓圈圖示的浮現演繹
   // 合成動畫：逐幀更新每格的 _flashTimer 與 splitAnim
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
