@@ -1555,68 +1555,72 @@ const V4_PIP_GAP      = 9;      // 圓圈間距
 const V4_HINT_HOLD    = 2.2;    // 每一列停留秒數（多列輪播時）
 const V4_HINT_FADE    = 0.35;   // 淡入／淡出秒數
 
-let v4HintList  = [];   // 目前符合條件的列（依 row 由上往下）
-let v4HintIdx   = 0;    // 輪播到第幾筆
-let v4HintPhase = 0;    // 這一筆已經顯示幾幀
-
-// 盤面是否已完全落定。滾動中就顯示提示會提前洩題，所以要等每一格都 done。
-function v4BoardSettled() {
-  for (let c = 0; c < COLS; c++)
-    for (let r = 0; r < ROWS; r++)
-      if (reelState[c] && reelState[c][r] !== 'done') return false;
-  return true;
+let v4HintList  = [];   // 目前符合條件的列（依 row 由上往下＝越上面的列越優先）
+let v4HintRow   = -1;   // 目前預報的「列號」。刻意不用陣列索引 —— 滾輪逐格落定時
+                        // 清單幾乎每幀都在變，用索引會被一直重設。
+let v4HintPhase = 0;    // 這一列已經顯示幾幀
+// 某一格是否「已落定」。還在轉的格算未知：不能拿來湊進度（會提前洩題），
+// 但要被當成「缺的那一格」框起來預報 —— 它還有機會轉出需要的角色。
+function v4CellSettled(c, r) {
+  return !reelState[c] || reelState[c][r] === 'done';
 }
 
 // 掃出所有「已湊到 V4_HINT_MIN 個以上互不相同角色」的列。
-// ids[c] = 該輪的角色 id，沒有角色（或是武器／船符號／已合成）就是 null。
+// 由上往下掃，所以陣列順序就是「越上面的列越優先」。
+// ids[c]     = 該輪已落定的角色 id；未落定／不是角色／已合成 → null
+// missing[]  = 還沒湊到角色的輪（含還在轉的、與已落定但不是角色的）→ 盤面預報框畫在這些格
 function findHeroHints() {
   if (!isV4()) return [];
   const out = [];
   for (let r = 0; r < ROWS; r++) {
-    const ids = [];
+    const ids = [], missing = [], spinning = [];
     for (let c = 0; c < COLS; c++) {
       const cell = board[c] && board[c][r];
-      ids.push(cell && !cell.isMerged && isCharSym(cell.id) ? cell.id : null);
+      const settled = v4CellSettled(c, r);
+      const isChar = settled && cell && !cell.isMerged && isCharSym(cell.id);
+      ids.push(isChar ? cell.id : null);
+      if (!isChar) { missing.push(c); if (!settled) spinning.push(c); }
     }
     const present = ids.filter(v => v !== null);
-    // 重複的角色不算進度（同一隻角色出現兩次無法湊成五角連線）
+    // 重複的角色不算進度（同一隻出現兩次湊不成五角連線）
     if (new Set(present).size !== present.length) continue;
     if (present.length < V4_HINT_MIN) continue;
-    if (present.length >= COLS) continue;          // 已經成立的交給 findHeroRow()，不算聽牌
+    if (present.length >= COLS) continue;          // 已成立的交給 findHeroRow()
     out.push({
-      row: r, ids,
+      row: r, ids, missing, spinning,
       count: present.length,
-      nearMiss: present.length === COLS - 1,       // 只缺 1 個
+      nearMiss: present.length === COLS - 1,
       centerId: ids[V4_CENTER_COL]
     });
   }
   return out;
 }
 
-// 每幀更新：重掃清單並推進輪播
+// 每幀更新。輪播用「目前預報的列號」而不是陣列索引 ——
+// 滾輪逐格落定時清單幾乎每幀都在變，用索引會一直被重設、alpha 永遠停在淡入初期。
+// 只要目前這一列還符合條件就繼續顯示它，不符合了才跳到最上面那一列。
 function updateV4Hint() {
-  if (!isV4() || !v4BoardSettled()) { v4HintList = []; v4HintPhase = 0; return; }
-  const next = findHeroHints();
-  // 清單內容有變（換盤／補牌）就從第一筆重新輪播，避免索引指到不存在的列
-  const sig  = next.map(h => h.row + ':' + h.ids.join(',')).join('|');
-  if (sig !== v4HintList._sig) {
-    v4HintList = next; v4HintList._sig = sig;
-    v4HintIdx = 0; v4HintPhase = 0;
+  if (!isV4()) { v4HintList = []; v4HintRow = -1; v4HintPhase = 0; return; }
+  v4HintList = findHeroHints();
+  if (!v4HintList.length) { v4HintRow = -1; v4HintPhase = 0; return; }
+  const rows = v4HintList.map(h => h.row);
+  if (rows.indexOf(v4HintRow) < 0) {          // 換盤／該列不再符合 → 回到最上面那一列
+    v4HintRow = rows[0];
+    v4HintPhase = 0;
     return;
   }
-  v4HintList = next; v4HintList._sig = sig;
   if (v4HintList.length <= 1) { v4HintPhase = 0; return; }
   v4HintPhase++;
   if (v4HintPhase >= TF(V4_HINT_HOLD)) {
     v4HintPhase = 0;
-    v4HintIdx = (v4HintIdx + 1) % v4HintList.length;
+    v4HintRow = rows[(rows.indexOf(v4HintRow) + 1) % rows.length];   // 依列序往下輪
   }
 }
 
-// 目前要畫的那一筆＋它的透明度（單筆時恆 1，多筆時頭尾淡入淡出）
+// 目前要畫的那一筆＋透明度（單筆時恆 1，多筆時頭尾淡入淡出）
 function v4HintCurrent() {
   if (!v4HintList.length) return null;
-  const h = v4HintList[Math.min(v4HintIdx, v4HintList.length - 1)];
+  const h = v4HintList.find(x => x.row === v4HintRow) || v4HintList[0];
   let alpha = 1;
   if (v4HintList.length > 1) {
     const fade = TF(V4_HINT_FADE), hold = TF(V4_HINT_HOLD);
@@ -1624,6 +1628,59 @@ function v4HintCurrent() {
     else if (v4HintPhase > hold - fade) alpha = Math.max(0, (hold - v4HintPhase) / fade);
   }
   return { hint: h, alpha };
+}
+
+// ── 盤面預報框：把目前預報那一列「缺的格」框起來 ──
+// 出現時機＝只要該列還符合條件就一直在，所以自然涵蓋
+// 「滾輪剛停」「連爆單格重轉」「缺的那一格正在重轉」三種情況。
+// 只缺 1 個（聽牌）用強框（金色、較粗、光暈強）；還差 2 個以上用弱框。
+function drawV4HintFrame(ctx) {
+  if (!isV4()) return;
+  const cur = v4HintCurrent();
+  if (!cur || cur.alpha <= 0.02) return;
+  const h = cur.hint;
+  const t = Date.now();
+  const pulse = 0.5 + Math.sin(t / 300) * 0.5;
+  const strong = h.nearMiss;
+  ctx.save();
+  ctx.globalAlpha = cur.alpha;
+  h.missing.forEach(c => {
+    const x = GRID_X + c * CELL_SIZE, y = GRID_Y + h.row * CELL_SIZE;
+    const col = strong ? '#fde68a' : '#38bdf8';
+    // 外光暈
+    ctx.save();
+    ctx.shadowColor = col;
+    ctx.shadowBlur = (strong ? 18 : 10) + pulse * (strong ? 26 : 12);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = strong ? 4 : 2.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6, CELL_R);
+    ctx.stroke();
+    ctx.restore();
+    // 內側細框，讓邊界在亮底圖上也看得出來
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x + 6.5, y + 6.5, CELL_SIZE - 13, CELL_SIZE - 13, CELL_R);
+    ctx.stroke();
+    ctx.restore();
+    // 四角標記（強框才有，強化「就差這一格」）
+    if (strong) {
+      const L = 16;
+      ctx.save();
+      ctx.strokeStyle = col; ctx.lineWidth = 4;
+      ctx.shadowColor = col; ctx.shadowBlur = 12 + pulse * 14;
+      [[0, 0, 1, 1], [1, 0, -1, 1], [0, 1, 1, -1], [1, 1, -1, -1]].forEach(([fx, fy, dx, dy]) => {
+        const px = x + 5 + fx * (CELL_SIZE - 10);
+        const py = y + 5 + fy * (CELL_SIZE - 10);
+        ctx.beginPath();
+        ctx.moveTo(px + dx * L, py); ctx.lineTo(px, py); ctx.lineTo(px, py + dy * L);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+  });
+  ctx.restore();
 }
 
 // 讓 drawGodStatues 知道要不要替某尊神點呼吸光（聽牌中位是那尊神的角色）
@@ -1762,7 +1819,8 @@ function drawV4HeroPips(ctx) {
       ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(148,163,184,0.9)';
       ctx.font = 'bold 12px "Microsoft JhengHei", Arial';
-      ctx.fillText((v4HintIdx + 1) + '/' + v4HintList.length + ' 列', r.x + r.w + 10, cy);
+      const pos = v4HintList.findIndex(x => x.row === cur.hint.row) + 1;
+      ctx.fillText(pos + '/' + v4HintList.length + ' 列', r.x + r.w + 10, cy);
     }
     ctx.restore();
   }
@@ -6907,6 +6965,7 @@ function draw() {
 
   drawGameFrame(ctx);
   drawBoard(ctx);
+  drawV4HintFrame(ctx);    // v4：把目前預報那一列「缺的格」框起來（發光預報框）
   drawGodStatues(ctx);     // v3／v4：盤面上方左右的宙斯／赫拉石像＋彩金牌
   drawV4CashTiers(ctx);    // v4：MAJOR／MINOR／MINI 三階彩金列
   drawV4HeroPips(ctx);     // v4：五角連線聽牌的 5 個圓圈
