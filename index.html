@@ -972,7 +972,8 @@ const RULE_LAYOUT = {
   3: { grid: { x: 195, y: 120 }, mapPanel: { x: 1010, y: 120, w: 245, h: 462 } },
   // v4 的實際版面由 syncV4Layout() 依 NG／FG 切換（見 V4_LAYOUT_NG／V4_LAYOUT_FG），
   // 這裡給的是切到 v4 當下的初始值（＝NG 版面）。
-  4: { grid: { x: 310, y: 124 }, mapPanel: { x: 910, y: 120, w: 245, h: 520 }, cell: 132 },
+  4: { grid: { x: 310, y: 124 }, mapPanel: { x: 910, y: 120, w: 245, h: 520 }, cell: 132,
+       cashTiers: { x: 640, y: 69 }, heroPips: { x: 640, y: 100 } },
 };
 function applyRuleLayout(ver) {
   const p = RULE_LAYOUT[ver];
@@ -983,6 +984,8 @@ function applyRuleLayout(ver) {
   setCellSize(p.cell || 130);
   LAYOUT.grid     = { ...LAYOUT.grid,     ...p.grid };
   LAYOUT.mapPanel = { ...LAYOUT.mapPanel, ...p.mapPanel };
+  if (p.cashTiers) LAYOUT.cashTiers = { ...LAYOUT.cashTiers, ...p.cashTiers };
+  if (p.heroPips)  LAYOUT.heroPips  = { ...LAYOUT.heroPips,  ...p.heroPips  };
   syncLayoutDerived();
 }
 // 消除演繹風格（調校面板「消除／得分」可切換）
@@ -1871,6 +1874,8 @@ const V4_LAYOUT_NG = {
   statueL:   { x: 288, y: -1 },                  // 640-352
   statueR:   { x: 681, y: -2 },                  // 288+393
   fgCounter: { x: 242, y: 375 },                 // NG 不畫，先對齊 WAYS（310-68）備用
+  cashTiers: { x: 640, y: 69 },                  // y 58~80（彩金牌下緣 55）
+  heroPips:  { x: 640, y: 100 },                 // y 83~117（盤面上緣 124）
 };
 const V4_LAYOUT_FG = {
   cell: 130,                                     // 盤面 650×520
@@ -1879,6 +1884,10 @@ const V4_LAYOUT_FG = {
   statueL:   { x: 203, y: -1 },                  // 555-352
   statueR:   { x: 596, y: -2 },                  // 203+393
   fgCounter: { x: 162, y: 375 },                 // 與 WAYS 同一直行（230-68=162），在 WAYS 下方
+  // 中心跟著盤面走（555，不是 NG 的 640）；FG 盤面上緣是 120、比 NG 少 4px，
+  // 所以兩排各再往上 1~2px，維持不壓到彩金牌下緣（55）與盤面上緣。
+  cashTiers: { x: 555, y: 68 },                  // y 57~79
+  heroPips:  { x: 555, y: 98 },                  // y 81~115
 };
 let _v4LayoutMode = null;
 function syncV4Layout() {
@@ -1888,7 +1897,7 @@ function syncV4Layout() {
   _v4LayoutMode = mode;
   const p = (mode === 'fg') ? V4_LAYOUT_FG : V4_LAYOUT_NG;
   setCellSize(p.cell);
-  ['grid', 'mapPanel', 'statueL', 'statueR', 'fgCounter'].forEach(k => {
+  ['grid', 'mapPanel', 'statueL', 'statueR', 'fgCounter', 'cashTiers', 'heroPips'].forEach(k => {
     if (p[k]) LAYOUT[k] = { ...LAYOUT[k], ...p[k] };
   });
   syncLayoutDerived();
