@@ -1596,12 +1596,14 @@ function v4RowIdsExcept(r, exceptCol) {
 
 // 這一格是不是「正被聽牌預報盯著」的那一格：其餘 4 格已落定、互不相同、
 // 數量 ≥ V4_HINT_MIN。是的話回傳減速倍率（缺 1 個放最慢，缺 2 個次之）；
-// 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感）。
+// 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感；
+// 第一版 0.95／0.9 太快，企劃回饋要慢到看得出一格一格——換算成停止耗費的幀數
+// 從 51／25 幀（約 0.85s／0.42s）加倍到約 100／50 幀（約 1.67s／0.83s，見設計文件）。
 function v4AnticipationDecel(c, r) {
   if (!isV4()) return null;
   const others = v4RowIdsExcept(r, c);
   if (others.length < V4_HINT_MIN || new Set(others).size !== others.length) return null;
-  return others.length === COLS - 1 ? 0.95 : 0.9;
+  return others.length === COLS - 1 ? 0.974 : 0.949;
 }
 
 // 掃出所有「已湊到 V4_HINT_MIN 個以上互不相同角色」的列。
