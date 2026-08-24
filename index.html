@@ -1556,6 +1556,10 @@ const V4_PIP_R        = 17;     // 圓圈半徑
 const V4_PIP_GAP      = 9;      // 圓圈間距
 const V4_HINT_HOLD    = 2.2;    // 每一列停留秒數（多列輪播時）
 const V4_HINT_FADE    = 0.35;   // 淡入／淡出秒數
+// 預報框專用配色（企劃 2026-08-24：原本的 #38bdf8／#fde68a 太淡不夠明顯，
+// 換成更飽和的青與金；只用在預報框，不動其他地方沿用舊色的 UI）
+const V4_HINT_WEAK_COL   = '#00e5ff';   // 弱框（還差 2 個以上）
+const V4_HINT_STRONG_COL = '#ffc93c';   // 強框（聽牌／只差 1 個）
 
 let v4HintList  = [];   // 目前符合條件的列（依 row 由上往下＝越上面的列越優先）
 let v4HintRow   = -1;   // 目前預報的「列號」。刻意不用陣列索引 —— 滾輪逐格落定時
@@ -1670,20 +1674,27 @@ function drawV4HintFrame(ctx) {
   ctx.globalAlpha = cur.alpha;
   h.missing.forEach(c => {
     const x = GRID_X + c * CELL_SIZE, y = GRID_Y + h.row * CELL_SIZE;
-    const col = strong ? '#fde68a' : '#38bdf8';
-    // 外光暈
+    const col = strong ? V4_HINT_STRONG_COL : V4_HINT_WEAK_COL;
+    // 外光暈（企劃 2026-08-24：加粗＋加強光暈，原本太淡不明顯）
     ctx.save();
     ctx.shadowColor = col;
-    ctx.shadowBlur = (strong ? 18 : 10) + pulse * (strong ? 26 : 12);
+    ctx.shadowBlur = (strong ? 26 : 16) + pulse * (strong ? 34 : 20);
     ctx.strokeStyle = col;
-    ctx.lineWidth = strong ? 4 : 2.5;
+    ctx.lineWidth = strong ? 5.5 : 4;
     ctx.beginPath();
     ctx.roundRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6, CELL_R);
     ctx.stroke();
     ctx.restore();
-    // 內側細框，讓邊界在亮底圖上也看得出來
+    // 再疊一層飽和度更高的內描邊，讓框在亮底圖上不糊成一片光暈
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6, CELL_R);
+    ctx.stroke();
+    ctx.restore();
+    // 內側深色細框，讓邊界在亮底圖上也看得出來（加粗＋加深）
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(x + 6.5, y + 6.5, CELL_SIZE - 13, CELL_SIZE - 13, CELL_R);
     ctx.stroke();
@@ -1849,11 +1860,11 @@ function drawV4HeroPips(ctx) {
         ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
-      // 外圈
+      // 外圈（強調時跟預報框用同一套金色，視覺語言一致）
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.strokeStyle = strong ? '#fde68a' : col;
-      ctx.lineWidth = strong ? 2.5 : 2;
+      ctx.strokeStyle = strong ? V4_HINT_STRONG_COL : col;
+      ctx.lineWidth = strong ? 3 : 2;
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
       // 浮現的擴散環：一圈白光從圓心向外散掉
@@ -1878,20 +1889,26 @@ function drawV4HeroPips(ctx) {
       // 讓玩家能把「上面這個圈」對上「盤面那一格」（企劃 2026-08-19）。
       // 聽牌（只缺 1 個）＝金色強框＋脈動外環＋「?」；還差 2 個以上＝青色弱框。
       const missStrong = cur.hint.nearMiss;
-      const mc = missStrong ? '#fde68a' : '#38bdf8';
+      const mc = missStrong ? V4_HINT_STRONG_COL : V4_HINT_WEAK_COL;
+      // 深色底環先墊一層，讓彩色框在任何底色上都不會糊掉（企劃 2026-08-24：加粗加亮）
+      ctx.save();
+      ctx.globalAlpha = a * 0.8;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = missStrong ? 6 : 4.5;
+      ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
       ctx.save();
       ctx.globalAlpha = a;
       ctx.strokeStyle = mc;
-      ctx.lineWidth = missStrong ? 3 : 2;
+      ctx.lineWidth = missStrong ? 4.5 : 3.5;
       ctx.shadowColor = mc;
-      ctx.shadowBlur = (missStrong ? 14 : 8) + pulse * (missStrong ? 20 : 10);
+      ctx.shadowBlur = (missStrong ? 20 : 13) + pulse * (missStrong ? 28 : 16);
       ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R - 1, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
       if (missStrong) {
         // 脈動外環（瞄準感）＋問號，強調「就差這一個」
         ctx.save();
-        ctx.globalAlpha = a * (0.22 + pulse * 0.55);
-        ctx.strokeStyle = mc; ctx.lineWidth = 2;
+        ctx.globalAlpha = a * (0.28 + pulse * 0.6);
+        ctx.strokeStyle = mc; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(cx, cy, V4_PIP_R + 3 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
         ctx.save();
