@@ -1572,7 +1572,21 @@ function v4CellSettled(c, r) {
 function findHeroHints() {
   if (!isV4()) return [];
   const out = [];
+  // 已經合成成 1×5 的列：那五格變成 isMerged，逐格掃不到角色，
+  // 圓圈會剛好在「玩家達成的那一刻」整排熄掉。所以先從 mergedCells 撈出來補成
+  // complete 狀態（企劃 2026-08-19：五個都有角色的時候也要顯示）。
+  const doneRows = {};
+  mergedCells.forEach(m => {
+    if (!m.isHeroRow || !m.ids) return;
+    doneRows[m.row] = true;
+    out.push({
+      row: m.row, ids: m.ids.slice(), missing: [], spinning: [],
+      count: COLS, nearMiss: false, complete: true,
+      centerId: m.centerId
+    });
+  });
   for (let r = 0; r < ROWS; r++) {
+    if (doneRows[r]) continue;
     const ids = [], missing = [], spinning = [];
     for (let c = 0; c < COLS; c++) {
       const cell = board[c] && board[c][r];
@@ -1585,14 +1599,18 @@ function findHeroHints() {
     // 重複的角色不算進度（同一隻出現兩次湊不成五角連線）
     if (new Set(present).size !== present.length) continue;
     if (present.length < V4_HINT_MIN) continue;
-    if (present.length >= COLS) continue;          // 已成立的交給 findHeroRow()
     out.push({
       row: r, ids, missing, spinning,
       count: present.length,
       nearMiss: present.length === COLS - 1,
+      // 五格都是角色：合成的那一幀還沒發生，或強開直接鋪好 → 也算達成
+      complete: present.length === COLS,
       centerId: ids[V4_CENTER_COL]
     });
   }
+  // 排序：已達成的列排最前面（玩家剛達成卻在看別列的進度會很怪），
+  // 同一類之內才照列序「越上面的列越優先」。
+  out.sort((a, b) => (b.complete ? 1 : 0) - (a.complete ? 1 : 0) || a.row - b.row);
   return out;
 }
 
@@ -1765,7 +1783,7 @@ function drawV4HeroPips(ctx) {
     if (on) {
       const col = COLOR_HEX[Math.floor(id / 2)];
       // 待機發亮：聽牌（只缺 1 個）時光暈更強
-      const strong = cur.hint.nearMiss;
+      const strong = cur.hint.nearMiss || cur.hint.complete;   // 聽牌與達成都用強光暈
       ctx.save();
       ctx.globalAlpha = a;
       ctx.shadowColor = col;
@@ -1811,12 +1829,18 @@ function drawV4HeroPips(ctx) {
     ctx.globalAlpha = cur.alpha;
     ctx.textBaseline = 'middle';
     const need = COLS - cur.hint.count;
+    const done = !!cur.hint.complete;
     ctx.textAlign = 'right';
-    ctx.fillStyle = cur.hint.nearMiss ? '#fde68a' : 'rgba(203,213,225,0.92)';
+    ctx.fillStyle = done ? '#fff3b0' : (cur.hint.nearMiss ? '#fde68a' : 'rgba(203,213,225,0.92)');
     ctx.font = 'bold 13px "Microsoft JhengHei", Arial';
-    ctx.fillText(cur.hint.nearMiss ? '再 1 個！' : ('差 ' + need + ' 個'), r.x - 10, cy);
-    if (v4HintList.length > 1) {
-      ctx.textAlign = 'left';
+    ctx.fillText(done ? '達成！' : (cur.hint.nearMiss ? '再 1 個！' : ('差 ' + need + ' 個')), r.x - 10, cy);
+    ctx.textAlign = 'left';
+    if (done) {
+      // 達成時右邊直接寫拿到哪個獎，比輪播頁碼有用
+      ctx.fillStyle = '#fde68a';
+      ctx.font = 'bold 12px "Microsoft JhengHei", Arial';
+      ctx.fillText(heroRowAwardLabel(cur.hint.centerId), r.x + r.w + 10, cy);
+    } else if (v4HintList.length > 1) {
       ctx.fillStyle = 'rgba(148,163,184,0.9)';
       ctx.font = 'bold 12px "Microsoft JhengHei", Arial';
       const pos = v4HintList.findIndex(x => x.row === cur.hint.row) + 1;
