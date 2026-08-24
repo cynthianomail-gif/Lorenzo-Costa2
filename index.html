@@ -429,7 +429,7 @@
             <p>&nbsp;&nbsp;海克力斯 → <b>⚡ 宙斯 JP</b>／伊阿宋 → <b>👑 赫拉 JP</b>／美狄亞 → <b>MAJOR（100×）</b>／奧菲斯 → <b>MINOR（25×）</b>／阿塔蘭忒 → <b>MINI（10×）</b>　※相同獎項每局最多 1 次</p>
             <p>• <b>聽牌提示</b>：上方 5 個圓圈對應 5 個輪。某一列湊到 <b>3 個以上互不相同的角色</b>時，該列的角色會填進對應圓圈、缺的維持空槽</p>
             <p>&nbsp;&nbsp;缺的那一輪：<b>上方圓圈</b>會出現發光預報框（常駐顯示，不受轉動影響）。只缺 1 個＝金色強框＋「?」；還差 2 個以上＝青色弱框</p>
-            <p>&nbsp;&nbsp;<b>盤面</b>的預報框只在<b>單格重轉／滾輪還在轉</b>時才亮，落定後（不論結果）就消失；缺 1 個／缺 2 個都是金色，只差強弱。滾輪放慢後剛好轉到需要的角色，那一格會有<b>金色落定特效</b>（爆閃＋擴散光環）</p>
+            <p>&nbsp;&nbsp;<b>盤面</b>的預報框只在<b>單格重轉／滾輪還在轉</b>時才亮，落定後（不論結果）就消失；缺 1 個／缺 2 個都是金色，只差強弱。這一格的<b>滾輪停止速度也會放慢</b>（缺 1 個最慢、缺 2 個次之），剛好轉到需要的角色時，那一格會有<b>金色落定特效</b>（爆閃＋擴散光環）</p>
             <p>&nbsp;&nbsp;中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。五個都湊到時圓圈全亮並顯示獎項。多列同時符合則<b>淡入淡出輪播</b>（已達成的列優先，其餘越上面越優先）</p>
             <p>&nbsp;&nbsp;圓圈的角色圖示以<b>浮現演繹</b>出現（白霧散去＋放大＋擴散光環，約 0.45s），不會突然跳出</p>
             <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>。合成後它是<b>一個全新的圖示</b>：<b>不替代任何顏色、不與任何符號連線、不進 Ways、不給分</b></p>
@@ -1594,6 +1594,16 @@ function v4RowIdsExcept(r, exceptCol) {
   return ids;
 }
 
+// 這一格是不是「正被聽牌預報盯著」的那一格：其餘 4 格已落定、互不相同、
+// 數量 ≥ V4_HINT_MIN。是的話回傳減速倍率（缺 1 個放最慢，缺 2 個次之）；
+// 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感）。
+function v4AnticipationDecel(c, r) {
+  if (!isV4()) return null;
+  const others = v4RowIdsExcept(r, c);
+  if (others.length < V4_HINT_MIN || new Set(others).size !== others.length) return null;
+  return others.length === COLS - 1 ? 0.95 : 0.9;
+}
+
 // 掃出所有「已湊到 V4_HINT_MIN 個以上互不相同角色」的列。
 // 由上往下掃，所以陣列順序就是「越上面的列越優先」。
 // ids[c]     = 該輪已落定的角色 id；未落定／不是角色／已合成 → null
@@ -2629,6 +2639,50 @@ function startSpin() {
     // 進階合成：紅色一對 + 藍色一對，合成後觸發 1×4
     board[0][0].id = 0; board[1][0].id = 1;
     board[2][0].id = 4; board[3][0].id = 5;
+  } else if (forceSpinType === 'hero_near') {
+    // v4 強開「聽牌（差 1 個）」：隨機挑 4 個位置放 4 隻不同角色，
+    // 留 1 個位置給正常隨機轉出——可能剛好轉到需要的角色而完成，也可能沒有，
+    // 跟真實遊戲一樣，用來驗證預報框／落定特效（企劃 2026-08-24）。
+    // 留白格只從第 3～5 輪（index 2~4）挑：初始轉動是逐輪由左到右停，
+    // 若留白格落在第 1／2 輪，它停下來的當下其餘 4 輪根本還沒轉完，
+    // 聽牌條件不成立，預報框／減速就不會出現——這樣強開就等於白按。
+    const _nSkipPool = [2, 3, 4];
+    const _nSkip = _nSkipPool[Math.floor(Math.random() * _nSkipPool.length)];
+    const _nFill = [0, 1, 2, 3, 4].filter(c => c !== _nSkip);
+    const _nIds = [0, 2, 4, 6, 8];
+    for (let i = _nIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [_nIds[i], _nIds[j]] = [_nIds[j], _nIds[i]];
+    }
+    _nFill.forEach((c, i) => { board[c][0].id = _nIds[i]; });
+    for (let _c = 0; _c < COLS; _c++)
+      for (let _r = 0; _r < ROWS; _r++)
+        if (isScSymId(board[_c]?.[_r]?.id)) board[_c][_r].id = randomNormalSymId(_c);
+    // 留白格若剛好是「跟旁邊那隻強制角色同色的武器」，會被同色合成機制
+    // 直接吃掉一隻角色（4 隻變 3 隻），破壞聽牌保證——重抽到不會誤觸發為止，
+    // 其餘結果（含真的轉出缺的那隻角色而完成）維持原本的隨機機率。
+    // 注意：要放在上面「清掉船頭船尾」之後，否則留白格若原本是船符號，
+    // 會在這裡放過、卻在上面的清除迴圈裡被重新隨機成沒防護的符號。
+    const _nNeighborColors = [];
+    if (_nSkip > 0)        _nNeighborColors.push(Math.floor(board[_nSkip - 1][0].id / 2));
+    if (_nSkip < COLS - 1) _nNeighborColors.push(Math.floor(board[_nSkip + 1][0].id / 2));
+    let _nGuard = 0;
+    while (isNormalSym(board[_nSkip][0].id) && board[_nSkip][0].id % 2 === 1 &&
+           _nNeighborColors.includes(Math.floor(board[_nSkip][0].id / 2)) && _nGuard++ < 30) {
+      board[_nSkip][0].id = randomNormalSymId(_nSkip);
+    }
+    // 這 4 隻角色如果在盤面其他地方也出現，可能跟相鄰欄湊成 ways 連線，落地後
+    // 被當一般中獎清掉、重力補新符號——聽牌畫面還沒讓玩家看到就被吃掉了。
+    // 讓這 4 個 id 在整盤只出現這一次（只留在被強制放的那格），確保不會被連線吃掉；
+    // 第 0 列本身（含留白格）不動，留白格是否巧合重複／完成都是合法結果。
+    const _nProtectedIds = new Set(_nIds.slice(0, 4));
+    for (let _r = 0; _r < ROWS; _r++) {
+      for (let _c = 0; _c < COLS; _c++) {
+        if (_r === 0 && (_c === _nSkip || _nFill.includes(_c))) continue;
+        let _pg = 0;
+        while (_nProtectedIds.has(board[_c][_r].id) && _pg++ < 15) board[_c][_r].id = randomNormalSymId(_c);
+      }
+    }
   } else if (forceSpinType && forceSpinType.startsWith('hero_')) {
     // v4 強開角色列：第 0 列鋪滿 5 隻不同角色，中間格（第 3 欄）放指定的那一隻。
     // 順便把整盤的船頭／船尾清掉，避免同一局又被 FG 轉場打斷、看不到角色列演繹。
@@ -2949,7 +3003,8 @@ function updateSpinning() {
       }
 
       if (reelState[c][r] === 'stopping') {
-        reelSpeed[c][r] *= 0.82;
+        // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? 0.82;
         if (reelSpeed[c][r] < 1.8) {
           // 強制停在最終符號
           reelOffset[c][r]     = 0;
@@ -3759,7 +3814,8 @@ function updateGravity() {
       }
 
       if (reelState[c][r] === 'stopping') {
-        reelSpeed[c][r] *= 0.82;
+        // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? 0.82;
         if (reelSpeed[c][r] < 1.8) {
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
@@ -6529,6 +6585,7 @@ function forceMenuOptions() {
       { label: '關閉',      value: null },
       { label: '合成',      value: 'synth' },
       { label: '進階合成',  value: 'adv_synth' },
+      { label: '角色列聽牌', value: 'hero_near' },
       { label: '角色列⚡宙斯', value: 'hero_zeus' },
       { label: '角色列👑赫拉', value: 'hero_hera' },
       { label: '角色列彩金', value: 'hero_cash' },
