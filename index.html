@@ -1613,12 +1613,15 @@ function v4RowIdsExcept(r, exceptCol) {
 // 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感；
 // 第一版 0.95／0.9 太快，企劃回饋要慢到看得出一格一格——換算成停止耗費的幀數
 // 從 51／25 幀（約 0.85s／0.42s）加倍到約 100／50 幀（約 1.67s／0.83s，見設計文件）。
-const V4_DECEL_NEAR = 0.974;   // 缺 1 個（聽牌）的減速率 → 停止約 99 幀（1.65s）
-const V4_DECEL_FAR  = 0.949;   // 缺 2 個以上的減速率   → 停止約 50 幀（0.83s）
-// 這一格從「開始減速」到「停住」要幾幀。強開兩列聽牌時要拿它算兩列的落定間隔。
-function v4NearDecelFrames() {
-  return Math.ceil(Math.log(1.8 / TIMING.reelSpeed) / Math.log(V4_DECEL_NEAR));
+const V4_DECEL_NEAR   = 0.974;   // 缺 1 個（聽牌）的減速率 → 停止約 99 幀（1.65s）
+const V4_DECEL_FAR    = 0.949;   // 缺 2 個以上的減速率   → 停止約 50 幀（0.83s）
+const REEL_DECEL_BASE = 0.82;    // 沒被聽牌預報盯上的格子，原本的減速率 → 約 14 幀
+const REEL_STOP_SPEED = 1.8;     // 速度掉到這個值以下就強制停在最終符號
+// 一格從「開始減速」到「停住」要幾幀。強開排兩列聽牌的時序要靠它算間隔。
+function reelDecelFrames(rate) {
+  return Math.ceil(Math.log(REEL_STOP_SPEED / TIMING.reelSpeed) / Math.log(rate));
 }
+function v4NearDecelFrames() { return reelDecelFrames(V4_DECEL_NEAR); }
 function v4AnticipationDecel(c, r) {
   if (!isV4()) return null;
   const others = v4RowIdsExcept(r, c);
@@ -2772,11 +2775,19 @@ function startSpin() {
         board[_nSkip][_r].id = randomNormalSymId(_nSkip);
       }
     });
-    // 兩列的聽牌要「一列演完再演下一列」，就不能讓兩格同時在減速。
-    // 照原本的時序，第 3 列的留白格只比第 2 列晚 5 格（0.25s）停，兩列的減速幾乎完全重疊，
-    // 玩家看第 2 列的時候第 3 列早就轉完了。把第 3 列的留白格往後推
-    // 「第 2 列減速所需幀數 ＋ 依序模式的停留時間 ＋ 0.3s 緩衝」，
-    // 節奏就變成：第 2 列聽牌減速 → 落定 → 圓圈換到第 3 列 → 第 3 列聽牌減速 → 落定。
+    // ── 兩列留白格的停止時序（企劃 2026-08-25 回饋：第一列的缺格也要放慢）──
+    // v4AnticipationDecel 是看「同列其餘 4 格**已落定**」才給聽牌減速的。
+    // 但原本的時序每格只差 3 幀（0.05s），而一格從開始減速到停住要 14 幀 ——
+    // 最後一輪其實比同列前 4 格更早開始減速，那一刻還看不到 4 隻角色，
+    // 聽牌減速因此完全沒觸發（實測第 2 列的留白格只滾 0.68s，還有 7 幀是全速停）。
+    // 所以兩列的留白格都要等自己這一列前 4 格落定之後才開始減速。
+    // 用「最後一格的開始減速幀 ＋ 缺 2 減速所需幀數」當上界：前 4 格最慢也只會吃到
+    // 缺 2 的減速率（它們不是最後一格，看不到 4 隻角色），這樣不必模擬就一定夠。
+    const _nLastOther = reelStopFrame[_nSkip - 1][_nRows[0]];
+    reelStopFrame[_nSkip][_nRows[0]] = _nLastOther + reelDecelFrames(V4_DECEL_FAR) + 4;
+    // 第 3 列的留白格再往後推「第 2 列的聽牌減速 ＋ 依序模式的停留 ＋ 0.3s 緩衝」，
+    // 兩列的聽牌才會一前一後：
+    // 第 2 列減速 → 落定 → 圓圈換到第 3 列 → 第 3 列減速 → 落定。
     reelStopFrame[_nSkip][_nRows[1]] = reelStopFrame[_nSkip][_nRows[0]]
                                      + v4NearDecelFrames() + TF(V4_SEQ_HOLD) + TF(0.3);
   } else if (forceSpinType && forceSpinType.startsWith('hero_')) {
@@ -3100,8 +3111,8 @@ function updateSpinning() {
 
       if (reelState[c][r] === 'stopping') {
         // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
-        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? 0.82;
-        if (reelSpeed[c][r] < 1.8) {
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? REEL_DECEL_BASE;
+        if (reelSpeed[c][r] < REEL_STOP_SPEED) {
           // 強制停在最終符號
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
@@ -3911,8 +3922,8 @@ function updateGravity() {
 
       if (reelState[c][r] === 'stopping') {
         // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
-        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? 0.82;
-        if (reelSpeed[c][r] < 1.8) {
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? REEL_DECEL_BASE;
+        if (reelSpeed[c][r] < REEL_STOP_SPEED) {
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
           reelState[c][r]      = 'done';
