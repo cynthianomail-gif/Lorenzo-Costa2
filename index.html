@@ -606,6 +606,10 @@ const DEFAULT_TIMING = {
   antSeqGap:         1.90,  // 兩列以上聽牌時：上一列轉定 → 下一列開始減速
   hintSeqHold:       0.00,  // 圓圈依序演示：這一列定局後停留多久才換下一列（2026-08-25 企劃實調：0＝立刻換）
   antHoldBelow:      1,     // 1＝預報格轉定前下面幾列不落定，0＝照原本各停各的，非時間值
+  landFlash:         0.50,  // 轉到「能延續進度」的角色：格子爆閃（原本寫死 0.5）
+  landHitDur:        0.45,  // 轉到「湊滿整列」的那一隻：圖示打擊到盤面的特效時長
+  landHitScale:      1.45,  // 打擊落下的起始放大倍率（1＝不放大），非時間值
+  landHitShake:      6,     // 打擊瞬間的盤面震動幅度（±px），非時間值
   // 消除／得分（編號 21：得分／消除演繹各三階強度）
   winFxLow:          0.10,  // 得分演繹・低（框起＋旋轉）
   winFxMid:          0.40,  // 得分演繹・中
@@ -674,7 +678,11 @@ const TIMING_META = [
     ['antResume','轉定後下一格落定', 0, 3, 0.01],
     ['antSeqGap','上列轉定→下列減速', 0, 6, 0.05],
     ['hintSeqHold','圓圈換列停留', 0, 6, 0.05],
-    ['antHoldBelow','下面列等待(0/1)', 0, 1, 1]] },
+    ['antHoldBelow','下面列等待(0/1)', 0, 1, 1],
+    ['landFlash','轉到需要的角色爆閃', 0, 3, 0.05],
+    ['landHitDur','湊滿整列：打擊特效', 0, 3, 0.05],
+    ['landHitScale','打擊放大倍率', 1, 2.5, 0.05],
+    ['landHitShake','打擊震動幅度(px)', 0, 20, 1]] },
   { group: '消除／得分', items: [
     ['winFxLow','得分演繹・低'], ['winFxMid','得分演繹・中'], ['winFxHigh','得分演繹・高'],
     ['popFxLow','消除演繹・低'], ['popFxMid','消除演繹・中'], ['popFxHigh','消除演繹・高'],
@@ -709,7 +717,8 @@ TIMING_META.forEach(g => g.items.forEach(it => {
 }));
 let TIMING = { ...DEFAULT_TIMING };
 // 非時長參數（px／強度／倍率）不畫甘特色條，改走一般數值滑桿
-const NON_GANTT_TIMING = new Set(['reelSpeed', 'reelBounce', 'popDimAlpha', 'shakeSmallAmp', 'shakeBigAmp', 'antHoldBelow']);
+const NON_GANTT_TIMING = new Set(['reelSpeed', 'reelBounce', 'popDimAlpha', 'shakeSmallAmp', 'shakeBigAmp',
+                                  'antHoldBelow', 'landHitScale', 'landHitShake']);
 const TIMING_COLORS = ['#38bdf8', '#facc15', '#fb7185', '#a78bfa', '#34d399', '#f97316', '#60a5fa'];
 function isGanttTimingKey(key) {
   return Object.prototype.hasOwnProperty.call(DEFAULT_TIMING, key) && !NON_GANTT_TIMING.has(key);
@@ -719,6 +728,7 @@ function isGanttTimingKey(key) {
 const GANTT_START_PRESET = {
   reelFirstStop: 0.00, reelStopInterval: 0.80, landSquash: 0.80, reelStopDur: 0.80, autoSpinDelay: 0.00,
   antNearStop: 0.00, antFarStop: 0.00, antResume: 1.65, antSeqGap: 1.80, hintSeqHold: 0.00,
+  landFlash: 1.65, landHitDur: 1.65,
   winFxLow: 0.00, winFxMid: 0.00, winFxHigh: 0.00,
   popFxLow: 0.45, popFxMid: 0.45, popFxHigh: 0.45,
   winGroupStep: 0.00,
@@ -1602,9 +1612,9 @@ const V4_PIP_REVEAL = 0.45;                       // 浮現秒數
 let v4PipReveal = new Array(COLS).fill(0);        // 每個圓圈的浮現剩餘幀
 let v4PipShown  = new Array(COLS).fill(null);    // 上一幀該圓圈顯示的角色 id
 // 盤面「登」的落定特效（企劃 2026-08-24：滾輪放慢、轉到聽牌需要的角色時，那一格要有特效）
-const V4_LAND_FLASH_DUR = 0.5;   // 特效秒數
 let v4PrevSettled = [];          // [c][r] 上一幀是否已落定，用來抓「剛落定」那一幀
-let v4LandFlash   = [];          // [c][r] 特效剩餘幀數（0 = 沒有）
+let v4LandFlash   = [];          // [c][r] 爆閃剩餘幀數（0 = 沒有）＝轉到能延續進度的角色
+let v4LandHit     = [];          // [c][r] 打擊特效剩餘幀數（0 = 沒有）＝轉到湊滿整列的那一隻
 // 某一格是否「已落定」。還在轉的格算未知：不能拿來湊進度（會提前洩題），
 // 但要被當成「缺的那一格」框起來預報 —— 它還有機會轉出需要的角色。
 function v4CellSettled(c, r) {
@@ -1978,9 +1988,29 @@ function drawV4HintFrame(ctx) {
 // 盤面「登」的落定特效：亮金色放射狀爆閃＋外擴光環＋格子微彈跳，
 // 慶祝「滾輪放慢後剛好轉到聽牌需要的角色」。獨立於 v4HintCurrent 的輪播，
 // 只要 v4LandFlash 倒數還沒歸零，該格就會有特效（不受目前顯示哪一列影響）。
+// 打擊演繹的縮放：一開始比原尺寸大 landHitScale 倍「砸」下來，撞到盤面壓扁再回正。
+// 回傳 null＝這一格沒有打擊演繹。靜態格繪製與這裡共用同一條曲線。
+function v4HitScale(cell) {
+  if (!cell || !cell._landHit || TIMING.landHitDur <= 0) return null;
+  const dur = TF(TIMING.landHitDur);
+  const p   = Math.max(0, 1 - cell._landHit / dur);    // 0 → 1
+  const over = Math.max(0, TIMING.landHitScale - 1);
+  if (p < 0.34) {                                      // 砸下來：大 → 原尺寸
+    const k = 1 - Math.pow(1 - p / 0.34, 3);
+    const s = 1 + over * (1 - k);
+    return { sx: s, sy: s };
+  }
+  if (p < 0.62) {                                      // 撞擊：壓扁再彈回
+    const sq = Math.sin((p - 0.34) / 0.28 * Math.PI) * 0.18;
+    return { sx: 1 + sq, sy: 1 - sq };
+  }
+  return null;
+}
+
 function drawV4LandFlash(ctx) {
   if (!isV4()) return;
-  const durF = TF(V4_LAND_FLASH_DUR);
+  drawV4LandHit(ctx);
+  const durF = TF(TIMING.landFlash);
   for (let c = 0; c < COLS; c++) {
     if (!v4LandFlash[c]) continue;
     for (let r = 0; r < ROWS; r++) {
@@ -2025,6 +2055,89 @@ function drawV4LandFlash(ctx) {
   }
 }
 
+// 打擊演繹還在播的時候不要進合成階段 —— 那一列會馬上被吃成 1×5 合成格，
+// 圖示一換掉就看不出是哪一隻中的。特效倒數在 update() 裡照跑，不會卡住。
+function v4LandHitBusy() {
+  if (!isV4()) return false;
+  for (let c = 0; c < COLS; c++) {
+    if (!v4LandHit[c]) continue;
+    for (let r = 0; r < ROWS; r++) if (v4LandHit[c][r] > 0) return true;
+  }
+  return false;
+}
+
+// 「圖示打擊到盤面」：湊滿整列的那一隻落定時，圖示砸下來撞在盤面上 ——
+// 撞擊白閃 → 兩圈衝擊波向外擴 → 十字放射的撞擊線 → 盤面震一下（震動在 update 那邊觸發）。
+// 圖示本身的放大／壓扁走 v4HitScale()，畫在靜態格那一段（才會跟著圖示一起變形）。
+function drawV4LandHit(ctx) {
+  const dur = TF(TIMING.landHitDur);
+  if (dur <= 0) return;
+  for (let c = 0; c < COLS; c++) {
+    if (!v4LandHit[c]) continue;
+    for (let r = 0; r < ROWS; r++) {
+      const left = v4LandHit[c][r];
+      if (!left) continue;
+      const p  = 1 - left / dur;                        // 0 → 1
+      const cx = GRID_X + c * CELL_SIZE + CELL_SIZE / 2;
+      const cy = GRID_Y + r * CELL_SIZE + CELL_SIZE / 2;
+      // 撞到的那一瞬間（p≈0.34）才開始放衝擊波，前面是圖示還在往下砸
+      const hit = (p - 0.34) / 0.66;
+      if (hit <= 0) continue;
+      const fade = Math.max(0, 1 - hit);
+      ctx.save();
+      // 撞擊白閃：只在最前面幾幀
+      if (hit < 0.22) {
+        const a = (1 - hit / 0.22) * 0.85;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, CELL_SIZE * 0.8);
+        g.addColorStop(0, `rgba(255,255,255,${a})`);
+        g.addColorStop(0.5, `rgba(255,228,150,${a * 0.5})`);
+        g.addColorStop(1, 'rgba(255,228,150,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx, cy, CELL_SIZE * 0.8, 0, Math.PI * 2); ctx.fill();
+      }
+      // 兩圈衝擊波（第二圈慢半拍）
+      [0, 0.18].forEach((delay, i) => {
+        const t = (hit - delay) / (1 - delay);
+        if (t <= 0 || t >= 1) return;
+        const ease = 1 - Math.pow(1 - t, 2);
+        ctx.globalAlpha = (1 - t) * (i ? 0.5 : 0.9);
+        ctx.strokeStyle = i ? '#fff6da' : V4_HINT_STRONG_COL;
+        ctx.lineWidth = (i ? 3 : 6) * (1 - t) + 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL_SIZE * (0.42 + 1.05 * ease), 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      // 撞擊線：從格子邊緣往外射，前 40% 出現
+      if (hit < 0.4) {
+        const t = hit / 0.4;
+        ctx.globalAlpha = (1 - t) * 0.9;
+        ctx.strokeStyle = '#fff2c4';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        for (let k = 0; k < 10; k++) {
+          const ang = (Math.PI * 2 / 10) * k + 0.31;
+          const r0 = CELL_SIZE * (0.42 + 0.30 * t);
+          const r1 = r0 + CELL_SIZE * 0.26 * (1 - t);
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+          ctx.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
+          ctx.stroke();
+        }
+      }
+      // 格框在撞擊後持續亮著，直到特效結束
+      ctx.globalAlpha = fade;
+      ctx.shadowColor = V4_HINT_STRONG_COL;
+      ctx.shadowBlur = 26 * fade;
+      ctx.strokeStyle = V4_HINT_STRONG_COL;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(cx - CELL_SIZE / 2 + 2, cy - CELL_SIZE / 2 + 2, CELL_SIZE - 4, CELL_SIZE - 4, CELL_R);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
 // 圓圈浮現：某個圓圈從「空」變成「有角色」（或換成別的角色）時重新起跳。
 // 換列輪播時整排 id 都變，會整排一起浮現 —— 那正是「水晶球換一個畫面」的感覺。
 function updateV4PipReveal() {
@@ -2049,8 +2162,10 @@ function updateV4LandFlash() {
   for (let c = 0; c < COLS; c++) {
     if (!v4PrevSettled[c]) v4PrevSettled[c] = new Array(ROWS).fill(true);  // 開場先當作已落定，避免誤觸發
     if (!v4LandFlash[c])   v4LandFlash[c]   = new Array(ROWS).fill(0);
+    if (!v4LandHit[c])     v4LandHit[c]     = new Array(ROWS).fill(0);
     for (let r = 0; r < ROWS; r++) {
       if (v4LandFlash[c][r] > 0) v4LandFlash[c][r]--;
+      if (v4LandHit[c][r]   > 0) v4LandHit[c][r]--;
       const settledNow = v4CellSettled(c, r);
       if (settledNow && !v4PrevSettled[c][r]) {
         const others = v4RowIdsExcept(r, c);
@@ -2058,7 +2173,19 @@ function updateV4LandFlash() {
         if (wasHintActive) {
           const cell = board[c] && board[c][r];
           const isChar = cell && !cell.isMerged && isCharSym(cell.id);
-          if (isChar && !others.includes(cell.id)) v4LandFlash[c][r] = TF(V4_LAND_FLASH_DUR);
+          if (isChar && !others.includes(cell.id)) {
+            // 面板把秒數調成 0＝關掉該特效（TF() 會把 0 夾成 1 幀，所以要在這裡擋）
+            if (TIMING.landFlash > 0) v4LandFlash[c][r] = TF(TIMING.landFlash);
+            // 其餘 4 格都已經是角色 ＝ 這一隻讓整列湊滿，真的中了。
+            // 企劃 2026-08-25：這時要有「圖示打擊到盤面」的特效，明確指出是這一隻中的。
+            if (others.length === COLS - 1 && TIMING.landHitDur > 0) {
+              v4LandHit[c][r] = TF(TIMING.landHitDur);
+              // +1 是因為 update() 的計時器遞減迴圈就排在本函式後面，設完當幀就會扣 1；
+              // 不補這一幀，畫出來的第一幀已經是 p>0，永遠看不到面板設定的最大倍率。
+              cell._landHit   = TF(TIMING.landHitDur) + 1;
+              triggerBoardShake(TIMING.landHitShake, TF(0.18));
+            }
+          }
         }
       }
       v4PrevSettled[c][r] = settledNow;
@@ -3273,7 +3400,7 @@ function updateSpinning() {
     }
   }
 
-  if (allDone) currentState = STATE.SYNTHESIS;
+  if (allDone && !v4LandHitBusy()) currentState = STATE.SYNTHESIS;
 }
 
 // === Payline 中獎檢查 ===
@@ -4084,7 +4211,7 @@ function updateGravity() {
     }
   }
 
-  if (allDone) currentState = STATE.SYNTHESIS;
+  if (allDone && !v4LandHitBusy()) currentState = STATE.SYNTHESIS;
 }
 
 
@@ -5769,6 +5896,7 @@ function update(dt) {
       if (cell._flashTimer > 0) cell._flashTimer--;
       if (cell._markTimer  > 0) cell._markTimer--;
       if (cell._landSquash > 0) cell._landSquash--;   // 落定回彈演繹
+      if (cell._landHit    > 0) cell._landHit--;      // 打擊演繹（湊滿整列的那一隻）
       if (cell._scAppear   > 0) cell._scAppear--;     // SC 登場演繹
       if (cell.splitAnim !== undefined && cell.splitAnim < 1) {
         cell.splitAnim = Math.min(1, cell.splitAnim + 1 / TF(TIMING.synthSplit));
@@ -6455,11 +6583,14 @@ function drawBoard(ctx) {
       // 得分演繹：框起得分圖示並旋轉圖示角度（每格各自倒數，框到哪搖到哪）
       const rot   = winFxRot(cell);
 
+      // 打擊演繹：湊滿整列的那一隻砸下來（大 → 撞上 → 壓扁回彈）
+      const hit = v4HitScale(cell);
       ctx.save();
-      if (sc !== 1 || sq > 0 || rot !== 0) {
+      if (sc !== 1 || sq > 0 || rot !== 0 || hit) {
         ctx.translate(x + CELL_SIZE / 2, y + CELL_SIZE / 2);
         if (rot !== 0) ctx.rotate(rot);
-        ctx.scale(sc * (1 + 0.05 * sq), sc * (1 - 0.05 * sq));
+        ctx.scale(sc * (1 + 0.05 * sq) * (hit ? hit.sx : 1),
+                  sc * (1 - 0.05 * sq) * (hit ? hit.sy : 1));
         ctx.translate(-(x + CELL_SIZE / 2), -(y + CELL_SIZE / 2));
       }
 
