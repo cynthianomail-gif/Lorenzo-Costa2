@@ -597,7 +597,15 @@ const DEFAULT_TIMING = {
   landSquash:        0.05,  // 落定回彈：壓扁約5%再回彈
   reelSpeed:         24,    // 滾輪全速（px/幀），非時間值
   reelBounce:        10,    // 落定彈跳初始幅度（px），非時間值
+  reelStopDur:       0.23,  // 一般格「開始減速→停住」要多久（原本寫死的 0.82 倍率 ≒ 14 幀）
   autoSpinDelay:     0.50,  // 自動轉：上一局結束→下一局開始
+  // 聽牌（預報）：v4 五角連線的滾輪演繹
+  antNearStop:       1.65,  // 聽牌格（差 1 隻）從開始減速到停住要多久
+  antFarStop:        0.83,  // 差 2 隻以上的格子，從開始減速到停住要多久
+  antResume:         0.15,  // 預報格轉定後，下面那幾列多久落定第一格（之後照每格落定間隔）
+  antSeqGap:         1.90,  // 兩列以上聽牌時：上一列轉定 → 下一列開始減速
+  hintSeqHold:       1.60,  // 圓圈依序演示：這一列定局後停留多久才換下一列
+  antHoldBelow:      1,     // 1＝預報格轉定前下面幾列不落定，0＝照原本各停各的，非時間值
   // 消除／得分（編號 21：得分／消除演繹各三階強度）
   winFxLow:          0.10,  // 得分演繹・低（框起＋旋轉）
   winFxMid:          0.40,  // 得分演繹・中
@@ -659,7 +667,14 @@ const TIMING_META = [
   { group: '掉落（停輪）', items: [
     ['reelFirstStop','首格落定'], ['reelStopInterval','每格落定間隔'], ['landSquash','落定回彈'],
     ['reelSpeed','滾輪速度(px/幀)', 4, 60, 1], ['reelBounce','彈跳幅度(px)', 0, 40, 1],
+    ['reelStopDur','每格滾到停', 0.05, 3, 0.01],
     ['autoSpinDelay','自動轉間隔']] },
+  { group: '聽牌（預報）', items: [
+    ['antNearStop','聽牌格滾到停', 0.05, 6, 0.05], ['antFarStop','差2隻滾到停', 0.05, 6, 0.05],
+    ['antResume','轉定後下一格落定', 0, 3, 0.01],
+    ['antSeqGap','上列轉定→下列減速', 0, 6, 0.05],
+    ['hintSeqHold','圓圈換列停留', 0, 6, 0.05],
+    ['antHoldBelow','下面列等待(0/1)', 0, 1, 1]] },
   { group: '消除／得分', items: [
     ['winFxLow','得分演繹・低'], ['winFxMid','得分演繹・中'], ['winFxHigh','得分演繹・高'],
     ['popFxLow','消除演繹・低'], ['popFxMid','消除演繹・中'], ['popFxHigh','消除演繹・高'],
@@ -694,7 +709,7 @@ TIMING_META.forEach(g => g.items.forEach(it => {
 }));
 let TIMING = { ...DEFAULT_TIMING };
 // 非時長參數（px／強度／倍率）不畫甘特色條，改走一般數值滑桿
-const NON_GANTT_TIMING = new Set(['reelSpeed', 'reelBounce', 'popDimAlpha', 'shakeSmallAmp', 'shakeBigAmp']);
+const NON_GANTT_TIMING = new Set(['reelSpeed', 'reelBounce', 'popDimAlpha', 'shakeSmallAmp', 'shakeBigAmp', 'antHoldBelow']);
 const TIMING_COLORS = ['#38bdf8', '#facc15', '#fb7185', '#a78bfa', '#34d399', '#f97316', '#60a5fa'];
 function isGanttTimingKey(key) {
   return Object.prototype.hasOwnProperty.call(DEFAULT_TIMING, key) && !NON_GANTT_TIMING.has(key);
@@ -702,7 +717,8 @@ function isGanttTimingKey(key) {
 // 各演繹在「所屬階段時間軸」上的起點（秒）。每個分組是一條獨立時間軸（t=0 為該階段開始），
 // 同組內起點＋時長＝甘特圖色條位置。起點僅供排程視覺化，實際時長仍由 TIMING 控制。
 const GANTT_START_PRESET = {
-  reelFirstStop: 0.00, reelStopInterval: 0.80, landSquash: 0.80, autoSpinDelay: 0.00,
+  reelFirstStop: 0.00, reelStopInterval: 0.80, landSquash: 0.80, reelStopDur: 0.80, autoSpinDelay: 0.00,
+  antNearStop: 0.00, antFarStop: 0.00, antResume: 1.65, antSeqGap: 1.80, hintSeqHold: 0.00,
   winFxLow: 0.00, winFxMid: 0.00, winFxHigh: 0.00,
   popFxLow: 0.45, popFxMid: 0.45, popFxHigh: 0.45,
   winGroupStep: 0.00,
@@ -1568,7 +1584,6 @@ const V4_HINT_MODES = {
 };
 const DEFAULT_V4_HINT_MODE = 'seq';
 let V4_HINT_MODE = DEFAULT_V4_HINT_MODE;
-const V4_SEQ_HOLD = 1.6;   // 依序模式：這一列「定局後」還要停留幾秒才換下一列
 let v4HintSeqMaxRow = 0;   // 依序模式：本輪演到第幾列。指標只往下走，不回頭
 let v4HintSettled   = 0;   // 依序模式：目前這一列已經「定局」幾幀（最短停留從定局那一刻起算）
 // 預報框專用配色（企劃 2026-08-24：原本的 #38bdf8／#fde68a 太淡不夠明顯，
@@ -1613,15 +1628,22 @@ function v4RowIdsExcept(r, exceptCol) {
 // 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感；
 // 第一版 0.95／0.9 太快，企劃回饋要慢到看得出一格一格——換算成停止耗費的幀數
 // 從 51／25 幀（約 0.85s／0.42s）加倍到約 100／50 幀（約 1.67s／0.83s，見設計文件）。
-const V4_DECEL_NEAR   = 0.974;   // 缺 1 個（聽牌）的減速率 → 停止約 99 幀（1.65s）
-const V4_DECEL_FAR    = 0.949;   // 缺 2 個以上的減速率   → 停止約 50 幀（0.83s）
-const REEL_DECEL_BASE = 0.82;    // 沒被聽牌預報盯上的格子，原本的減速率 → 約 14 幀
 const REEL_STOP_SPEED = 1.8;     // 速度掉到這個值以下就強制停在最終符號
+// 滾輪是每幀乘一個固定倍率在減速的，但企劃要調的是「這一格要滾幾秒才停」，
+// 所以倍率由秒數反推：speed × rate^幀數 = REEL_STOP_SPEED。三個秒數都在節奏面板上。
+// 目標值乘 0.999 是為了讓「第 TF(sec) 幀」就真的低於門檻：剛好等於門檻時
+// `speed < REEL_STOP_SPEED` 不成立，會多滾一幀，設定 1.65s 卻停在 1.67s。
+function decelRateFor(sec) {
+  return Math.pow(REEL_STOP_SPEED * 0.999 / TIMING.reelSpeed, 1 / TF(sec));
+}
+function reelBaseDecel() { return decelRateFor(TIMING.reelStopDur);  }   // 一般格
+function v4DecelNear()   { return decelRateFor(TIMING.antNearStop); }   // 缺 1 隻（聽牌）
+function v4DecelFar()    { return decelRateFor(TIMING.antFarStop);  }   // 缺 2 隻以上
 function v4AnticipationDecel(c, r) {
   if (!isV4()) return null;
   const others = v4RowIdsExcept(r, c);
   if (others.length < V4_HINT_MIN || new Set(others).size !== others.length) return null;
-  return others.length === COLS - 1 ? V4_DECEL_NEAR : V4_DECEL_FAR;
+  return others.length === COLS - 1 ? v4DecelNear() : v4DecelFar();
 }
 
 // ── 聽牌演繹的滾輪時序（企劃 2026-08-25 選案 1：開轉當下就排好）────────────
@@ -1633,10 +1655,12 @@ function v4AnticipationDecel(c, r) {
 // 把那一格的停止幀推到同列其餘 4 格都落定之後。
 let v4AntCells = [];        // 本次滾輪的聽牌預報格 [{c, r, hold, doneFrame, prev}]，同一列最多一格
 let reelHoldFrames = [];    // 每列被「等上面那格聽牌」擋下來的累計幀數（用來平移該列停止幀）
+let v4HoldPrevFrom = ROWS;  // 上一幀的「擋牌起始列」，用來抓放行的那一幀
 
 function v4ResetAntPlan() {
   v4AntCells = [];
   reelHoldFrames = new Array(ROWS).fill(0);
+  v4HoldPrevFrom = ROWS;
 }
 
 // 這一格會不會是聽牌預報格：其餘 4 格（看最終盤面）都是互不相同的角色。
@@ -1669,10 +1693,11 @@ function v4PlanAnticipation() {
       hold: 0,          // 已經多等了幾幀
       doneFrame: -1,    // 這一格轉定在第幾幀（給下一列的聽牌算間隔用）
       // 同一局有兩列以上聽牌時，下面那列要等上一列演完：上一列落定 →
-      // 圓圈停留 V4_SEQ_HOLD 後換到這一列 → 這一列才開始減速，兩段聽牌才不會疊在一起。
+      // 圓圈換到這一列（節奏面板：圓圈換列停留）後 → 這一列才開始減速，兩段聽牌才不會疊在一起。
       prev: v4AntCells.length ? v4AntCells[v4AntCells.length - 1] : null
     });
   }
+  v4HoldPrevFrom = v4HoldFromRow();   // 開轉第一幀就已經在擋了，不能算成「剛放行」
 }
 
 function v4AntOf(c, r) {
@@ -1691,11 +1716,25 @@ function v4RowOthersSettled(c, r) {
 // 聽牌演繹進行中，「下面幾列」要一直轉、不准落定（企劃 2026-08-25）：
 // 回傳第一個「還沒轉定的預報格」的下一列 —— 該列（含）以下這一幀全部不落定。
 function v4HoldFromRow() {
+  if (!TIMING.antHoldBelow) return ROWS;          // 節奏面板可關掉，關掉就各停各的
   let hold = ROWS;
   for (const a of v4AntCells) {
     if (reelState[a.c] && reelState[a.c][a.r] !== 'done') hold = Math.min(hold, a.r + 1);
   }
   return hold;
+}
+
+// 放行的那一幀：把剛放行的那幾列重新對時，讓其中最早該停的那一格在 antResume 秒後就停。
+// 不重新對時的話，它們的停止幀還是「從開轉起算」的那個值＋等待幀數，等於還要再等
+// 將近 1 秒才看到下一格停 —— 企劃 2026-08-25 回饋「下一格正常速度的滾輪太晚停輪」。
+function v4ReanchorRows(fromRow, toRow) {
+  let minBase = Infinity;
+  for (let r = fromRow; r < toRow; r++)
+    for (let c = 0; c < COLS; c++)
+      if (reelState[c] && reelState[c][r] === 'spinning') minBase = Math.min(minBase, reelStopFrame[c][r]);
+  if (minBase === Infinity) return;               // 這幾列已經全停了，沒東西要對時
+  const shift = spinFrameCount + TF(TIMING.antResume) - minBase;
+  for (let r = fromRow; r < toRow; r++) reelHoldFrames[r] = shift;
 }
 
 // 每幀開頭呼叫：被擋下的列各累計一幀，該列的停止幀就整列往後平移一幀。
@@ -1705,6 +1744,8 @@ function v4TickHold() {
     if (a.doneFrame < 0 && reelState[a.c] && reelState[a.c][a.r] === 'done') a.doneFrame = spinFrameCount;
   }
   const from = v4HoldFromRow();
+  if (from > v4HoldPrevFrom) v4ReanchorRows(v4HoldPrevFrom, from);
+  v4HoldPrevFrom = from;
   for (let r = from; r < ROWS; r++) reelHoldFrames[r]++;
 }
 
@@ -1712,7 +1753,7 @@ function v4TickHold() {
 //  (1) reelHoldFrames[r]：上面那列在聽牌，整列往後平移；
 //  (2) 聽牌格自己：等同列其餘格都落定才開始減速 —— 用「等」的而不是預先算，
 //      才不必預估別人會用掉幾幀（別人吃到哪一種減速率要看當下盤面），也就不會多等；
-//  (3) 第二列（以下）的聽牌格：再等上一個聽牌格轉定後滿 V4_SEQ_HOLD（＋0.3s 緩衝），
+//  (3) 第二列（以下）的聽牌格：再等上一個聽牌格轉定後滿 antSeqGap（＝等圓圈換到這一列），
 //      也就是等圓圈換到這一列，才開始減速。
 function v4TickStopFrame(c, r, fallback) {
   const base = (reelStopFrame[c]?.[r] ?? fallback) + (reelHoldFrames[r] || 0);
@@ -1721,7 +1762,7 @@ function v4TickStopFrame(c, r, fallback) {
   // 只有「本來就該開始減速了」才計等待，否則會把還沒到時間的等待也算進去、平白延後
   if (reelState[c]?.[r] === 'spinning' && spinFrameCount >= base + a.hold) {
     const waitSeq = a.prev && (a.prev.doneFrame < 0 ||
-                    spinFrameCount < a.prev.doneFrame + TF(V4_SEQ_HOLD) + TF(0.3));
+                    spinFrameCount < a.prev.doneFrame + TF(TIMING.antSeqGap));
     if (!v4RowOthersSettled(c, r) || waitSeq) a.hold++;
   }
   return base + a.hold;
@@ -1808,7 +1849,7 @@ function updateV4HintCycle() {
 // 換到下一列的條件要同時成立：
 //   (1) 目前這一列已經定局（沒有還在轉的格）—— 還在轉就守著它，讓玩家看完這一列的期待感；
 //   (2) 下一候選列也已經定局 —— 也就是「滾輪已經滾到那一列」，這是使用者要的切換時機；
-//   (3) 目前這一列已停留滿 V4_SEQ_HOLD —— 避免滾輪早就全停時，多列在同一幀被一路跳過。
+//   (3) 目前這一列已停留滿「圓圈換列停留」—— 避免滾輪早就全停時，多列在同一幀被一路跳過。
 // 走到最後一列就停住不再切換；五格到齊（complete）的列一律最優先並釘住。
 function updateV4HintSeq() {
   const rows = v4HintList.map(h => h.row).sort((a, b) => a - b);   // 純列序：越上面越先演
@@ -1839,7 +1880,7 @@ function updateV4HintSeq() {
   if (nextRow === undefined) return;                 // 已是最後一列 → 定住
   // 下一列有出現在候選清單裡，就代表滾輪已經滾到那一列（該列至少 3 格落定成角色）。
   // 刻意「不」要求它已經全部落定 —— 它最後一格的聽牌減速正是要讓玩家看的重點。
-  if (curSettled && v4HintSettled >= TF(V4_SEQ_HOLD)) {
+  if (curSettled && v4HintSettled >= TF(TIMING.hintSeqHold)) {
     v4HintRow = nextRow;
     v4HintSeqMaxRow = nextRow;
     v4HintPhase = 0;
@@ -3200,7 +3241,7 @@ function updateSpinning() {
 
       if (reelState[c][r] === 'stopping') {
         // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
-        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? REEL_DECEL_BASE;
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? reelBaseDecel();
         if (reelSpeed[c][r] < REEL_STOP_SPEED) {
           // 強制停在最終符號
           reelOffset[c][r]     = 0;
@@ -4014,7 +4055,7 @@ function updateGravity() {
 
       if (reelState[c][r] === 'stopping') {
         // 聽牌預報中的那一格放慢減速（企劃 2026-08-24：滾輪要逐步放慢製造期待感）
-        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? REEL_DECEL_BASE;
+        reelSpeed[c][r] *= v4AnticipationDecel(c, r) ?? reelBaseDecel();
         if (reelSpeed[c][r] < REEL_STOP_SPEED) {
           reelOffset[c][r]     = 0;
           reelDispId[c][r]     = board[c][r].id;
