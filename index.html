@@ -430,7 +430,7 @@
             <p>• <b>聽牌提示</b>：上方 5 個圓圈對應 5 個輪。某一列湊到 <b>3 個以上互不相同的角色</b>時，該列的角色會填進對應圓圈、缺的維持空槽</p>
             <p>&nbsp;&nbsp;缺的那一輪：<b>上方圓圈</b>會出現發光預報框（常駐顯示，不受轉動影響）。只缺 1 個＝金色強框＋「?」；還差 2 個以上＝青色弱框</p>
             <p>&nbsp;&nbsp;<b>盤面</b>的預報框只在<b>單格重轉／滾輪還在轉</b>時才亮，落定後（不論結果）就消失；缺 1 個／缺 2 個都是金色，只差強弱。這一格的<b>滾輪停止速度也會放慢</b>（缺 1 個最慢、缺 2 個次之），剛好轉到需要的角色時，那一格會有<b>金色落定特效</b>（爆閃＋擴散光環）</p>
-            <p>&nbsp;&nbsp;中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。五個都湊到時圓圈全亮並顯示獎項。多列同時符合則<b>淡入淡出輪播</b>（已達成的列優先，其餘越上面越優先）</p>
+            <p>&nbsp;&nbsp;中位（第 3 輪）已有角色時，同步亮起對應的 JP／彩金。五個都湊到時圓圈全亮並顯示獎項。多列同時符合有兩種演繹（🔧 → 規則分頁切換）：<b>依序演示</b>（預設）＝跟著滾輪由上往下，第 2 列演完、滾輪滾到第 3 列才換第 3 列，最後一列定住不循環；<b>輪播</b>（原版）＝每 2.2 秒淡入淡出循環。兩者都是已達成的列優先</p>
             <p>&nbsp;&nbsp;圓圈的角色圖示以<b>浮現演繹</b>出現（白霧散去＋放大＋擴散光環，約 0.45s），不會突然跳出</p>
             <p>&nbsp;&nbsp;成立時該整列合成為 <b>1×5 合成格</b>。合成後它是<b>一個全新的圖示</b>：<b>不替代任何顏色、不與任何符號連線、不進 Ways、不給分</b></p>
             <p>&nbsp;&nbsp;合成狀態<b>保留在盤面上</b>，其他列照常連爆；等連爆到<b>無法再得分</b>時，才結算該列的 JP／彩金</p>
@@ -1557,6 +1557,19 @@ const V4_PIP_R        = 17;     // 圓圈半徑
 const V4_PIP_GAP      = 9;      // 圓圈間距
 const V4_HINT_HOLD    = 2.2;    // 每一列停留秒數（多列輪播時）
 const V4_HINT_FADE    = 0.35;   // 淡入／淡出秒數
+// 多列同時符合時的「演繹模式」（企劃 2026-08-25）。兩種都保留，可在 🔧 → 規則分頁切換：
+//   'seq'   依序演示：跟著滾輪由上往下落定的順序，一列演完換下一列，演到最後一列就定住不再循環。
+//           滾輪是逐格由上往下落定的（stopFrame = c + r*COLS），第 2 列一定比第 3 列先定局，
+//           自然形成「先顯示第 2 列 → 滾輪滾到第 3 列 → 換成第 3 列」的節奏。
+//   'cycle' 輪播（原版）：固定秒數淡入淡出、循環切換。
+const V4_HINT_MODES = {
+  seq:   { name: '依序演示', desc: '跟著滾輪由上往下：第 2 列演完 → 滾到第 3 列才換第 3 列，最後一列定住不循環' },
+  cycle: { name: '輪播（原版）', desc: `每列停留 ${V4_HINT_HOLD} 秒，淡入淡出循環切換` },
+};
+const DEFAULT_V4_HINT_MODE = 'seq';
+let V4_HINT_MODE = DEFAULT_V4_HINT_MODE;
+const V4_SEQ_HOLD = 1.6;   // 依序模式：每一列的最短停留秒數（下一列也已定局時才會換過去）
+let v4HintSeqMaxRow = 0;   // 依序模式：本輪演到第幾列。指標只往下走，不回頭
 // 預報框專用配色（企劃 2026-08-24：原本的 #38bdf8／#fde68a 太淡不夠明顯，
 // 換成更飽和的青與金；只用在預報框，不動其他地方沿用舊色的 UI）
 // 圓圈弱框專用（還差 2 個以上）——盤面預報框改為缺 1／缺 2 都用金色只分強弱（見下方 2026-08-24 説明），
@@ -1659,9 +1672,16 @@ function findHeroHints() {
 // 滾輪逐格落定時清單幾乎每幀都在變，用索引會一直被重設、alpha 永遠停在淡入初期。
 // 只要目前這一列還符合條件就繼續顯示它，不符合了才跳到最上面那一列。
 function updateV4Hint() {
-  if (!isV4()) { v4HintList = []; v4HintRow = -1; v4HintPhase = 0; return; }
+  if (!isV4()) { v4HintList = []; v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; return; }
   v4HintList = findHeroHints();
-  if (!v4HintList.length) { v4HintRow = -1; v4HintPhase = 0; return; }
+  // 清單空＝新的一局／盤面重排，依序模式的進度指標一併歸零
+  if (!v4HintList.length) { v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; return; }
+  if (V4_HINT_MODE === 'seq') updateV4HintSeq();
+  else                        updateV4HintCycle();
+}
+
+// 原版：固定秒數循環輪播
+function updateV4HintCycle() {
   const rows = v4HintList.map(h => h.row);
   if (rows.indexOf(v4HintRow) < 0) {          // 換盤／該列不再符合 → 回到最上面那一列
     v4HintRow = rows[0];
@@ -1676,11 +1696,56 @@ function updateV4Hint() {
   }
 }
 
+// 依序演示：跟著滾輪由上往下的落定順序走，指標只往下、不循環回頭。
+// 換到下一列的條件要同時成立：
+//   (1) 目前這一列已經定局（沒有還在轉的格）—— 還在轉就守著它，讓玩家看完這一列的期待感；
+//   (2) 下一候選列也已經定局 —— 也就是「滾輪已經滾到那一列」，這是使用者要的切換時機；
+//   (3) 目前這一列已停留滿 V4_SEQ_HOLD —— 避免滾輪早就全停時，多列在同一幀被一路跳過。
+// 走到最後一列就停住不再切換；五格到齊（complete）的列一律最優先並釘住。
+function updateV4HintSeq() {
+  const rows = v4HintList.map(h => h.row).sort((a, b) => a - b);   // 純列序：越上面越先演
+  // 五個都到齊的列＝玩家剛達成，直接釘在那一列（不該還在看別列的進度）
+  const doneRows = v4HintList.filter(h => h.complete).map(h => h.row).sort((a, b) => a - b);
+  if (doneRows.length) {
+    if (v4HintRow !== doneRows[0]) { v4HintRow = doneRows[0]; v4HintPhase = 0; }
+    else v4HintPhase++;
+    v4HintSeqMaxRow = Math.max(v4HintSeqMaxRow, v4HintRow);
+    return;
+  }
+  if (rows.indexOf(v4HintRow) < 0) {
+    // 目前這一列不再符合（換盤／連爆重排）→ 接續演「還沒演過的最上面那一列」，不倒退回頭
+    const nxt = rows.find(r => r >= v4HintSeqMaxRow);
+    v4HintRow = (nxt === undefined) ? rows[rows.length - 1] : nxt;
+    v4HintSeqMaxRow = v4HintRow;
+    v4HintPhase = 0;
+    return;
+  }
+  v4HintPhase++;
+  const nextRow = rows.find(r => r > v4HintRow);
+  if (nextRow === undefined) return;                 // 已是最後一列 → 定住
+  const cur  = v4HintList.find(h => h.row === v4HintRow);
+  const next = v4HintList.find(h => h.row === nextRow);
+  const curSettled  = cur  && !cur.spinning.length;
+  const nextSettled = next && !next.spinning.length;
+  if (curSettled && nextSettled && v4HintPhase >= TF(V4_SEQ_HOLD)) {
+    v4HintRow = nextRow;
+    v4HintSeqMaxRow = nextRow;
+    v4HintPhase = 0;
+  }
+}
+
 // 目前要畫的那一筆＋透明度（單筆時恆 1，多筆時頭尾淡入淡出）
 function v4HintCurrent() {
   if (!v4HintList.length) return null;
   const h = v4HintList.find(x => x.row === v4HintRow) || v4HintList[0];
   let alpha = 1;
+  if (V4_HINT_MODE === 'seq') {
+    // 依序模式只淡入不淡出：停留時間不固定（要等滾輪滾到下一列），
+    // 沿用輪播的「接近 hold 就淡出」會讓守著未定局的列時整組消失。
+    const fade = TF(V4_HINT_FADE);
+    if (v4HintList.length > 1 && v4HintPhase < fade) alpha = v4HintPhase / fade;
+    return { hint: h, alpha };
+  }
   if (v4HintList.length > 1) {
     const fade = TF(V4_HINT_FADE), hold = TF(V4_HINT_HOLD);
     if (v4HintPhase < fade)             alpha = v4HintPhase / fade;
@@ -7505,6 +7570,7 @@ function saveTuning() {
       version: TUNE_VERSION,
       timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP,
       ruleVersion: RULE_VERSION, popStyle: POP_STYLE, jpNodes: JP_NODES,
+      v4HintMode: V4_HINT_MODE,
     }));
     return true;
   } catch (e) { return false; }
@@ -7542,6 +7608,8 @@ function loadTuning() {
       if (RULE_VERSIONS[d.ruleVersion]) RULE_VERSION = Number(d.ruleVersion);
       if (POP_STYLES[d.popStyle]) POP_STYLE = Number(d.popStyle);
       if (Number.isFinite(d.jpNodes)) JP_NODES = Math.min(6, Math.max(1, Math.round(d.jpNodes)));
+      // 五角聽牌演繹模式（舊存檔沒這個欄位 → 沿用預設 seq）
+      if (V4_HINT_MODES[d.v4HintMode]) V4_HINT_MODE = d.v4HintMode;
     }
   } catch (e) { /* 資料損毀：退回預設 */ }
   syncLayoutDerived();
@@ -7939,7 +8007,7 @@ const RULE_SUMMARY = {
     ['JP ⚡', '一整列 5 隻角色相鄰，中間格＝海克力斯', '整列合成給分 ＋ 宙斯 JP'],
     ['JP 👑', '一整列 5 隻角色相鄰，中間格＝伊阿宋', '整列合成給分 ＋ 赫拉 JP'],
     ['彩金', '同上，中間格＝美狄亞／奧菲斯／阿塔蘭忒', '依序 MAJOR 100×／MINOR 25×／MINI 10×'],
-    ['聽牌', '某列湊到 3 個以上互不相同的角色', '上方 5 圓圈填入該列角色，中位定獎項並亮起；多列輪播'],
+    ['聽牌', '某列湊到 3 個以上互不相同的角色', '上方 5 圓圈填入該列角色，中位定獎項並亮起；多列時依序演示／輪播（🔧 規則分頁可切）'],
     ['NG', '無地圖、無盤面倍數', '得分公式維持現狀'],
     ['FG', '航海地圖 6 站：每達成 1 段連爆船前進 1 站', '×1→×2→×3→×4→×5→×10（終點金羊毛，之後維持 ×10）'],
     ['FG', '分裂（刀）不重置，直到 FG 結束', '五色切滿＝248,832 ways'],
@@ -7987,6 +8055,35 @@ function buildRulesTab() {
     row.append(lab, desc);
     tuneBody.appendChild(row);
   });
+
+  // --- v4 專用：五角連線聽牌「多列同時符合」時的演繹模式 ---
+  if (isV4()) {
+    const hm = document.createElement('div');
+    hm.className = 'tune-group'; hm.textContent = '五角聽牌演繹（多列同時符合時）';
+    tuneBody.appendChild(hm);
+
+    Object.keys(V4_HINT_MODES).forEach(mode => {
+      const row = document.createElement('div'); row.className = 'tune-row';
+      const lab = document.createElement('label');
+      lab.style.flex = '0 0 auto';
+      const rb = document.createElement('input');
+      rb.type = 'radio'; rb.name = 'v4HintMode'; rb.checked = (V4_HINT_MODE === mode);
+      rb.style.marginRight = '6px';
+      lab.append(rb, document.createTextNode(V4_HINT_MODES[mode].name));
+      const desc = document.createElement('span');
+      desc.style.cssText = 'color:#94a3b8;font-size:11px;';
+      desc.textContent = V4_HINT_MODES[mode].desc;
+      rb.addEventListener('change', () => {
+        if (!rb.checked) return;
+        V4_HINT_MODE = mode;
+        v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0;   // 立即從頭演，不留上一模式的指標
+        saveTuning();
+        setTuneStatus(`五角聽牌演繹：${V4_HINT_MODES[mode].name}`);
+      });
+      row.append(lab, desc);
+      tuneBody.appendChild(row);
+    });
+  }
 
   const h2 = document.createElement('div');
   h2.className = 'tune-group'; h2.textContent = `${RULE_VERSIONS[RULE_VERSION].name}　關卡與獎勵`;
@@ -8133,6 +8230,8 @@ document.getElementById('tuneReset').addEventListener('click', () => {
   } else if (tuneTab === 'rules') {
     RULE_VERSION = DEFAULT_RULE_VERSION;
     JP_NODES = DEFAULT_JP_NODES;
+    V4_HINT_MODE = DEFAULT_V4_HINT_MODE;
+    v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0;
     applyRuleLayout(RULE_VERSION);
     syncLayoutDerived();
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
@@ -8147,7 +8246,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
 });
 document.getElementById('tuneExport').addEventListener('click', e => {
   // 一次匯出完整設定（節奏／甘特起點／佈局／取圖），貼回工程端即可寫成正式預設
-  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION, popStyle: POP_STYLE, jpNodes: JP_NODES }, null, 2);
+  const text = JSON.stringify({ version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, layout: LAYOUT, crop: CROP, ruleVersion: RULE_VERSION, popStyle: POP_STYLE, jpNodes: JP_NODES, v4HintMode: V4_HINT_MODE }, null, 2);
   const btn = e.target, orig = btn.textContent;
   const done = () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = orig; }, 1200); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
