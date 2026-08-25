@@ -1863,13 +1863,32 @@ function updateV4HintCycle() {
 // 走到最後一列就停住不再切換；五格到齊（complete）的列一律最優先並釘住。
 function updateV4HintSeq() {
   const rows = v4HintList.map(h => h.row).sort((a, b) => a - b);   // 純列序：越上面越先演
-  // 五個都到齊的列＝玩家剛達成，直接釘在那一列（不該還在看別列的進度）
+  // 五個都到齊的列＝玩家剛達成，優先釘在那一列（不該還在看別列的進度）
   const doneRows = v4HintList.filter(h => h.complete).map(h => h.row).sort((a, b) => a - b);
+  // 同一局下面還有列正在聽牌（還有格在轉）時，不能永遠釘在達成的那一列 ——
+  // 釘住等於把第 2 段聽牌的預報框整段吃掉（企劃 2026-08-25 回報：第 1 列轉中之後，
+  // 同一局第 2 列又缺 1 隻時預報框不見了）。這時候改走下面的 seq 通用邏輯：
+  // 達成的列先演（下一列還沒進候選清單前那段就是它在演＝達成的歡呼），
+  // 等下一列進來了再接過去，兩段聽牌的預報框與打擊特效才都看得到。
   if (doneRows.length) {
-    if (v4HintRow !== doneRows[0]) { v4HintRow = doneRows[0]; v4HintPhase = 0; v4HintSettled = 0; }
-    else v4HintPhase++;
-    v4HintSeqMaxRow = Math.max(v4HintSeqMaxRow, v4HintRow);
-    return;
+    const curDone = v4HintList.find(h => h.row === v4HintRow && h.complete);
+    const pinRow  = curDone ? v4HintRow : doneRows[0];
+    const teasingBelow = v4HintList.some(h => !h.complete && h.spinning.length && h.row > pinRow);
+    if (!teasingBelow) {
+      if (v4HintRow !== pinRow) { v4HintRow = pinRow; v4HintPhase = 0; v4HintSettled = 0; }
+      else v4HintPhase++;
+      v4HintSeqMaxRow = Math.max(v4HintSeqMaxRow, v4HintRow);
+      return;
+    }
+    // 下面有列在聽牌：指標還沒演到達成的那一列時，先站到它上面（讓玩家看到達成），
+    // 之後由通用邏輯在「下一列進候選清單」的那一幀接手。
+    // 條件用「<」而不是「!==」：指標已經往下走過去了就不准被拉回來，
+    // 否則會跟通用邏輯的往下推每幀對撞成乒乓，phase 一直歸零 → alpha 永遠是 0（框看不到）。
+    if (!curDone && v4HintRow < pinRow) {
+      v4HintRow = pinRow; v4HintPhase = 0; v4HintSettled = 0;
+      v4HintSeqMaxRow = Math.max(v4HintSeqMaxRow, v4HintRow);
+      return;
+    }
   }
   if (rows.indexOf(v4HintRow) < 0) {
     // 目前這一列不再符合（換盤／連爆重排）→ 接續演「還沒演過的最上面那一列」，不倒退回頭
