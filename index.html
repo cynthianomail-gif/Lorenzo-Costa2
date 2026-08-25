@@ -2400,32 +2400,10 @@ function drawV4HeroPips(ctx) {
       }
     }
   }
-  // 進度文字放在圓圈「左右兩側」，不放下方 ——
-  // 下方只剩到盤面上緣（y=124）的幾 px，字會壓在盤面框上（實截踩到）。
-  if (cur) {
-    ctx.save();
-    ctx.globalAlpha = cur.alpha;
-    ctx.textBaseline = 'middle';
-    const need = COLS - cur.hint.count;
-    const done = !!cur.hint.complete;
-    ctx.textAlign = 'right';
-    ctx.fillStyle = done ? '#fff3b0' : (cur.hint.nearMiss ? '#fde68a' : 'rgba(203,213,225,0.92)');
-    ctx.font = 'bold 13px "Microsoft JhengHei", Arial';
-    ctx.fillText(done ? '達成！' : (cur.hint.nearMiss ? '再 1 個！' : ('差 ' + need + ' 個')), r.x - 10, cy);
-    ctx.textAlign = 'left';
-    if (done) {
-      // 達成時右邊直接寫拿到哪個獎，比輪播頁碼有用
-      ctx.fillStyle = '#fde68a';
-      ctx.font = 'bold 12px "Microsoft JhengHei", Arial';
-      ctx.fillText(heroRowAwardLabel(cur.hint.centerId), r.x + r.w + 10, cy);
-    } else if (v4HintList.length > 1) {
-      ctx.fillStyle = 'rgba(148,163,184,0.9)';
-      ctx.font = 'bold 12px "Microsoft JhengHei", Arial';
-      const pos = v4HintList.findIndex(x => x.row === cur.hint.row) + 1;
-      ctx.fillText(pos + '/' + v4HintList.length + ' 列', r.x + r.w + 10, cy);
-    }
-    ctx.restore();
-  }
+  // 企劃 2026-08-25：圓圈旁的文字全部拿掉 —— 左側的「達成！／再 1 個！／差 N 個」、
+  // 右側達成時的獎項名、右側多列輪播的「N/N 列」頁碼都不要了。
+  // 圓圈本身（亮幾個、空幾個槽）已經說明進度，文字只會搶掉演繹的注意力，
+  // 而且右側的字會被上方彩金牌壓住一半。要恢復的話看 index.html.bak-20260825g。
   ctx.restore();
 }
 
