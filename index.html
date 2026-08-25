@@ -1568,8 +1568,9 @@ const V4_HINT_MODES = {
 };
 const DEFAULT_V4_HINT_MODE = 'seq';
 let V4_HINT_MODE = DEFAULT_V4_HINT_MODE;
-const V4_SEQ_HOLD = 1.6;   // 依序模式：每一列的最短停留秒數（下一列也已定局時才會換過去）
+const V4_SEQ_HOLD = 1.6;   // 依序模式：這一列「定局後」還要停留幾秒才換下一列
 let v4HintSeqMaxRow = 0;   // 依序模式：本輪演到第幾列。指標只往下走，不回頭
+let v4HintSettled   = 0;   // 依序模式：目前這一列已經「定局」幾幀（最短停留從定局那一刻起算）
 // 預報框專用配色（企劃 2026-08-24：原本的 #38bdf8／#fde68a 太淡不夠明顯，
 // 換成更飽和的青與金；只用在預報框，不動其他地方沿用舊色的 UI）
 // 圓圈弱框專用（還差 2 個以上）——盤面預報框改為缺 1／缺 2 都用金色只分強弱（見下方 2026-08-24 説明），
@@ -1612,11 +1613,17 @@ function v4RowIdsExcept(r, exceptCol) {
 // 不是就回傳 null，滾輪照原本速度停（企劃 2026-08-24：滾輪要「逐步放慢」製造期待感；
 // 第一版 0.95／0.9 太快，企劃回饋要慢到看得出一格一格——換算成停止耗費的幀數
 // 從 51／25 幀（約 0.85s／0.42s）加倍到約 100／50 幀（約 1.67s／0.83s，見設計文件）。
+const V4_DECEL_NEAR = 0.974;   // 缺 1 個（聽牌）的減速率 → 停止約 99 幀（1.65s）
+const V4_DECEL_FAR  = 0.949;   // 缺 2 個以上的減速率   → 停止約 50 幀（0.83s）
+// 這一格從「開始減速」到「停住」要幾幀。強開兩列聽牌時要拿它算兩列的落定間隔。
+function v4NearDecelFrames() {
+  return Math.ceil(Math.log(1.8 / TIMING.reelSpeed) / Math.log(V4_DECEL_NEAR));
+}
 function v4AnticipationDecel(c, r) {
   if (!isV4()) return null;
   const others = v4RowIdsExcept(r, c);
   if (others.length < V4_HINT_MIN || new Set(others).size !== others.length) return null;
-  return others.length === COLS - 1 ? 0.974 : 0.949;
+  return others.length === COLS - 1 ? V4_DECEL_NEAR : V4_DECEL_FAR;
 }
 
 // 掃出所有「已湊到 V4_HINT_MIN 個以上互不相同角色」的列。
@@ -1672,10 +1679,10 @@ function findHeroHints() {
 // 滾輪逐格落定時清單幾乎每幀都在變，用索引會一直被重設、alpha 永遠停在淡入初期。
 // 只要目前這一列還符合條件就繼續顯示它，不符合了才跳到最上面那一列。
 function updateV4Hint() {
-  if (!isV4()) { v4HintList = []; v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; return; }
+  if (!isV4()) { v4HintList = []; v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; v4HintSettled = 0; return; }
   v4HintList = findHeroHints();
   // 清單空＝新的一局／盤面重排，依序模式的進度指標一併歸零
-  if (!v4HintList.length) { v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; return; }
+  if (!v4HintList.length) { v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; v4HintSettled = 0; return; }
   if (V4_HINT_MODE === 'seq') updateV4HintSeq();
   else                        updateV4HintCycle();
 }
@@ -1707,7 +1714,7 @@ function updateV4HintSeq() {
   // 五個都到齊的列＝玩家剛達成，直接釘在那一列（不該還在看別列的進度）
   const doneRows = v4HintList.filter(h => h.complete).map(h => h.row).sort((a, b) => a - b);
   if (doneRows.length) {
-    if (v4HintRow !== doneRows[0]) { v4HintRow = doneRows[0]; v4HintPhase = 0; }
+    if (v4HintRow !== doneRows[0]) { v4HintRow = doneRows[0]; v4HintPhase = 0; v4HintSettled = 0; }
     else v4HintPhase++;
     v4HintSeqMaxRow = Math.max(v4HintSeqMaxRow, v4HintRow);
     return;
@@ -1718,19 +1725,24 @@ function updateV4HintSeq() {
     v4HintRow = (nxt === undefined) ? rows[rows.length - 1] : nxt;
     v4HintSeqMaxRow = v4HintRow;
     v4HintPhase = 0;
+    v4HintSettled = 0;
     return;
   }
   v4HintPhase++;
+  const cur = v4HintList.find(h => h.row === v4HintRow);
+  const curSettled = cur && !cur.spinning.length;
+  // 停留時間從「這一列定局的那一刻」起算，不是從開始顯示起算 ——
+  // 否則守著一列看它慢慢轉了 5 秒，它一落定就會馬上被換走，玩家看不到結果。
+  v4HintSettled = curSettled ? v4HintSettled + 1 : 0;
   const nextRow = rows.find(r => r > v4HintRow);
   if (nextRow === undefined) return;                 // 已是最後一列 → 定住
-  const cur  = v4HintList.find(h => h.row === v4HintRow);
-  const next = v4HintList.find(h => h.row === nextRow);
-  const curSettled  = cur  && !cur.spinning.length;
-  const nextSettled = next && !next.spinning.length;
-  if (curSettled && nextSettled && v4HintPhase >= TF(V4_SEQ_HOLD)) {
+  // 下一列有出現在候選清單裡，就代表滾輪已經滾到那一列（該列至少 3 格落定成角色）。
+  // 刻意「不」要求它已經全部落定 —— 它最後一格的聽牌減速正是要讓玩家看的重點。
+  if (curSettled && v4HintSettled >= TF(V4_SEQ_HOLD)) {
     v4HintRow = nextRow;
     v4HintSeqMaxRow = nextRow;
     v4HintPhase = 0;
+    v4HintSettled = 0;
   }
 }
 
@@ -2707,49 +2719,66 @@ function startSpin() {
     board[0][0].id = 0; board[1][0].id = 1;
     board[2][0].id = 4; board[3][0].id = 5;
   } else if (forceSpinType === 'hero_near') {
-    // v4 強開「聽牌（差 1 個）」：隨機挑 4 個位置放 4 隻不同角色，
-    // 留 1 個位置給正常隨機轉出——可能剛好轉到需要的角色而完成，也可能沒有，
-    // 跟真實遊戲一樣，用來驗證預報框／落定特效（企劃 2026-08-24）。
-    // 留白格只從第 3～5 輪（index 2~4）挑：初始轉動是逐輪由左到右停，
-    // 若留白格落在第 1／2 輪，它停下來的當下其餘 4 輪根本還沒轉完，
-    // 聽牌條件不成立，預報框／減速就不會出現——這樣強開就等於白按。
-    const _nSkipPool = [2, 3, 4];
-    const _nSkip = _nSkipPool[Math.floor(Math.random() * _nSkipPool.length)];
-    const _nFill = [0, 1, 2, 3, 4].filter(c => c !== _nSkip);
-    const _nIds = [0, 2, 4, 6, 8];
-    for (let i = _nIds.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [_nIds[i], _nIds[j]] = [_nIds[j], _nIds[i]];
-    }
-    _nFill.forEach((c, i) => { board[c][0].id = _nIds[i]; });
-    for (let _c = 0; _c < COLS; _c++)
-      for (let _r = 0; _r < ROWS; _r++)
-        if (isScSymId(board[_c]?.[_r]?.id)) board[_c][_r].id = randomNormalSymId(_c);
-    // 留白格若剛好是「跟旁邊那隻強制角色同色的武器」，會被同色合成機制
-    // 直接吃掉一隻角色（4 隻變 3 隻），破壞聽牌保證——重抽到不會誤觸發為止，
-    // 其餘結果（含真的轉出缺的那隻角色而完成）維持原本的隨機機率。
-    // 注意：要放在上面「清掉船頭船尾」之後，否則留白格若原本是船符號，
-    // 會在這裡放過、卻在上面的清除迴圈裡被重新隨機成沒防護的符號。
-    const _nNeighborColors = [];
-    if (_nSkip > 0)        _nNeighborColors.push(Math.floor(board[_nSkip - 1][0].id / 2));
-    if (_nSkip < COLS - 1) _nNeighborColors.push(Math.floor(board[_nSkip + 1][0].id / 2));
-    let _nGuard = 0;
-    while (isNormalSym(board[_nSkip][0].id) && board[_nSkip][0].id % 2 === 1 &&
-           _nNeighborColors.includes(Math.floor(board[_nSkip][0].id / 2)) && _nGuard++ < 30) {
-      board[_nSkip][0].id = randomNormalSymId(_nSkip);
-    }
-    // 這 4 隻角色如果在盤面其他地方也出現，可能跟相鄰欄湊成 ways 連線，落地後
-    // 被當一般中獎清掉、重力補新符號——聽牌畫面還沒讓玩家看到就被吃掉了。
-    // 讓這 4 個 id 在整盤只出現這一次（只留在被強制放的那格），確保不會被連線吃掉；
-    // 第 0 列本身（含留白格）不動，留白格是否巧合重複／完成都是合法結果。
-    const _nProtectedIds = new Set(_nIds.slice(0, 4));
-    for (let _r = 0; _r < ROWS; _r++) {
-      for (let _c = 0; _c < COLS; _c++) {
-        if (_r === 0 && (_c === _nSkip || _nFill.includes(_c))) continue;
-        let _pg = 0;
-        while (_nProtectedIds.has(board[_c][_r].id) && _pg++ < 15) board[_c][_r].id = randomNormalSymId(_c);
+    // v4 強開「兩列角色列聽牌」（企劃 2026-08-25，取代原本的單列聽牌）：
+    // 第 2、第 3 列各鋪 4 隻互不相同的角色，只留最後一輪（第 5 輪）給正常隨機轉出，
+    // 兩列的中位（第 3 輪）分別放海克力斯與伊阿宋 —— 也就是兩列都「差一個角色就拿 JP」，
+    // 一列宙斯 JP、一列赫拉 JP。中位不同 → heroRowPending 不會去重，同一局兩個 JP 都會結算。
+    //
+    // 留白格固定在第 5 輪：滾輪是逐格由上往下、每列由左往右停的
+    // （stopFrame = c + r*COLS），只有最後一輪停下來的當下其餘 4 格才全部落定，
+    // 「缺 1 個」的強金框與最慢減速才會出現。放在別的輪只會得到「缺 2」的弱框。
+    const _nRows   = [1, 2];                                   // 第 2、第 3 列
+    const _nSkip   = COLS - 1;                                 // 兩列都留最後一輪
+    const _nCenter = Math.random() < 0.5 ? [0, 2] : [2, 0];     // 哪一列拿宙斯／赫拉隨機
+    _nRows.forEach((_r, _i) => {
+      const _cid  = _nCenter[_i];
+      const _rest = [0, 2, 4, 6, 8].filter(id => id !== _cid);
+      for (let _k = _rest.length - 1; _k > 0; _k--) {
+        const _j = Math.floor(Math.random() * (_k + 1));
+        [_rest[_k], _rest[_j]] = [_rest[_j], _rest[_k]];
       }
+      let _p = 0;                                              // 洗完後只用前 3 隻，第 4 隻＝這一列缺的
+      for (let _c = 0; _c < COLS; _c++) {
+        if (_c === _nSkip) continue;
+        board[_c][_r].id = (_c === V4_CENTER_COL) ? _cid : _rest[_p++];
+      }
+    });
+    // 其餘兩列（第 1、第 4 列）一律鋪武器，不放任何角色，也不放船頭船尾。理由有三：
+    //  (1) 角色只出現在那兩列 → 同一隻角色最多佔 2 個輪，永遠湊不成「第 1 輪起連續 3 輪」的
+    //      ways 中獎，聽牌畫面才不會在玩家看到之前就被判中獎清掉；
+    //  (2) 整列都是武器 → 不可能出現「同色角色＋武器相鄰」的合成把角色吃掉；
+    //  (3) 沒有船頭船尾 → 不會被 FG 轉場打斷。
+    // 斜向排法讓同一把武器只出現在兩個不相鄰的輪，武器自己也湊不出連續 3 輪。
+    for (let _r = 0; _r < ROWS; _r++) {
+      if (_nRows.includes(_r)) continue;
+      for (let _c = 0; _c < COLS; _c++) board[_c][_r].id = ((_c + _r) % 5) * 2 + 1;
     }
+    // 留白格的守門（整盤只有這兩格是隨機的）：
+    //  (1) 不能是船頭／船尾 —— 會觸發 FG，聽牌演繹被打斷；
+    //  (2) 不能是「跟左邊那隻角色同色的武器」—— 會被同色合成吃掉一隻角色，聽牌就破了；
+    //  (3) 不能是「這一列已經有的角色」—— 重複角色湊不成五角連線，強開等於白按。
+    // 轉出這一列缺的那一隻＝當場完成拿 JP，那是合法且刻意保留的結果（跟真實遊戲一樣）。
+    _nRows.forEach(_r => {
+      const _leftColor = Math.floor(board[_nSkip - 1][_r].id / 2);
+      const _dup = new Set();
+      for (let _c = 0; _c < COLS; _c++) if (_c !== _nSkip) _dup.add(board[_c][_r].id);
+      let _g = 0;
+      while (_g++ < 40) {
+        const _id = board[_nSkip][_r].id;
+        const _bad = isScSymId(_id)
+                  || _dup.has(_id)
+                  || (isNormalSym(_id) && _id % 2 === 1 && Math.floor(_id / 2) === _leftColor);
+        if (!_bad) break;
+        board[_nSkip][_r].id = randomNormalSymId(_nSkip);
+      }
+    });
+    // 兩列的聽牌要「一列演完再演下一列」，就不能讓兩格同時在減速。
+    // 照原本的時序，第 3 列的留白格只比第 2 列晚 5 格（0.25s）停，兩列的減速幾乎完全重疊，
+    // 玩家看第 2 列的時候第 3 列早就轉完了。把第 3 列的留白格往後推
+    // 「第 2 列減速所需幀數 ＋ 依序模式的停留時間 ＋ 0.3s 緩衝」，
+    // 節奏就變成：第 2 列聽牌減速 → 落定 → 圓圈換到第 3 列 → 第 3 列聽牌減速 → 落定。
+    reelStopFrame[_nSkip][_nRows[1]] = reelStopFrame[_nSkip][_nRows[0]]
+                                     + v4NearDecelFrames() + TF(V4_SEQ_HOLD) + TF(0.3);
   } else if (forceSpinType && forceSpinType.startsWith('hero_')) {
     // v4 強開角色列：第 0 列鋪滿 5 隻不同角色，中間格（第 3 欄）放指定的那一隻。
     // 順便把整盤的船頭／船尾清掉，避免同一局又被 FG 轉場打斷、看不到角色列演繹。
@@ -6652,7 +6681,7 @@ function forceMenuOptions() {
       { label: '關閉',      value: null },
       { label: '合成',      value: 'synth' },
       { label: '進階合成',  value: 'adv_synth' },
-      { label: '角色列聽牌', value: 'hero_near' },
+      { label: '兩列聽牌JP', value: 'hero_near' },
       { label: '角色列⚡宙斯', value: 'hero_zeus' },
       { label: '角色列👑赫拉', value: 'hero_hera' },
       { label: '角色列彩金', value: 'hero_cash' },
@@ -8008,6 +8037,7 @@ const RULE_SUMMARY = {
     ['JP 👑', '一整列 5 隻角色相鄰，中間格＝伊阿宋', '整列合成給分 ＋ 赫拉 JP'],
     ['彩金', '同上，中間格＝美狄亞／奧菲斯／阿塔蘭忒', '依序 MAJOR 100×／MINOR 25×／MINI 10×'],
     ['聽牌', '某列湊到 3 個以上互不相同的角色', '上方 5 圓圈填入該列角色，中位定獎項並亮起；多列時依序演示／輪播（🔧 規則分頁可切）'],
+    ['強開', '「兩列聽牌JP」＝第 2、3 列各差 1 隻角色', '中位分別是海克力斯／伊阿宋 → 兩列都補滿就拿宙斯＋赫拉兩個 JP'],
     ['NG', '無地圖、無盤面倍數', '得分公式維持現狀'],
     ['FG', '航海地圖 6 站：每達成 1 段連爆船前進 1 站', '×1→×2→×3→×4→×5→×10（終點金羊毛，之後維持 ×10）'],
     ['FG', '分裂（刀）不重置，直到 FG 結束', '五色切滿＝248,832 ways'],
@@ -8076,7 +8106,7 @@ function buildRulesTab() {
       rb.addEventListener('change', () => {
         if (!rb.checked) return;
         V4_HINT_MODE = mode;
-        v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0;   // 立即從頭演，不留上一模式的指標
+        v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; v4HintSettled = 0;   // 立即從頭演，不留上一模式的指標
         saveTuning();
         setTuneStatus(`五角聽牌演繹：${V4_HINT_MODES[mode].name}`);
       });
@@ -8231,7 +8261,7 @@ document.getElementById('tuneReset').addEventListener('click', () => {
     RULE_VERSION = DEFAULT_RULE_VERSION;
     JP_NODES = DEFAULT_JP_NODES;
     V4_HINT_MODE = DEFAULT_V4_HINT_MODE;
-    v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0;
+    v4HintRow = -1; v4HintPhase = 0; v4HintSeqMaxRow = 0; v4HintSettled = 0;
     applyRuleLayout(RULE_VERSION);
     syncLayoutDerived();
     questProgress = 0; questReveal = 0; questScoreMultiplier = 1;
